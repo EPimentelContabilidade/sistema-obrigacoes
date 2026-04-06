@@ -1,0 +1,30 @@
+import asyncio
+import re
+import os
+from playwright.async_api import async_playwright
+
+async def executar_robot_goiania(login, senha, id_cliente_prefeitura, data_inicio, data_fim):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        context = await browser.new_context(accept_downloads=True)
+        page = await context.new_page()
+        try:
+            print(f"Iniciando: {login}")
+            await page.goto("https://issnetonline.com.br/goiania/online/login/login.aspx")
+            await page.locator("#ctl00_cphCabecalho_txtIdentificacao").fill(str(login))
+            for d in str(senha):
+                await page.get_by_role("button", name=re.compile(str(d))).first.click()
+            await page.locator("input[type='submit']").first.click()
+            await page.wait_for_load_state("networkidle")
+            
+            # Navegação simplificada para teste
+            await page.get_by_role("row", name="Nota Fiscal Eletrônica").get_by_role("link").click()
+            frame = page.frame_locator("#fraConteudo")
+            await frame.get_by_role("link", name="Exportação de NFS-e").click()
+            await asyncio.sleep(2)
+            
+            return "Navegação concluída com sucesso!"
+        except Exception as e:
+            return f"Erro: {str(e)}"
+        finally:
+            await browser.close()

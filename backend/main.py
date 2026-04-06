@@ -5,7 +5,11 @@ from config import settings
 from database import init_db
 from routers import (
     clientes_router, obrigacoes_router, entregas_router,
-    webhook_router, dashboard_router, conversas_router, robo_router,
+    webhook_router, dashboard_router, conversas_router,
+    robo_router, admin_router, notas_router, parcelamentos_router,
+    financeiro_router, certificados_router, receita_balanco_router,
+    certidoes_router, contratos_router, comunicacao_router,
+    goiania_router, robo_obrig_router,
 )
 
 
@@ -37,6 +41,17 @@ app.include_router(entregas_router, prefix="/api/v1")
 app.include_router(webhook_router, prefix="/api/v1")
 app.include_router(conversas_router, prefix="/api/v1")
 app.include_router(robo_router, prefix="/api/v1")
+app.include_router(admin_router, prefix="/api/v1")
+app.include_router(notas_router, prefix="/api/v1")
+app.include_router(parcelamentos_router, prefix="/api/v1")
+app.include_router(financeiro_router, prefix="/api/v1")
+app.include_router(certificados_router, prefix="/api/v1")
+app.include_router(receita_balanco_router, prefix="/api/v1")
+app.include_router(certidoes_router, prefix="/api/v1")
+app.include_router(contratos_router, prefix="/api/v1")
+app.include_router(comunicacao_router, prefix="/api/v1")
+app.include_router(goiania_router, prefix="/api/v1")
+app.include_router(robo_obrig_router, prefix="/api/v1")
 
 
 @app.get("/")

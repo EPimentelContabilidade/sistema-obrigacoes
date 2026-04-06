@@ -5,6 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    host: true,
+    allowedHosts: ['epimentel', 'localhost'],
     proxy: {
       '/api': 'http://localhost:8000'
     }
