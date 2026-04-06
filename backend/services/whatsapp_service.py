@@ -75,6 +75,11 @@ async def enviar_whatsapp_documento(telefone: str, url_arquivo: str, nome_arquiv
     except Exception as e:
         return {"sucesso": False, "mensagem": str(e)}
 
+def verificar_webhook(mode: str, token: str, challenge: str) -> str | None:
+    """Verifica token do webhook do WhatsApp."""
+    if mode == "subscribe" and token == settings.WHATSAPP_VERIFY_TOKEN:
+        return challenge
+    return None
 
 async def responder_duvida(telefone: str, mensagem: str) -> dict:
     """Responde dúvida via WhatsApp."""
