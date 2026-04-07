@@ -9,7 +9,7 @@ from .admin import router as admin_router
 from .notas import router as notas_router
 from .parcelamentos import router as parcelamentos_router
 from .financeiro import router as financeiro_router
-from .certificados import router as certificados_router
+from .consulta_fiscal import router as consulta_fiscal_router
 from .receita_balanco import router as receita_balanco_router
 from .extras import contratos_router, comunicacao_router
 from .certidoes_real import certidoes_router
