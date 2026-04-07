@@ -22,7 +22,7 @@ app = FastAPI(title="EPimentel Sistema", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000", "https://adventurous-generosity-production-f892.up.railway.app"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
