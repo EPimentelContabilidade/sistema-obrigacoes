@@ -9,15 +9,13 @@ from routers import (
     robo_router, admin_router, notas_router, parcelamentos_router,
     financeiro_router, certificados_router, receita_balanco_router,
     certidoes_router, contratos_router, comunicacao_router,
-    goiania_router, robo_obrig_router,
+    goiania_router, robo_obrig_router, consulta_fiscal_router,
 )
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     yield
-
 
 app = FastAPI(
     title="Sistema de Obrigações Acessórias",
@@ -34,36 +32,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(dashboard_router, prefix="/api/v1")
-app.include_router(clientes_router, prefix="/api/v1")
-app.include_router(obrigacoes_router, prefix="/api/v1")
-app.include_router(entregas_router, prefix="/api/v1")
-app.include_router(webhook_router, prefix="/api/v1")
-app.include_router(conversas_router, prefix="/api/v1")
-app.include_router(robo_router, prefix="/api/v1")
-app.include_router(admin_router, prefix="/api/v1")
-app.include_router(notas_router, prefix="/api/v1")
-app.include_router(parcelamentos_router, prefix="/api/v1")
-app.include_router(financeiro_router, prefix="/api/v1")
-app.include_router(certificados_router, prefix="/api/v1")
-app.include_router(receita_balanco_router, prefix="/api/v1")
-app.include_router(certidoes_router, prefix="/api/v1")
-app.include_router(contratos_router, prefix="/api/v1")
-app.include_router(comunicacao_router, prefix="/api/v1")
-app.include_router(goiania_router, prefix="/api/v1")
-app.include_router(robo_obrig_router, prefix="/api/v1")
-
+app.include_router(clientes_router)
+app.include_router(obrigacoes_router)
+app.include_router(entregas_router)
+app.include_router(webhook_router)
+app.include_router(dashboard_router)
+app.include_router(conversas_router)
+app.include_router(robo_router)
+app.include_router(admin_router)
+app.include_router(notas_router)
+app.include_router(parcelamentos_router)
+app.include_router(financeiro_router)
+app.include_router(certificados_router)
+app.include_router(receita_balanco_router)
+app.include_router(certidoes_router)
+app.include_router(contratos_router)
+app.include_router(comunicacao_router)
+app.include_router(goiania_router)
+app.include_router(robo_obrig_router)
+app.include_router(consulta_fiscal_router)
 
 @app.get("/")
 async def root():
-    return {
-        "sistema": "Obrigações Acessórias - EPimentel",
-        "versao": "1.0.0",
-        "docs": "/docs",
-        "status": "online",
-    }
+    return {"status": "ok", "sistema": "EPimentel Auditoria & Contabilidade"}
 
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host=settings.APP_HOST, port=settings.APP_PORT, reload=settings.APP_DEBUG)
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
