@@ -400,7 +400,19 @@ export default function RelatorioFiscal() {
                       <td style={{padding:'10px 14px',fontSize:11}}>{c.temCert?<span style={{color:'#16a34a',fontWeight:600}}>🔐 Sim</span>:<span style={{color:'#ccc'}}>—</span>}</td>
                       <td style={{padding:'10px 14px',fontSize:11,color:'#888'}}>{uc?<><b style={{color:'#555',display:'block'}}>{uc.relatorio?.split(' —')[0]}</b>{fmtData(uc.data)}</>:<span style={{color:'#ccc',fontStyle:'italic'}}>Não consultado</span>}</td>
                       <td style={{padding:'10px 14px'}}>{uc?<span style={{fontSize:11,padding:'3px 8px',borderRadius:8,fontWeight:700,background:st.bg,color:st.cor}}>{st.ic} {uc.status}</span>:<span style={{fontSize:11,padding:'3px 8px',borderRadius:8,background:'#f5f5f5',color:'#aaa',fontWeight:600}}>⭕ Não consultado</span>}</td>
-                      <td style={{padding:'10px 14px'}}><button onClick={()=>{setCliSel(c);setPortalSel(['cnpj_dados','simples','pgfn']);setAba('consulta')}} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 10px',borderRadius:7,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}}><Zap size={10}/> Consultar</button></td>
+                      <td style={{padding:'10px 14px'}}><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                        <button onClick={()=>{setCliSel(c);setPortalSel(['cnpj_dados','simples','pgfn']);setAba('consulta')}} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}}><Zap size={10}/> Consultar</button>
+                        <button onClick={()=>gerarPDFFiscal(historico.filter(h=>String(h.cliente_id)===String(c.id)),clientes,c.nome)} title="Baixar PDF" style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}}><Download size={10}/> PDF</button>
+                        {(()=>{
+                          const wpp = c.contatos?.find(x=>x.whatsapp)?.whatsapp||c.whatsapp
+                          const email = c.contatos?.find(x=>x.email)?.email||c.email
+                          const msg = encodeURIComponent(`📊 *Relatório Fiscal — EPimentel*\n\nCliente: *${c.nome}*\nCNPJ: ${c.cnpj}\n\nSegue o relatório fiscal atualizado.\n\n_EPimentel Auditoria & Contabilidade — CRC/GO 026.994/O-8_`)
+                          return <>
+                            {wpp&&<button onClick={()=>window.open(`https://wa.me/55${wpp.replace(/\D/g,'')}?text=${msg}`,'_blank')} title="WhatsApp" style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,background:'#EDFBF1',color:'#166534',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}}>💬 Zap</button>}
+                            {email&&<button onClick={()=>window.open(`mailto:${email}?subject=${encodeURIComponent('Relatório Fiscal — EPimentel')}&body=${encodeURIComponent(`Prezado(a),\n\nSegue o relatório fiscal.\n\nAtenciosamente,\nEduardo Pimentel\nEPimentel Auditoria & Contabilidade\nCRC/GO 026.994/O-8`)}`)} title="E-mail" style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,background:'#EFF6FF',color:'#1D4ED8',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}}>📧 Email</button>}
+                          </>
+                        })()}
+                      </div></td>
                     </tr>
                   )
                 })}
