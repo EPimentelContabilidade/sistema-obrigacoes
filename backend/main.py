@@ -11,22 +11,38 @@ from routers import (
     certidoes_router, contratos_router, comunicacao_router,
     goiania_router, robo_obrig_router, consulta_fiscal_router,
 )
+import subprocess
+import os
+
+def instalar_playwright():
+    """Instala o Chromium do Playwright se não estiver disponível"""
+    chrome_path = os.path.expanduser('~/.cache/ms-playwright/chromium-1091/chrome-linux/chrome')
+    if not os.path.exists(chrome_path):
+        try:
+            subprocess.run(['python', '-m', 'playwright', 'install', 'chromium'], check=False, timeout=120)
+            subprocess.run(['python', '-m', 'playwright', 'install-deps', 'chromium'], check=False, timeout=120)
+            print("✅ Playwright Chromium instalado com sucesso")
+        except Exception as e:
+            print(f"⚠️ Playwright não instalado: {e}")
+    else:
+        print("✅ Playwright Chromium já disponível")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    instalar_playwright()
     yield
 
 app = FastAPI(
     title="Sistema de Obrigações Acessórias",
-    description="EPimentel Auditoria & Contabilidade Ltda - Entrega automática via WhatsApp e E-mail com IA",
+    description="EPimentel Auditoria & Contabilidade Ltda",
     version="1.0.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[settings.FRONTEND_URL, "http://localhost:5173", "http://localhost:3000", "https://adventurous-generosity-production-f892.up.railway.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
