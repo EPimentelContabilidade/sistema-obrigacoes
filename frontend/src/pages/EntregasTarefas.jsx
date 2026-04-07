@@ -122,7 +122,8 @@ export default function EntregasTarefas() {
 
   const gerar = () => {
     try {
-      const cliAtual = clientes.find(c=>c.id===cli?.id)
+      const fresh = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
+      const cliAtual = fresh.find(c=>String(c.id)===String(cli?.id)) || clientes.find(c=>String(c.id)===String(cli?.id))
       const idsCliente = cliAtual?.obrigacoes_vinculadas || []
       const ids = vinc.length>0 ? vinc : idsCliente.length>0 ? idsCliente : OBRIGACOES_SISTEMA.filter(o=>o&&o.ativa).slice(0,8).map(o=>o.id)
       const lista = OBRIGACOES_SISTEMA.filter(o=>o&&ids.includes(o.id))
@@ -251,7 +252,14 @@ export default function EntregasTarefas() {
         </div>
         <div style={{flex:1,overflowY:'auto'}}>
           {clientes.filter(c=>c.nome?.toLowerCase().includes(buscaCli.toLowerCase())).map(c=>(
-            <div key={c.id} onClick={()=>{setCli(c);setBuscaCli('');setVinc([]);setTarefas([])}} style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #f5f5f5',borderLeft:cli?.id===c.id?`3px solid ${GOLD}`:'3px solid transparent',background:cli?.id===c.id?'#FFFBF2':'#fff'}}>
+            <div key={c.id} onClick={()=>{
+              const fresh = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
+              const cFresh = fresh.find(x=>String(x.id)===String(c.id)) || c
+              setCli(cFresh)
+              setBuscaCli('')
+              setVinc(cFresh.obrigacoes_vinculadas||[])
+              setTarefas([])
+            }} style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #f5f5f5',borderLeft:cli?.id===c.id?`3px solid ${GOLD}`:'3px solid transparent',background:cli?.id===c.id?'#FFFBF2':'#fff'}}>
               <div style={{fontSize:12,fontWeight:600,color:NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.nome}</div>
               <div style={{fontSize:10,color:'#bbb',marginTop:1}}>{c.cnpj}</div>
             </div>
