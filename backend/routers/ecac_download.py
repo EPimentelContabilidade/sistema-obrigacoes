@@ -392,12 +392,16 @@ async def baixar_documentos(req: BaixarRequest):
 
 @router.get("/status")
 async def status_playwright():
-    """Verifica se o Playwright está instalado e funcional."""
+    """Verifica se o Playwright e Chromium estão instalados (sem abrir browser)."""
     try:
-        from playwright.async_api import async_playwright
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
-            await browser.close()
-        return {"status": "ok", "mensagem": "Playwright operacional"}
-    except Exception as e:
-        return {"status": "erro", "mensagem": str(e)}
+        import playwright
+        import glob
+        caminhos = glob.glob(os.path.expanduser(
+            "~/.cache/ms-playwright/chromium-*/chrome-linux/chrome"
+        ))
+        if caminhos:
+            return {"status": "ok", "mensagem": "Playwright operacional"}
+        else:
+            return {"status": "erro", "mensagem": "Chromium não encontrado"}
+    except ImportError:
+        return {"status": "erro", "mensagem": "Playwright não instalado"}
