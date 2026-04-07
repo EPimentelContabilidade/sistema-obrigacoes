@@ -10,6 +10,8 @@ from routers import (
     financeiro_router, certificados_router, receita_balanco_router,
     certidoes_router, contratos_router, comunicacao_router,
     goiania_router, robo_obrig_router, consulta_fiscal_router,
+    ecac_download_router,
+)
 )
 import subprocess
 import os
