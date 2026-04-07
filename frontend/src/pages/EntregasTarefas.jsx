@@ -74,7 +74,7 @@ export default function EntregasTarefas() {
   const [protos,     setProtos]     = useState({})
   const [coments,    setComents]    = useState({})
   const [mVinc,      setMVinc]      = useState(false)
-  const [mReverter,  setMReverter]  = useState(null)   // { tarefa }
+  const [mReverter,  setMReverter]  = useState(null)
   const [motivoRev,  setMotivoRev]  = useState('')
   const [mRobo,      setMRobo]      = useState(null)
   const [mRastreio,  setMRastreio]  = useState(null)
@@ -89,8 +89,8 @@ export default function EntregasTarefas() {
   const limpar = () => setFilt({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false})
   const ref = useRef()
 
+  // ✅ CORRIGIDO: mescla dados do backend com localStorage, preservando obrigacoes_vinculadas
   useEffect(()=>{
-    // Carregar imediatamente do localStorage para evitar tela branca
     try {
       const local = localStorage.getItem('ep_clientes')
       if (local) {
@@ -98,14 +98,21 @@ export default function EntregasTarefas() {
         if (parsed && parsed.length > 0) setClientes(parsed)
       }
     } catch {}
-    // Tentar atualizar pelo backend
     fetch(`${API}/clientes/`)
       .then(r=>r.ok?r.json():{})
       .then(d=>{
         const lista = d.clientes||d||[]
         if (lista.length > 0) {
-          setClientes(lista)
-          localStorage.setItem('ep_clientes', JSON.stringify(lista))
+          const local = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
+          const merged = lista.map(bc => {
+            const lc = local.find(x=>String(x.id)===String(bc.id))
+            return lc ? { ...bc, ...lc } : bc
+          })
+          local.forEach(lc => {
+            if (!merged.find(m=>String(m.id)===String(lc.id))) merged.push(lc)
+          })
+          setClientes(merged)
+          localStorage.setItem('ep_clientes', JSON.stringify(merged))
         }
       })
       .catch(()=>{})
@@ -115,13 +122,11 @@ export default function EntregasTarefas() {
 
   const gerar = () => {
     try {
-      // Usar obrigações vinculadas ao cliente se existirem
       const cliAtual = clientes.find(c=>c.id===cli?.id)
       const idsCliente = cliAtual?.obrigacoes_vinculadas || []
       const ids = vinc.length>0 ? vinc : idsCliente.length>0 ? idsCliente : OBRIGACOES_SISTEMA.filter(o=>o&&o.ativa).slice(0,8).map(o=>o.id)
       const lista = OBRIGACOES_SISTEMA.filter(o=>o&&ids.includes(o.id))
       if (lista.length === 0) {
-        // Fallback: mostrar primeiras 8 ativas
         const fallback = OBRIGACOES_SISTEMA.filter(o=>o&&o.ativa).slice(0,8)
         setTarefas(fallback.map((o,i)=>({
           ...o,
@@ -200,16 +205,12 @@ export default function EntregasTarefas() {
   const algumStatusSel = filt.pendente||filt.justificada||filt.entregue||filt.dispensada
   const filtradas = tarefas.filter(t=>{
     if (!t||!t.id) return false
-    // Busca por nome
     if(filt.busca && !t.nome?.toLowerCase().includes(filt.busca.toLowerCase())) return false
-    // Filtro departamento
     if(filt.departamento && t.departamento!==filt.departamento) return false
-    // Filtro empresa
     if(filt.empresa) {
       const cliF = clientes.find(c=>String(c.id)===String(filt.empresa))
       if(cliF && cli?.id !== cliF.id) return false
     }
-    // Filtro status (só filtra se algum está marcado)
     if(algumStatusSel) {
       const statusOk = []
       if(filt.pendente)    statusOk.push('pendente','atrasada')
@@ -218,7 +219,6 @@ export default function EntregasTarefas() {
       if(filt.dispensada)  statusOk.push('dispensada')
       if(!statusOk.includes(t.status)) return false
     }
-    // Filtro prazo técnico de/até
     if(filt.prazo_tec_de || filt.prazo_tec_ate) {
       const diaV = t.dia_vencimento||20
       const mesA = parseInt(mes?.split('-')[1]||4)
@@ -227,7 +227,6 @@ export default function EntregasTarefas() {
       if(filt.prazo_tec_de && dStr < filt.prazo_tec_de) return false
       if(filt.prazo_tec_ate && dStr > filt.prazo_tec_ate) return false
     }
-    // Filtro competência
     if(filt.competencia_de && mes < filt.competencia_de) return false
     if(filt.competencia_ate && mes > filt.competencia_ate) return false
     return true
@@ -320,7 +319,7 @@ export default function EntregasTarefas() {
                     </button>
                   ))}
                 </div>
-                <button onClick={()=>{/* filtro já é reativo */}} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:7,background:'#22c55e',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}><Search size={11}/> Filtrar</button>
+                <button onClick={()=>{}} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 12px',borderRadius:7,background:'#22c55e',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}><Search size={11}/> Filtrar</button>
                 {algumStatusSel && (
                   <div style={{fontSize:11,color:'#3b82f6',padding:'3px 8px',borderRadius:6,background:'#EFF6FF',border:'1px solid #bfdbfe'}}>
                     {filtradas.length}/{tarefas.length} exibidas
@@ -479,7 +478,6 @@ export default function EntregasTarefas() {
                                   <textarea value={coments[t.id]||''} onChange={e=>setComents(p=>({...p,[t.id]:e.target.value}))} placeholder="Adicionar comentário..." style={{...inp,height:50,resize:'none',fontFamily:'inherit',width:'100%'}}/>
                                   <button style={{marginTop:4,padding:'4px 10px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:600,fontSize:11,border:'none',cursor:'pointer'}}>Salvar</button>
                                 </div>
-                                {/* Histórico da obrigação */}
                                 <div style={{gridColumn:'span 3',marginTop:10,paddingTop:10,borderTop:'1px solid #e8e8e8'}}>
                                   <div style={{fontSize:10,fontWeight:700,color:'#aaa',marginBottom:8,textTransform:'uppercase'}}>📋 Histórico desta obrigação</div>
                                   {(t.historico||[]).length===0
@@ -712,17 +710,11 @@ export default function EntregasTarefas() {
               </div>
               <button onClick={()=>setMReverter(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={18}/></button>
             </div>
-
-            {/* Info do responsável */}
             <div style={{padding:'10px 14px',borderRadius:8,background:'#f8f9fb',border:'1px solid #e8e8e8',marginBottom:14}}>
               <div style={{fontSize:11,color:'#888',marginBottom:4,fontWeight:600}}>AUTORIZAÇÃO</div>
-              <div style={{fontSize:12,color:NAVY}}>
-                Somente o <b>responsável pela tarefa</b> pode reverter entregas.
-              </div>
+              <div style={{fontSize:12,color:NAVY}}>Somente o <b>responsável pela tarefa</b> pode reverter entregas.</div>
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8}}>
-                <div style={{width:28,height:28,borderRadius:'50%',background:NAVY,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:12,fontWeight:700}}>
-                  {USUARIO.nome[0]}
-                </div>
+                <div style={{width:28,height:28,borderRadius:'50%',background:NAVY,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:12,fontWeight:700}}>{USUARIO.nome[0]}</div>
                 <div>
                   <div style={{fontSize:12,fontWeight:700,color:NAVY}}>{USUARIO.nome}</div>
                   <div style={{fontSize:10,color:GOLD}}>{USUARIO.perfil}</div>
@@ -733,8 +725,6 @@ export default function EntregasTarefas() {
                 }
               </div>
             </div>
-
-            {/* Histórico existente */}
             {(mReverter.historico||[]).length>0 && (
               <div style={{marginBottom:14}}>
                 <div style={{fontSize:11,fontWeight:700,color:'#aaa',marginBottom:8,textTransform:'uppercase'}}>Histórico desta obrigação</div>
@@ -755,19 +745,14 @@ export default function EntregasTarefas() {
                 </div>
               </div>
             )}
-
-            {/* Motivo da reversão */}
             <div style={{marginBottom:18}}>
               <label style={{fontSize:11,fontWeight:700,color:NAVY,display:'block',marginBottom:6}}>Motivo da reversão (obrigatório)</label>
               <textarea value={motivoRev} onChange={e=>setMotivoRev(e.target.value)} placeholder="Ex: Documento incorreto, requer correção..." style={{...inp,height:80,resize:'none',fontFamily:'inherit'}}/>
               {!motivoRev && <div style={{fontSize:10,color:'#dc2626',marginTop:3}}>Informe o motivo para reverter a obrigação.</div>}
             </div>
-
-            {/* Aviso */}
             <div style={{padding:'9px 12px',borderRadius:8,background:'#FEF9C3',border:'1px solid #fde68a',marginBottom:16,fontSize:11,color:'#854D0E'}}>
               ⚠ A obrigação voltará para <b>Pendente</b>. O histórico completo será mantido e registrará esta reversão.
             </div>
-
             <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
               <button onClick={()=>setMReverter(null)} style={{padding:'8px 16px',borderRadius:8,border:'1px solid #ddd',background:'#fff',cursor:'pointer',fontSize:13}}>Cancelar</button>
               <button
@@ -796,7 +781,7 @@ export default function EntregasTarefas() {
         </div>
       )}
 
-      {/* Modal Vincular */}
+      {/* Modal Vincular — ✅ CORRIGIDO: Salvar persiste no localStorage */}
       {mVinc&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}}>
           <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:560,maxHeight:'85vh',display:'flex',flexDirection:'column'}}>
@@ -840,7 +825,16 @@ export default function EntregasTarefas() {
               <span style={{fontSize:11,color:'#aaa'}}>{vinc.length} obrigação(ões)</span>
               <div style={{display:'flex',gap:8}}>
                 <button onClick={()=>setMVinc(false)} style={{padding:'6px 14px',borderRadius:7,border:'1px solid #ddd',background:'#fff',cursor:'pointer',fontSize:12}}>Cancelar</button>
-                <button onClick={()=>setMVinc(false)} style={{padding:'6px 16px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12,border:'none'}}>Salvar</button>
+                <button onClick={()=>{
+                  // ✅ Persiste as obrigações vinculadas no localStorage do cliente
+                  const clisLocal = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
+                  const updated = clisLocal.map(c =>
+                    String(c.id)===String(cli?.id) ? {...c, obrigacoes_vinculadas: vinc} : c
+                  )
+                  localStorage.setItem('ep_clientes', JSON.stringify(updated))
+                  setClientes(updated)
+                  setMVinc(false)
+                }} style={{padding:'6px 16px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:700,cursor:'pointer',fontSize:12,border:'none'}}>Salvar</button>
               </div>
             </div>
           </div>
