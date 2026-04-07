@@ -3,18 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from config import settings
 from database import init_db
-from routers import (
-    clientes_router, obrigacoes_router, entregas_router,
-    webhook_router, dashboard_router, conversas_router,
-    robo_router, admin_router, notas_router, parcelamentos_router,
-    financeiro_router, certificados_router, receita_balanco_router,
-    certidoes_router, contratos_router, comunicacao_router,
-    goiania_router, robo_obrig_router, consulta_fiscal_router,
-    ecac_download_router,
-)
-)
-import subprocess
-import os
+6    from routers import (
+7        clientes_router, obrigacoes_router, entregas_router,
+8        webhook_router, dashboard_router, conversas_router,
+9        robo_router, admin_router, notas_router, parcelamentos_router,
+10       financeiro_router, certificados_router, receita_balanco_router,
+11       certidoes_router, contratos_router, comunicacao_router,
+12       goiania_router, robo_obrig_router, consulta_fiscal_router,
+13       ecac_download_router,
+14   )
 
 def instalar_playwright():
     """Instala o Chromium do Playwright se não estiver disponível"""
@@ -66,10 +63,8 @@ app.include_router(receita_balanco_router)
 app.include_router(certidoes_router)
 app.include_router(contratos_router)
 app.include_router(comunicacao_router)
-app.include_router(goiania_router)
-app.include_router(robo_obrig_router)
 app.include_router(consulta_fiscal_router)
-
+app.include_router(ecac_download_router)
 @app.get("/")
 async def root():
     return {"status": "ok", "sistema": "EPimentel Auditoria & Contabilidade"}
