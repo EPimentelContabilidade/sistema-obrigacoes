@@ -488,11 +488,40 @@ export default function RelatorioFiscal() {
               </div>
             )}
 
-            <button onClick={()=>gerarPDFFiscal(historico,clientes,filtroCliDash)}
-              disabled={historico.length===0}
-              style={{display:'flex',alignItems:'center',gap:8,padding:'12px 28px',borderRadius:10,background:historico.length>0?'#dc2626':'#ccc',color:'#fff',fontWeight:700,fontSize:14,border:'none',cursor:historico.length>0?'pointer':'default'}}>
-              <Download size={16}/> Gerar PDF
-            </button>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+              <button onClick={()=>gerarPDFFiscal(historico,clientes,filtroCliDash)}
+                disabled={historico.length===0}
+                style={{display:'flex',alignItems:'center',gap:8,padding:'12px 24px',borderRadius:10,background:historico.length>0?'#dc2626':'#ccc',color:'#fff',fontWeight:700,fontSize:14,border:'none',cursor:historico.length>0?'pointer':'default'}}>
+                <Download size={16}/> Gerar PDF
+              </button>
+
+              {/* Enviar por WhatsApp */}
+              {(()=>{
+                const cliAtual = filtroCliDash ? clientes.find(c=>c.nome?.toLowerCase().includes(filtroCliDash.toLowerCase())) : null
+                const wpp = cliAtual?.contatos?.find(c=>c.whatsapp)?.whatsapp || cliAtual?.whatsapp
+                const email = cliAtual?.contatos?.find(c=>c.email)?.email || cliAtual?.email
+                const msg = encodeURIComponent(`📊 *Relatório Fiscal — EPimentel*\n\nSegue o relatório fiscal atualizado.\n\n_EPimentel Auditoria & Contabilidade — CRC/GO 026.994/O-8_`)
+                return <>
+                  {wpp&&(
+                    <button onClick={()=>window.open(`https://wa.me/55${wpp.replace(/\D/g,'')}?text=${msg}`,'_blank')}
+                      style={{display:'flex',alignItems:'center',gap:8,padding:'12px 20px',borderRadius:10,background:'#22c55e',color:'#fff',fontWeight:700,fontSize:14,border:'none',cursor:'pointer'}}>
+                      💬 Enviar WhatsApp
+                    </button>
+                  )}
+                  {email&&(
+                    <button onClick={()=>window.open(`mailto:${email}?subject=${encodeURIComponent('Relatório Fiscal — EPimentel')}&body=${encodeURIComponent('Segue em anexo o relatório fiscal atualizado.\n\nAtenciosamente,\nEduardo Pimentel\nEPimentel Auditoria & Contabilidade\nCRC/GO 026.994/O-8')}`)}
+                      style={{display:'flex',alignItems:'center',gap:8,padding:'12px 20px',borderRadius:10,background:'#3b82f6',color:'#fff',fontWeight:700,fontSize:14,border:'none',cursor:'pointer'}}>
+                      📧 Enviar E-mail
+                    </button>
+                  )}
+                  {/* Botões do escritório sempre visíveis */}
+                  <button onClick={()=>window.open(`https://wa.me/5562999999999?text=${msg}`,'_blank')}
+                    style={{display:'flex',alignItems:'center',gap:8,padding:'12px 20px',borderRadius:10,background:'#EDFBF1',color:'#166534',fontWeight:700,fontSize:14,border:'1px solid #bbf7d0',cursor:'pointer'}}>
+                    💬 WhatsApp Escritório
+                  </button>
+                </>
+              })()}
+            </div>
           </div>
         </div>
       )}
