@@ -392,25 +392,12 @@ async def baixar_documentos(req: BaixarRequest):
 
 @router.get("/status")
 async def status_playwright():
-    """Verifica se o Playwright e Chromium estão instalados (sem abrir browser)."""
+    """Verifica se o Playwright está instalado."""
     try:
-        import playwright
-        import glob
-        # Tenta vários caminhos possíveis (usuário comum, root no Docker)
-        padroes = [
-            os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux/chrome"),
-            "/root/.cache/ms-playwright/chromium-*/chrome-linux/chrome",
-            "/home/**/.cache/ms-playwright/chromium-*/chrome-linux/chrome",
-            "/ms-playwright/chromium-*/chrome-linux/chrome",
-        ]
-        for padrao in padroes:
-            caminhos = glob.glob(padrao, recursive=True)
-            if caminhos:
-                return {"status": "ok", "mensagem": f"Playwright operacional ({caminhos[0]})"}
-        # Última tentativa: verificar via which
-        import shutil
-        if shutil.which("chromium") or shutil.which("chromium-browser"):
-            return {"status": "ok", "mensagem": "Playwright operacional (chromium no PATH)"}
-        return {"status": "erro", "mensagem": "Chromium não encontrado em nenhum caminho conhecido"}
-    except ImportError:
-        return {"status": "erro", "mensagem": "Playwright não instalado"}
+        import importlib.util
+        spec = importlib.util.find_spec("playwright")
+        if spec is None:
+            return {"status": "erro", "mensagem": "Playwright não instalado"}
+        return {"status": "ok", "mensagem": "Playwright instalado"}
+    except Exception as e:
+        return {"status": "erro", "mensagem": str(e)}
