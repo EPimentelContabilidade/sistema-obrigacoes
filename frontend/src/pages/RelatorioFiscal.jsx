@@ -43,7 +43,14 @@ export default function RelatorioFiscal() {
   const [busca,       setBusca]       = useState('')
   const [resultados,  setResultados]  = useState({})
   const [carregando,  setCarregando]  = useState({})
-  const [modalLog,    setModalLog]    = useState(null)
+  const [modalLog,      setModalLog]      = useState(null)
+  const [modalCert,     setModalCert]     = useState(false)
+  const [certUpload,    setCertUpload]    = useState(null)
+  const [certSenhaUp,   setCertSenhaUp]   = useState('')
+  const [uploadStatus,  setUploadStatus]  = useState('')
+  const [certServidor,  setCertServidor]  = useState([])
+  const [ecacRodando,   setEcacRodando]   = useState(false)
+  const [ecacResultado, setEcacResultado] = useState(null)
   const [logForm,     setLogForm]     = useState({ status:'Sem pendências', obs:'', data:hoje() })
   const [expandidos,  setExpandidos]  = useState({})
   const [filtroCliDash,setFiltroCliDash]=useState('')
@@ -153,6 +160,50 @@ export default function RelatorioFiscal() {
     await Promise.all(portaisAuto.map(p=>consultarAuto(p)))
   }
 
+  const carregarCertsServidor = async () => {
+    try {
+      const r = await fetch(`${API}/consulta-fiscal/certificados/listados`)
+      if (r.ok) { const d = await r.json(); setCertServidor(d.certificados||[]) }
+    } catch {}
+  }
+
+  const fazerUploadCert = async () => {
+    if (!certUpload) return
+    setUploadStatus('enviando')
+    try {
+      const fd = new FormData()
+      fd.append('arquivo', certUpload)
+      const r = await fetch(`${API}/consulta-fiscal/certificado/upload`, { method:'POST', body:fd })
+      if (r.ok) {
+        const d = await r.json()
+        setUploadStatus('ok:' + d.caminho)
+        await carregarCertsServidor()
+      } else {
+        setUploadStatus('erro')
+      }
+    } catch {
+      setUploadStatus('erro')
+    }
+  }
+
+  const acessarEcacAutomatico = async (portal, certPath) => {
+    if (!cliSel || !certPath) return
+    setEcacRodando(true)
+    setEcacResultado(null)
+    try {
+      const r = await fetch(`${API}/consulta-fiscal/ecac/autenticar`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ cnpj: limparCNPJ(cliSel.cnpj), tipo:'ecac', cert_path: certPath, cert_senha: certSenhaUp })
+      })
+      const d = await r.json()
+      setEcacResultado(d)
+    } catch {
+      setEcacResultado({ status:'erro', mensagem:'Falha ao conectar com o servidor' })
+    }
+    setEcacRodando(false)
+  }
+
   const registrarConsulta = () => {
     if (!cliSel||!modalLog) return
     const nova = [{ id:Date.now(), cliente_id:cliSel.id, cliente_nome:cliSel.nome, cnpj:cliSel.cnpj, relatorio_id:modalLog.id, relatorio:modalLog.label, status:logForm.status, obs:logForm.obs, data:logForm.data, usuario:'Eduardo Pimentel' }, ...historico]
@@ -221,6 +272,10 @@ export default function RelatorioFiscal() {
           </button>
         ))}
         <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+          <button onClick={()=>{ setModalCert(true); carregarCertsServidor() }}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:7, background:'#F3EEFF', color:'#6B3EC9', fontSize:12, fontWeight:600, border:'1px solid #6B3EC930', cursor:'pointer' }}>
+            <Shield size={12}/> Certificado e-CAC
+          </button>
           <a href="https://cav.receita.fazenda.gov.br" target="_blank" rel="noreferrer"
             style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:7, background:'#EBF5FF', color:'#1D6FA4', fontSize:12, fontWeight:600, border:'1px solid #1D6FA430', textDecoration:'none' }}>
             <ExternalLink size={12}/> Abrir e-CAC
@@ -524,6 +579,83 @@ export default function RelatorioFiscal() {
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button onClick={()=>setModalLog(null)} style={{ padding:'8px 16px', borderRadius:8, border:'1px solid #ddd', background:'#fff', cursor:'pointer', fontSize:13 }}>Cancelar</button>
               <button onClick={registrarConsulta} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 22px', borderRadius:8, background:'#22c55e', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}><CheckCircle size={14}/> Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Certificado e-CAC ── */}
+      {modalCert && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300 }}>
+          <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:520, padding:26 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ fontWeight:700, color:NAVY, fontSize:15 }}>🔐 Certificado Digital — e-CAC</div>
+              <button onClick={()=>setModalCert(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#aaa' }}><X size={18}/></button>
+            </div>
+
+            {/* Certificados já no servidor */}
+            {certServidor.length>0 && (
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#888', textTransform:'uppercase', marginBottom:8 }}>Certificados no servidor</div>
+                {certServidor.map(c=>(
+                  <div key={c.nome} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:8, background:'#F0FDF4', border:'1px solid #bbf7d0', marginBottom:6 }}>
+                    <Shield size={14} style={{ color:'#16a34a' }}/>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:12, fontWeight:600, color:NAVY }}>{c.nome}</div>
+                      <div style={{ fontSize:10, color:'#aaa' }}>{c.tamanho_kb} KB · {c.caminho}</div>
+                    </div>
+                    {cliSel && (
+                      <button onClick={()=>acessarEcacAutomatico({id:'ecac'}, c.caminho)}
+                        disabled={ecacRodando}
+                        style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:7, background:'#6B3EC9', color:'#fff', fontWeight:700, fontSize:11, border:'none', cursor:'pointer' }}>
+                        {ecacRodando ? <><Loader size={11} style={{ animation:'spin 1s linear infinite' }}/> Conectando...</> : '🤖 Usar no e-CAC'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {ecacResultado && (
+                  <div style={{ marginTop:8, padding:'10px 14px', borderRadius:8, background: ecacResultado.status==='conectado'?'#F0FDF4':'#FEF2F2', border:`1px solid ${ecacResultado.status==='conectado'?'#bbf7d0':'#fca5a5'}`, fontSize:12 }}>
+                    {ecacResultado.status==='conectado'
+                      ? <><b style={{ color:'#16a34a' }}>✓ Conectado ao e-CAC!</b> Página: {ecacResultado.pagina}</>
+                      : <><b style={{ color:'#dc2626' }}>✗ Erro:</b> {ecacResultado.mensagem||ecacResultado.detail}</>
+                    }
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Upload novo certificado */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#888', textTransform:'uppercase', marginBottom:8 }}>
+                {certServidor.length>0 ? 'Enviar novo certificado' : 'Enviar certificado .pfx para o servidor'}
+              </div>
+              <div style={{ padding:'14px 16px', borderRadius:10, background:GOLD+'08', border:`2px dashed ${GOLD}` }}>
+                <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', marginBottom:10 }}>
+                  <div style={{ padding:'8px 16px', borderRadius:8, background:NAVY, color:'#fff', fontWeight:700, fontSize:12 }}>
+                    📁 Selecionar arquivo .pfx
+                  </div>
+                  <span style={{ fontSize:12, color:'#888' }}>{certUpload ? certUpload.name : 'Nenhum arquivo selecionado'}</span>
+                  <input type="file" accept=".pfx,.p12" style={{ display:'none' }} onChange={e=>{ if(e.target.files[0]){ setCertUpload(e.target.files[0]); setUploadStatus('') }}}/>
+                </label>
+                <div style={{ marginBottom:10 }}>
+                  <label style={{ fontSize:11, color:'#888', fontWeight:600, display:'block', marginBottom:4 }}>Senha do certificado</label>
+                  <input type="password" value={certSenhaUp} onChange={e=>setCertSenhaUp(e.target.value)} placeholder="Senha do .pfx" style={{ ...inp, fontSize:13 }}/>
+                </div>
+                <button onClick={fazerUploadCert} disabled={!certUpload||uploadStatus==='enviando'}
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 18px', borderRadius:8, background:certUpload?'#22c55e':'#ccc', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:certUpload?'pointer':'default' }}>
+                  {uploadStatus==='enviando' ? <><Loader size={13} style={{ animation:'spin 1s linear infinite' }}/> Enviando...</> : '⬆ Enviar para o servidor'}
+                </button>
+                {uploadStatus.startsWith('ok') && <div style={{ marginTop:8, fontSize:11, color:'#16a34a', fontWeight:600 }}>✓ Certificado enviado! Agora clique em "Usar no e-CAC" acima.</div>}
+                {uploadStatus==='erro' && <div style={{ marginTop:8, fontSize:11, color:'#dc2626' }}>✗ Erro ao enviar. Tente novamente.</div>}
+              </div>
+            </div>
+
+            <div style={{ padding:'10px 14px', borderRadius:8, background:'#f0f4ff', border:'1px solid #c7d7fd', fontSize:11, color:'#555' }}>
+              💡 O certificado fica salvo no servidor Railway e é usado automaticamente pelo sistema para acessar o e-CAC sem precisar logar manualmente.
+            </div>
+
+            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:16 }}>
+              <button onClick={()=>setModalCert(false)} style={{ padding:'8px 18px', borderRadius:8, border:'1px solid #ddd', background:'#fff', cursor:'pointer', fontSize:13 }}>Fechar</button>
             </div>
           </div>
         </div>
