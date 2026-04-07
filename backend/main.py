@@ -12,24 +12,10 @@ from routers import (
     goiania_router, robo_obrig_router, consulta_fiscal_router,
     ecac_download_router,
 )
-import subprocess
-import os
-
-def instalar_playwright():
-    chrome_path = os.path.expanduser('~/.cache/ms-playwright/chromium-1091/chrome-linux/chrome')
-    if not os.path.exists(chrome_path):
-        try:
-            subprocess.run(['python', '-m', 'playwright', 'install', 'chromium'], check=False, timeout=120)
-            print("✅ Playwright Chromium instalado com sucesso")
-        except Exception as e:
-            print(f"⚠ Playwright não instalado: {e}")
-    else:
-        print("✅ Playwright Chromium já disponível")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    instalar_playwright()
     yield
 
 app = FastAPI(title="EPimentel Sistema", lifespan=lifespan)
