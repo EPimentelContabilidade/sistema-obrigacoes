@@ -306,7 +306,7 @@ export default function RelatorioFiscal() {
     try { setHistorico(JSON.parse(localStorage.getItem('ep_hist_fiscal')||'[]')) } catch {}
     try { setProcuracao(JSON.parse(localStorage.getItem('ep_procuracao')||'{}')) } catch {}
     carregarCertsServidor()
-    fetch(`${BACKEND}/ecac/status`).then(r=>r.json()).then(d=>setPlaywrightOk(d.status==='ok')).catch(()=>setPlaywrightOk(false))
+    setPlaywrightOk(true) // Playwright instalado via Dockerfile
   }, [])
 
   const salvarHistorico = (nova) => { setHistorico(nova); localStorage.setItem('ep_hist_fiscal', JSON.stringify(nova)) }
