@@ -52,7 +52,7 @@ app.include_router(comunicacao_router)
 app.include_router(goiania_router)
 app.include_router(robo_obrig_router)
 app.include_router(consulta_fiscal_router)
-app.include_router(ecac_download_router)
+app.include_router(ecac_download_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
