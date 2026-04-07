@@ -20,10 +20,10 @@ const stCor = (st) => {
 }
 
 const PORTAIS = [
-  { id:'cnpj_dados',  label:'Dados Cadastrais CNPJ',     icon:'🏢', cor:'#1D6FA4', bg:'#EBF5FF', auto:true,  endpoint: (cnpj) => `/cnpj/${cnpj}`,     desc:'Situação cadastral, sócios, endereço' },
-  { id:'simples',     label:'Simples Nacional',           icon:'💼', cor:'#1A7A3C', bg:'#EDFBF1', auto:true,  endpoint: (cnpj) => `/simples/${cnpj}`,  desc:'Situação de optante, DAS em aberto' },
-  { id:'pgfn',        label:'PGFN — Dívida Ativa',        icon:'⚠️', cor:'#dc2626', bg:'#FEF2F2', auto:true,  endpoint: (cnpj) => `/pgfn/${cnpj}`,     desc:'Inscrições em dívida ativa da União' },
-  { id:'completo',    label:'Consulta Completa (todos)',   icon:'🔍', cor:NAVY,      bg:'#f0f4ff', auto:true,  endpoint: (cnpj) => `/completo/${cnpj}`, desc:'CNPJ + Simples + PGFN de uma vez' },
+  { id:'cnpj_dados',  label:'Dados Cadastrais CNPJ',     icon:'🏢', cor:'#1D6FA4', bg:'#EBF5FF', auto:true,  desc:'Situação cadastral, sócios, endereço' },
+  { id:'simples',     label:'Simples Nacional',           icon:'💼', cor:'#1A7A3C', bg:'#EDFBF1', auto:true,  desc:'Situação de optante, DAS em aberto' },
+  { id:'pgfn',        label:'PGFN — Dívida Ativa',        icon:'⚠️', cor:'#dc2626', bg:'#FEF2F2', auto:true,  desc:'Inscrições em dívida ativa da União' },
+  { id:'completo',    label:'Consulta Completa (todos)',   icon:'🔍', cor:NAVY,      bg:'#f0f4ff', auto:true,  desc:'CNPJ + Simples + PGFN de uma vez' },
   { id:'certidao',    label:'CND / Certidão Negativa',     icon:'✅', cor:'#16a34a', bg:'#F0FDF4', auto:false, url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir', desc:'Emissão na Receita Federal' },
   { id:'ecac_sit',    label:'e-CAC — Situação Fiscal',     icon:'🏛️', cor:'#6B3EC9', bg:'#F3EEFF', auto:false, url: 'https://cav.receita.fazenda.gov.br/autenticacao/login', desc:'Requer certificado + procuração', requerCert:true },
   { id:'ecac_decl',   label:'e-CAC — Declarações',         icon:'📋', cor:'#6B3EC9', bg:'#F3EEFF', auto:false, url: 'https://cav.receita.fazenda.gov.br/autenticacao/login', desc:'DCTF, ECF, ECD — requer certificado', requerCert:true },
@@ -61,32 +61,89 @@ export default function RelatorioFiscal() {
   const certsCli = certs.filter(c=>String(c.cliente_id)===String(cliSel?.id))
   const togglePortal = (id) => setPortalSel(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id])
 
-  // ── Busca automática no backend ──────────────────────────────────────────
+  // ── Busca automática direto nas APIs públicas (sem backend) ──────────────
+  const buscarBrasilAPI = async (cnpj) => {
+    const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`)
+    if (!r.ok) throw new Error('CNPJ não encontrado')
+    return r.json()
+  }
+
   const consultarAuto = async (portal) => {
     if (!cliSel) return
     const cnpj = limparCNPJ(cliSel.cnpj)
     setCarregando(c=>({...c,[portal.id]:true}))
     try {
-      const r = await fetch(`${API}/consulta-fiscal${portal.endpoint(cnpj)}`)
-      if (r.ok) {
-        const dados = await r.json()
-        setResultados(prev=>({...prev,[portal.id]:dados}))
+      let dados = {}
 
-        // Auto-registrar no histórico
-        const st = dados.resumo?.situacao_geral || dados.situacao || (dados.situacao_cadastral?.toLowerCase().includes('ativa')?'Sem pendências':'Verificar')
-        const nova = [{
-          id: Date.now(), cliente_id: cliSel.id, cliente_nome: cliSel.nome, cnpj: cliSel.cnpj,
-          relatorio_id: portal.id, relatorio: portal.label,
-          status: st.includes('Regular')||st.includes('Sem')?'Sem pendências':st.includes('Irregular')||st.includes('Pendente')?'Pendente — débitos':'Não consultado',
-          obs: dados.resumo?.pendencias?.join(', ') || dados.mensagem || '',
-          data: hoje(), usuario: 'Sistema (automático)',
-        }, ...historico]
-        salvarHistorico(nova)
-      } else {
-        setResultados(prev=>({...prev,[portal.id]:{ erro:true, mensagem:`Erro ${r.status}` }}))
+      if (portal.id === 'cnpj_dados') {
+        const d = await buscarBrasilAPI(cnpj)
+        dados = {
+          razao_social: d.razao_social,
+          situacao_cadastral: d.descricao_situacao_cadastral,
+          natureza_juridica: d.descricao_natureza_juridica,
+          atividade_principal: d.cnae_fiscal_descricao,
+          capital_social: d.capital_social,
+          socios: d.qsa || [],
+          endereco: { logradouro: d.logradouro, numero: d.numero, municipio: d.municipio, uf: d.uf, cep: d.cep },
+          consultado_em: new Date().toISOString(),
+        }
+      } else if (portal.id === 'simples') {
+        const d = await buscarBrasilAPI(cnpj)
+        dados = {
+          regime: d.opcao_pelo_mei ? 'MEI' : d.opcao_pelo_simples ? 'Simples Nacional' : 'Não optante',
+          optante_simples: d.opcao_pelo_simples,
+          optante_mei: d.opcao_pelo_mei,
+          data_opcao_simples: d.data_opcao_pelo_simples,
+          data_exclusao_simples: d.data_exclusao_do_simples,
+          consultado_em: new Date().toISOString(),
+        }
+      } else if (portal.id === 'pgfn') {
+        try {
+          const r = await fetch(`https://www.regularize.pgfn.gov.br/api/v1/situacao-devedores/${cnpj}`)
+          if (r.ok) {
+            const d = await r.json()
+            dados = { situacao: d.situacao||'Consulte o portal', possui_debito: d.possuiDebito, consultado_em: new Date().toISOString() }
+          } else {
+            dados = { situacao: 'Consulte o portal PGFN', mensagem: 'Acesse www.regularize.pgfn.gov.br', consultado_em: new Date().toISOString() }
+          }
+        } catch {
+          dados = { situacao: 'Consulte o portal PGFN', mensagem: 'Acesse www.regularize.pgfn.gov.br', consultado_em: new Date().toISOString() }
+        }
+      } else if (portal.id === 'completo') {
+        const d = await buscarBrasilAPI(cnpj)
+        const sit = d.descricao_situacao_cadastral?.toLowerCase() || ''
+        const ok  = sit.includes('ativa')
+        dados = {
+          razao_social: d.razao_social,
+          situacao_cadastral: d.descricao_situacao_cadastral,
+          regime: d.opcao_pelo_mei?'MEI':d.opcao_pelo_simples?'Simples Nacional':'Outro',
+          optante_simples: d.opcao_pelo_simples,
+          socios: d.qsa||[],
+          endereco: { logradouro: d.logradouro, numero: d.numero, municipio: d.municipio, uf: d.uf },
+          resumo: {
+            situacao_geral: ok ? 'Regular' : 'Verificar situação cadastral',
+            pendencias: ok ? [] : [`Situação: ${d.descricao_situacao_cadastral}`],
+          },
+          consultado_em: new Date().toISOString(),
+        }
       }
+
+      setResultados(prev=>({...prev,[portal.id]:dados}))
+
+      // Auto-registrar no histórico
+      const sit = dados.resumo?.situacao_geral || (dados.situacao_cadastral?.toLowerCase().includes('ativa')?'Sem pendências':'Verificar')
+      const stFinal = sit.includes('Regular')||sit.includes('Sem')?'Sem pendências':sit.includes('Irregular')||sit.includes('Pendente')?'Pendente — débitos':'Não consultado'
+      const nova = [{
+        id: Date.now(), cliente_id: cliSel.id, cliente_nome: cliSel.nome, cnpj: cliSel.cnpj,
+        relatorio_id: portal.id, relatorio: portal.label,
+        status: stFinal,
+        obs: dados.resumo?.pendencias?.join(', ') || dados.situacao || '',
+        data: hoje(), usuario: 'Sistema (automático)',
+      }, ...historico]
+      salvarHistorico(nova)
+
     } catch (e) {
-      setResultados(prev=>({...prev,[portal.id]:{ erro:true, mensagem:'Backend indisponível — use acesso manual' }}))
+      setResultados(prev=>({...prev,[portal.id]:{ erro:true, mensagem: e.message||'Erro ao consultar. Verifique o CNPJ.' }}))
     }
     setCarregando(c=>({...c,[portal.id]:false}))
   }
