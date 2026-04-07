@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, X, Save, ChevronLeft, ChevronRight, User, MapPin, FileText, Phone, CheckCircle, AlertCircle } from 'lucide-react'
+import { Search, Plus, X, Save, ChevronLeft, ChevronRight, User, MapPin, FileText, Phone, CheckCircle, AlertCircle, Zap } from 'lucide-react'
 import { TRIBUTACOES, obrigacoesPorTributacao } from './obrigacoesData'
 
 const NAVY = '#1B2A4A'
@@ -52,7 +52,7 @@ export default function Clientes() {
   const [filtroObrig, setFiltroObrig] = useState('')
   const [buscandoCNPJ, setBuscandoCNPJ] = useState(false)
   const [modalObrig,    setModalObrig]    = useState(false)
-  const [abaObrig,      setAbaObrig]      = useState('lista')  // 'lista' | 'departamento'
+  const [abaObrig,      setAbaObrig]      = useState('lista')
   const [buscaObrig,    setBuscaObrig]    = useState('')
   const [deptSel,       setDeptSel]       = useState('Todos')
   const [obrigSugeridas, setObrigSugeridas] = useState([])
@@ -61,7 +61,6 @@ export default function Clientes() {
   useEffect(() => { carregarClientes() }, [])
 
   const carregarClientes = async () => {
-    // SEMPRE carregar do localStorage primeiro (fonte de verdade)
     try {
       const local = localStorage.getItem('ep_clientes')
       if (local) {
@@ -69,20 +68,17 @@ export default function Clientes() {
         if (parsed?.length > 0) setClientes(parsed)
       }
     } catch {}
-    // Sincronizar com backend: só usar se backend tiver mais dados E preservar campos locais
     try {
       const r = await fetch(`${API}/clientes/`)
       if (r.ok) {
         const d   = await r.json()
         const back = d.clientes || d || []
         if (back.length > 0) {
-          // Mesclar: preservar obrigacoes_vinculadas, responsaveis e contatos do local
           const local = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
           const merged = back.map(bc => {
             const lc = local.find(x=>String(x.id)===String(bc.id))
-            return lc ? { ...bc, ...lc } : bc  // dados locais prevalecem
+            return lc ? { ...bc, ...lc } : bc
           })
-          // Adicionar clientes que só existem no local
           local.forEach(lc => {
             if (!merged.find(m=>String(m.id)===String(lc.id))) merged.push(lc)
           })
@@ -95,7 +91,6 @@ export default function Clientes() {
 
   const setF = (k,v) => setForm(f => ({ ...f, [k]:v }))
 
-  // Ao mudar tributação, sugere obrigações automaticamente
   const onTributacaoChange = (novoRegime) => {
     setF('tributacao', novoRegime)
     setF('regime', novoRegime)
@@ -104,6 +99,37 @@ export default function Clientes() {
     setObrigSugeridas(todas)
     setF('obrigacoes_vinculadas', todas)
     setConfirmObrig(true)
+  }
+
+  // ✅ Gerar obrigações pelo regime e salvar imediatamente no localStorage
+  const gerarObrigacoes = () => {
+    if (!form.tributacao) return
+    const obrigEspecificas = REGIME_OBRIG_AUTO[form.tributacao] || []
+    const todas = [...new Set([...OBRIGAS_COMUNS, ...obrigEspecificas])]
+    setF('obrigacoes_vinculadas', todas)
+    setConfirmObrig(true)
+    // Salvar imediatamente se já tiver um cliente (editando)
+    if (editId) {
+      const clisLocal = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
+      const updated = clisLocal.map(c =>
+        String(c.id)===String(editId) ? {...c, obrigacoes_vinculadas: todas, tributacao: form.tributacao, regime: form.tributacao} : c
+      )
+      localStorage.setItem('ep_clientes', JSON.stringify(updated))
+      setClientes(updated)
+    }
+  }
+
+  // ✅ Confirmar modal obrigações salva imediatamente no localStorage se editando
+  const confirmarObrigacoes = () => {
+    setModalObrig(false)
+    if (editId) {
+      const clisLocal = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
+      const updated = clisLocal.map(c =>
+        String(c.id)===String(editId) ? {...c, obrigacoes_vinculadas: form.obrigacoes_vinculadas} : c
+      )
+      localStorage.setItem('ep_clientes', JSON.stringify(updated))
+      setClientes(updated)
+    }
   }
 
   const buscarCNPJ = async () => {
@@ -133,7 +159,6 @@ export default function Clientes() {
   }
 
   const salvar = async () => {
-    // Construir cliente completo com todos os campos do form
     const novoCliente = {
       ...form,
       id:   editId || Date.now(),
@@ -145,7 +170,6 @@ export default function Clientes() {
       regime:       form.regime       || form.tributacao || '',
     }
 
-    // 1. Salvar localmente IMEDIATAMENTE — localStorage é a fonte de verdade
     let novaLista = []
     setClientes(p => {
       novaLista = editId
@@ -155,18 +179,14 @@ export default function Clientes() {
       return novaLista
     })
 
-    // 2. Voltar para a lista
     setForm({...FORM_VAZIO, responsaveis:[], contatos:[{nome:'',departamento:'',cargo:'',email:'',whatsapp:'',telefone:'',tipo:'principal'}]})
     setEditId(null)
     setAba('lista')
 
-    // 3. Tentar sincronizar com backend SEM sobrescrever localStorage
     try {
       const metodo = editId ? 'PUT' : 'POST'
       const url    = editId ? `${API}/clientes/${editId}` : `${API}/clientes/`
       await fetch(url, { method:metodo, headers:{'Content-Type':'application/json'}, body:JSON.stringify(novoCliente) })
-      // ⚠ NÃO sobrescrevemos localStorage com resposta do backend
-      // O backend pode não ter todos os campos (responsaveis, contatos, obrigacoes_vinculadas)
     } catch {}
   }
 
@@ -175,7 +195,6 @@ export default function Clientes() {
     setForm({
       ...FORM_VAZIO,
       ...cli,
-      // Garantir campos essenciais
       obrigacoes_vinculadas: cli.obrigacoes_vinculadas || [],
       responsaveis: cli.responsaveis || [],
       contatos: cli.contatos?.length ? cli.contatos : [{nome:'',departamento:'',cargo:'',email:'',whatsapp:'',telefone:'',tipo:'principal'}],
@@ -228,13 +247,11 @@ export default function Clientes() {
       {aba==='lista' && (
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', padding:'8px 16px' }}>
-            {/* Linha 1: busca + contagem */}
             <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
               <div style={{ position:'relative', flex:1, maxWidth:380 }}>
                 <Search size={12} style={{ position:'absolute', left:8, top:8, color:'#bbb' }} />
                 <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome ou CNPJ..." style={{ ...inp, paddingLeft:26 }} />
               </div>
-              {/* Limpar filtros */}
               {(filtroReg||filtroStatus||filtroCanal||filtroObrig||busca) && (
                 <button onClick={()=>{setBusca('');setFiltroReg('');setFiltroStatus('');setFiltroCanal('');setFiltroObrig('')}} style={{ display:'flex', alignItems:'center', gap:4, padding:'5px 10px', borderRadius:7, background:'#fee2e2', color:'#dc2626', border:'1px solid #fca5a5', fontSize:11, fontWeight:600, cursor:'pointer' }}>
                   <X size={11}/> Limpar filtros
@@ -242,7 +259,6 @@ export default function Clientes() {
               )}
               <span style={{ fontSize:12, color:'#aaa', marginLeft:'auto' }}>{clientesFiltrados.length} cliente(s)</span>
             </div>
-            {/* Linha 2: filtros */}
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <select value={filtroReg} onChange={e=>setFiltroReg(e.target.value)} style={{ ...sel, width:160, fontSize:12 }}>
                 <option value="">Todos os regimes</option>
@@ -316,7 +332,6 @@ export default function Clientes() {
       {/* ── CADASTRO ── */}
       {aba==='cadastro' && (
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-          {/* Sub-abas do formulário */}
           <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', display:'flex', padding:'0 16px', overflowX:'auto' }}>
             {ABA_TABS.map(a => (
               <button key={a.id} onClick={()=>setAbaForm(a.id)} style={{ padding:'10px 16px', fontSize:12, fontWeight:abaForm===a.id?700:400, color:abaForm===a.id?NAVY:'#888', background:'none', border:'none', borderBottom:abaForm===a.id?`2px solid ${GOLD}`:'2px solid transparent', cursor:'pointer', whiteSpace:'nowrap' }}>
@@ -361,7 +376,7 @@ export default function Clientes() {
                     </div>
                   </div>
 
-                  {/* TRIBUTAÇÃO — campo principal */}
+                  {/* TRIBUTAÇÃO */}
                   <div style={{ marginBottom:14, padding:'14px 16px', borderRadius:10, border:`2px solid ${GOLD}40`, background:GOLD+'06' }}>
                     <label style={{ fontSize:12, color:NAVY, fontWeight:700, display:'block', marginBottom:8 }}>
                       💼 Regime Tributário / Tributação *
@@ -369,30 +384,34 @@ export default function Clientes() {
                     <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:8, marginBottom:10 }}>
                       {TRIBUTACOES.filter(t=>t!=='Todos').map(t => {
                         const ct = cTrib(t)
-                        const sel = form.tributacao === t
+                        const isSelected = form.tributacao === t
                         return (
-                          <button key={t} onClick={()=>onTributacaoChange(t)} style={{ padding:'8px 6px', borderRadius:8, cursor:'pointer', border:`2px solid ${sel?ct.c:'#ddd'}`, background:sel?ct.bg:'#fff', color:sel?ct.c:'#888', fontWeight:sel?700:400, fontSize:11, textAlign:'center', transition:'all 0.15s' }}>
+                          <button key={t} onClick={()=>onTributacaoChange(t)} style={{ padding:'8px 6px', borderRadius:8, cursor:'pointer', border:`2px solid ${isSelected?ct.c:'#ddd'}`, background:isSelected?ct.bg:'#fff', color:isSelected?ct.c:'#888', fontWeight:isSelected?700:400, fontSize:11, textAlign:'center', transition:'all 0.15s' }}>
                             {t}
                           </button>
                         )
                       })}
                     </div>
                     {form.tributacao && (
-                      <div style={{ fontSize:11, color:NAVY, padding:'8px 12px', borderRadius:7, background:'#f0f4ff', border:'1px solid #c7d7fd' }}>
-                        ✓ Regime <b>{form.tributacao}</b> selecionado — <b>{obrigacoesPorTributacao(form.tributacao).length} obrigações</b> disponíveis para este regime.
-                        <button onClick={()=>setModalObrig(true)} style={{ marginLeft:8, color:NAVY, background:'none', border:'none', cursor:'pointer', fontWeight:700, textDecoration:'underline', fontSize:11 }}>
-                          Ver e configurar obrigações →
+                      <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:NAVY, padding:'8px 12px', borderRadius:7, background:'#f0f4ff', border:'1px solid #c7d7fd' }}>
+                        <span style={{ flex:1 }}>✓ Regime <b>{form.tributacao}</b> selecionado — <b>{obrigacoesPorTributacao(form.tributacao).length} obrigações</b> disponíveis.</span>
+                        <button onClick={()=>setModalObrig(true)} style={{ color:NAVY, background:'none', border:'none', cursor:'pointer', fontWeight:700, textDecoration:'underline', fontSize:11, whiteSpace:'nowrap' }}>
+                          Ver obrigações →
+                        </button>
+                        {/* ✅ BOTÃO GERAR OBRIGAÇÕES */}
+                        <button onClick={gerarObrigacoes} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:7, background:NAVY, color:'#fff', fontWeight:700, fontSize:11, border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
+                          <Zap size={11}/> Gerar Obrigações
                         </button>
                       </div>
                     )}
                   </div>
 
-                  {/* Alerta de obrigações sugeridas */}
+                  {/* Alerta obrigações geradas */}
                   {confirmObrig && (
                     <div style={{ marginBottom:12, padding:'12px 16px', borderRadius:9, background:'#F0FDF4', border:'1px solid #bbf7d0', display:'flex', alignItems:'center', gap:10 }}>
                       <CheckCircle size={18} style={{ color:'#22c55e', flexShrink:0 }} />
                       <div style={{ flex:1, fontSize:12, color:'#166534' }}>
-                        <b>{form.obrigacoes_vinculadas.length} obrigações</b> foram vinculadas automaticamente baseadas no regime <b>{form.tributacao}</b>.
+                        <b>{form.obrigacoes_vinculadas.length} obrigações</b> vinculadas para o regime <b>{form.tributacao}</b>.
                         <button onClick={()=>setModalObrig(true)} style={{ marginLeft:8, color:NAVY, background:'none', border:'none', cursor:'pointer', fontWeight:700, textDecoration:'underline', fontSize:11 }}>
                           Personalizar →
                         </button>
@@ -505,70 +524,9 @@ export default function Clientes() {
                 </div>
               )}
 
-              {/* ABA: FISCAL */}
-              {abaForm==='fiscal' && (
-                <div>
-                  {/* Tributação selecionada */}
-                  <div style={{ marginBottom:16, padding:'14px 16px', borderRadius:10, border:`2px solid ${GOLD}40`, background:GOLD+'06' }}>
-                    <label style={{ fontSize:11, color:'#888', fontWeight:700, display:'block', marginBottom:8, textTransform:'uppercase' }}>Regime Tributário</label>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                      {TRIBUTACOES.filter(t=>t!=='Todos').map(t=>{
-                        const ct=cTrib(t); const s=form.tributacao===t
-                        return <button key={t} onClick={()=>onTributacaoChange(t)} style={{ padding:'6px 14px', borderRadius:20, fontSize:12, cursor:'pointer', border:`2px solid ${s?ct.c:'#ddd'}`, background:s?ct.bg:'#fff', color:s?ct.c:'#888', fontWeight:s?700:400 }}>{t}</button>
-                      })}
-                    </div>
-                    {form.tributacao && (
-                      <div style={{ marginTop:10, fontSize:11, color:NAVY, padding:'7px 12px', borderRadius:7, background:'#f0f4ff', border:'1px solid #c7d7fd' }}>
-                        ✓ Regime <b>{form.tributacao}</b> — <b>{form.obrigacoes_vinculadas.length} obrigações</b> vinculadas.
-                        <button onClick={()=>setModalObrig(true)} style={{ marginLeft:8, color:NAVY, background:'none', border:'none', cursor:'pointer', fontWeight:700, textDecoration:'underline', fontSize:11 }}>Configurar obrigações →</button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Honorários */}
-                  <div style={{ marginBottom:14 }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:NAVY, marginBottom:10, padding:'6px 0', borderBottom:'1px solid #f0f0f0' }}>Honorários Contábeis</div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
-                      <div>
-                        <label style={{ fontSize:11, color:'#888', fontWeight:600, display:'block', marginBottom:4 }}>Dia de Vencimento</label>
-                        <select value={form.dia_vencimento} onChange={e=>setF('dia_vencimento',parseInt(e.target.value))} style={sel}>
-                          {[1,5,7,10,15,20,25,28,30].map(d=><option key={d} value={d}>Dia {d}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ fontSize:11, color:'#888', fontWeight:600, display:'block', marginBottom:4 }}>Periodicidade</label>
-                        <select value={form.periodicidade} onChange={e=>setF('periodicidade',e.target.value)} style={sel}>
-                          {['Mensal','Bimestral','Trimestral','Semestral','Anual'].map(p=><option key={p} value={p}>{p}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ fontSize:11, color:'#888', fontWeight:600, display:'block', marginBottom:4 }}>Valor Honorário (R$)</label>
-                        <input type="number" value={form.valor_honorario} onChange={e=>setF('valor_honorario',parseFloat(e.target.value)||0)} style={inp} min={0} />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* E-mails fiscais */}
-                  <div>
-                    <div style={{ fontSize:12, fontWeight:700, color:NAVY, marginBottom:10, padding:'6px 0', borderBottom:'1px solid #f0f0f0' }}>E-mails para Documentos Fiscais</div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                      <div>
-                        <label style={{ fontSize:11, color:'#888', fontWeight:600, display:'block', marginBottom:4 }}>E-mail para NF-e / NFS-e</label>
-                        <input type="email" value={form.email_nfe} onChange={e=>setF('email_nfe',e.target.value)} placeholder="nfe@empresa.com.br" style={inp} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize:11, color:'#888', fontWeight:600, display:'block', marginBottom:4 }}>E-mail para Folha de Pagamento</label>
-                        <input type="email" value={form.email_folha} onChange={e=>setF('email_folha',e.target.value)} placeholder="folha@empresa.com.br" style={inp} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* ABA: COMUNICAÇÃO */}
               {abaForm==='comunicacao' && (
                 <div>
-                  {/* Canal padrão */}
                   <div style={{ marginBottom:16, padding:'12px 14px', borderRadius:9, border:'1px solid #e8e8e8', background:'#fafafa' }}>
                     <label style={{ fontSize:10, color:'#888', fontWeight:700, display:'block', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5 }}>Canal Padrão de Entrega</label>
                     <div style={{ display:'flex', gap:8 }}>
@@ -577,19 +535,14 @@ export default function Clientes() {
                       ))}
                     </div>
                   </div>
-
-                  {/* Cabeçalho contatos */}
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                     <div style={{ fontSize:13, fontWeight:700, color:NAVY }}>Contatos</div>
                     <button onClick={()=>setF('contatos',[...(form.contatos||[]),{nome:'',departamento:'',cargo:'',email:'',whatsapp:'',telefone:'',tipo:'geral'}])} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 14px', borderRadius:7, background:NAVY, color:'#fff', fontSize:12, fontWeight:600, border:'none', cursor:'pointer' }}>
                       + Adicionar contato
                     </button>
                   </div>
-
-                  {/* Contatos (incluindo principal) */}
                   {(form.contatos||[]).map((ct,ci)=>{
                     const isPrincipal = ct.tipo==='principal' || ci===0
-                    const waLink = ct.whatsapp ? `https://wa.me/${ct.whatsapp.replace(/\D/g,'')}` : null
                     return (
                       <div key={ci} style={{ marginBottom:10, padding:'14px 16px', borderRadius:10, border:`1px solid ${isPrincipal?NAVY+'30':'#e8e8e8'}`, background:isPrincipal?'#f8f9ff':'#fff' }}>
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
@@ -602,12 +555,12 @@ export default function Clientes() {
                               </select>
                             )}
                             {ct.whatsapp && (
-                              <a href={`https://wa.me/${ct.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" title="Abrir WhatsApp" style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EDFBF1', color:'#1A7A3C', fontSize:10, fontWeight:700, textDecoration:'none' }}>
+                              <a href={`https://wa.me/${ct.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EDFBF1', color:'#1A7A3C', fontSize:10, fontWeight:700, textDecoration:'none' }}>
                                 💬 WhatsApp
                               </a>
                             )}
                             {ct.email && (
-                              <a href={`mailto:${ct.email}`} title="Enviar e-mail" style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EFF6FF', color:'#1D4ED8', fontSize:10, fontWeight:700, textDecoration:'none' }}>
+                              <a href={`mailto:${ct.email}`} style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EFF6FF', color:'#1D4ED8', fontSize:10, fontWeight:700, textDecoration:'none' }}>
                                 📧 E-mail
                               </a>
                             )}
@@ -616,11 +569,9 @@ export default function Clientes() {
                             <button onClick={()=>setF('contatos',form.contatos.filter((_,i)=>i!==ci))} style={{ padding:'3px 8px', borderRadius:6, background:'#FEF2F2', color:'#dc2626', border:'none', cursor:'pointer', fontSize:11 }}>🗑️</button>
                           )}
                         </div>
-
-                        {/* Linha 1: Nome + Departamento + Cargo */}
                         <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:10, marginBottom:8 }}>
                           <div>
-                            <label style={{ fontSize:10, color:'#888', fontWeight:600, display:'block', marginBottom:3 }}>Nome {isPrincipal?'':'do Contato'}</label>
+                            <label style={{ fontSize:10, color:'#888', fontWeight:600, display:'block', marginBottom:3 }}>Nome</label>
                             <input value={ct.nome} onChange={e=>{const cs=[...form.contatos];cs[ci]={...cs[ci],nome:e.target.value};setF('contatos',cs)}} placeholder={isPrincipal?'Nome do contato principal':'Nome completo'} style={inp} />
                           </div>
                           <div>
@@ -635,22 +586,17 @@ export default function Clientes() {
                             <input value={ct.cargo||''} onChange={e=>{const cs=[...form.contatos];cs[ci]={...cs[ci],cargo:e.target.value};setF('contatos',cs)}} placeholder="Gerente, Sócio..." style={inp} />
                           </div>
                         </div>
-
-                        {/* Linha 2: Email + WhatsApp + Telefone */}
                         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
                           <div>
                             <label style={{ fontSize:10, color:'#888', fontWeight:600, display:'block', marginBottom:3 }}>E-mail</label>
                             <input type="email" value={ct.email||''} onChange={e=>{const cs=[...form.contatos];cs[ci]={...cs[ci],email:e.target.value};setF('contatos',cs)}} placeholder="email@empresa.com" style={inp} />
                           </div>
                           <div>
-                            <label style={{ fontSize:10, color:'#888', fontWeight:600, display:'block', marginBottom:3 }}>
-                              WhatsApp
-                              {ct.whatsapp && <span style={{ marginLeft:6, fontSize:9, padding:'1px 6px', borderRadius:10, background:'#EDFBF1', color:'#1A7A3C', fontWeight:700 }}>✓ vinculado</span>}
-                            </label>
+                            <label style={{ fontSize:10, color:'#888', fontWeight:600, display:'block', marginBottom:3 }}>WhatsApp</label>
                             <div style={{ display:'flex', gap:5 }}>
                               <input value={ct.whatsapp||''} onChange={e=>{const cs=[...form.contatos];cs[ci]={...cs[ci],whatsapp:e.target.value};setF('contatos',cs)}} placeholder="+55 62 9 9999-9999" style={{ ...inp, flex:1 }} />
                               {ct.whatsapp && (
-                                <a href={`https://wa.me/${ct.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'0 9px', borderRadius:7, background:'#22c55e', color:'#fff', fontSize:16, textDecoration:'none', flexShrink:0 }} title="Enviar mensagem WhatsApp">💬</a>
+                                <a href={`https://wa.me/${ct.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'0 9px', borderRadius:7, background:'#22c55e', color:'#fff', fontSize:16, textDecoration:'none', flexShrink:0 }}>💬</a>
                               )}
                             </div>
                           </div>
@@ -659,17 +605,6 @@ export default function Clientes() {
                             <input value={ct.telefone||''} onChange={e=>{const cs=[...form.contatos];cs[ci]={...cs[ci],telefone:e.target.value};setF('contatos',cs)}} placeholder="(62) 3333-4444" style={inp} />
                           </div>
                         </div>
-
-                        {/* Vinculação ao WhatsApp do sistema */}
-                        {ct.whatsapp && (
-                          <div style={{ marginTop:8, padding:'7px 10px', borderRadius:7, background:'#EDFBF1', border:'1px solid #bbf7d0', display:'flex', alignItems:'center', gap:8, fontSize:11 }}>
-                            <span style={{ fontSize:14 }}>💬</span>
-                            <span style={{ color:'#166534' }}>
-                              Entregas serão enviadas via WhatsApp para <b>{ct.nome||'este contato'}</b> ({ct.whatsapp})
-                              {ct.departamento && <> — Dept: <b>{ct.departamento}</b></>}
-                            </span>
-                          </div>
-                        )}
                       </div>
                     )
                   })}
@@ -722,8 +657,6 @@ export default function Clientes() {
         return (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200 }}>
           <div style={{ background:'#fff', borderRadius:14, width:'100%', maxWidth:660, maxHeight:'90vh', display:'flex', flexDirection:'column', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
-
-            {/* Header */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px', borderBottom:'1px solid #f0f0f0' }}>
               <div>
                 <div style={{ fontWeight:700, color:NAVY, fontSize:14 }}>Obrigações Vinculadas</div>
@@ -733,15 +666,11 @@ export default function Clientes() {
               </div>
               <button onClick={()=>setModalObrig(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#aaa' }}><X size={18} /></button>
             </div>
-
-            {/* Abas */}
             <div style={{ display:'flex', borderBottom:'1px solid #e8e8e8', padding:'0 20px', background:'#fff' }}>
               {[['lista','📋 Lista'],['departamento','🏢 Por Departamento']].map(([id,label])=>(
                 <button key={id} onClick={()=>setAbaObrig(id)} style={{ padding:'9px 14px', fontSize:12, fontWeight:abaObrig===id?700:400, color:abaObrig===id?NAVY:'#999', background:'none', border:'none', borderBottom:abaObrig===id?`2px solid ${GOLD}`:'2px solid transparent', cursor:'pointer' }}>{label}</button>
               ))}
             </div>
-
-            {/* Barra ações */}
             <div style={{ padding:'8px 20px', borderBottom:'1px solid #f0f0f0', display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
               <div style={{ position:'relative', flex:1, minWidth:180 }}>
                 <Search size={11} style={{ position:'absolute', left:7, top:8, color:'#bbb' }} />
@@ -759,11 +688,7 @@ export default function Clientes() {
                 <button onClick={()=>setF('obrigacoes_vinculadas',[])} style={{ padding:'4px 10px', borderRadius:7, background:'#f5f5f5', color:'#555', fontSize:11, border:'none', cursor:'pointer' }}>Limpar</button>
               </div>
             </div>
-
-            {/* Conteúdo */}
             <div style={{ flex:1, overflowY:'auto', padding:'8px 20px' }}>
-
-              {/* ABA LISTA */}
               {abaObrig==='lista' && (
                 filtObrig.length===0
                   ? <div style={{ textAlign:'center', padding:30, color:'#ccc', fontSize:13 }}>Nenhuma obrigação encontrada.</div>
@@ -779,10 +704,10 @@ export default function Clientes() {
                           <span style={{ fontSize:10, color:'#bbb', marginLeft:'auto' }}>{lista.length} obrigações · {lista.filter(o=>form.obrigacoes_vinculadas.includes(o.id)).length} selecionadas</span>
                         </div>
                         {lista.map(o => {
-                          const sel2 = form.obrigacoes_vinculadas.includes(o.id)
+                          const isSel = form.obrigacoes_vinculadas.includes(o.id)
                           return (
                             <label key={o.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 4px', cursor:'pointer', borderBottom:'1px solid #f8f8f8' }}>
-                              <input type="checkbox" checked={sel2} onChange={()=>setF('obrigacoes_vinculadas', sel2 ? form.obrigacoes_vinculadas.filter(id=>id!==o.id) : [...form.obrigacoes_vinculadas,o.id])} style={{ width:15, height:15, accentColor:NAVY }} />
+                              <input type="checkbox" checked={isSel} onChange={()=>setF('obrigacoes_vinculadas', isSel ? form.obrigacoes_vinculadas.filter(id=>id!==o.id) : [...form.obrigacoes_vinculadas,o.id])} style={{ width:15, height:15, accentColor:NAVY }} />
                               <div style={{ flex:1 }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                                   <span style={{ fontSize:12, fontWeight:600, color:NAVY }}>{o.nome}</span>
@@ -798,8 +723,6 @@ export default function Clientes() {
                     )
                   })
               )}
-
-              {/* ABA DEPARTAMENTO */}
               {abaObrig==='departamento' && (
                 <div>
                   {['Fiscal','Pessoal','Contábil','Bancos'].map(dept => {
@@ -809,16 +732,13 @@ export default function Clientes() {
                     if (!lista.length) return null
                     return (
                       <div key={dept} style={{ marginBottom:16, borderRadius:12, border:'1px solid #e8e8e8', overflow:'hidden' }}>
-                        {/* Cabeçalho do dept */}
                         <div style={{ padding:'12px 16px', background: selQtd>0?dr.cor?.bg||'#f5f5f5':'#fafafa', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                           <div>
                             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
                               <span style={{ fontSize:13, fontWeight:700, color:dr.cor?.color||NAVY }}>{dept}</span>
                               <span style={{ fontSize:10, padding:'2px 8px', borderRadius:8, background:dr.cor?.bg||'#f5f5f5', color:dr.cor?.color||'#666', fontWeight:600 }}>{lista.length} obrigações</span>
                             </div>
-                            <div style={{ fontSize:11, color:'#777' }}>
-                              👤 Responsável: <b>{dr.responsavel||'—'}</b>
-                            </div>
+                            <div style={{ fontSize:11, color:'#777' }}>👤 Responsável: <b>{dr.responsavel||'—'}</b></div>
                           </div>
                           <div style={{ textAlign:'right' }}>
                             <div style={{ fontSize:16, fontWeight:800, color:selQtd>0?dr.cor?.color||NAVY:'#ccc' }}>{selQtd}/{lista.length}</div>
@@ -829,22 +749,21 @@ export default function Clientes() {
                             </div>
                           </div>
                         </div>
-                        {/* Lista de obrigações do dept */}
                         <div>
                           {lista.filter(o=>buscaObrig?o.nome?.toLowerCase().includes(buscaObrig.toLowerCase()):true).map((o,oi)=>{
-                            const sel2 = form.obrigacoes_vinculadas.includes(o.id)
+                            const isSel = form.obrigacoes_vinculadas.includes(o.id)
                             return (
                               <label key={o.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 16px', cursor:'pointer', background:oi%2===0?'#fff':'#fafafa', borderBottom:'1px solid #f5f5f5' }}>
-                                <input type="checkbox" checked={sel2} onChange={()=>setF('obrigacoes_vinculadas', sel2 ? form.obrigacoes_vinculadas.filter(id=>id!==o.id) : [...form.obrigacoes_vinculadas,o.id])} style={{ width:15, height:15, accentColor:dr.cor?.color||NAVY }} />
+                                <input type="checkbox" checked={isSel} onChange={()=>setF('obrigacoes_vinculadas', isSel ? form.obrigacoes_vinculadas.filter(id=>id!==o.id) : [...form.obrigacoes_vinculadas,o.id])} style={{ width:15, height:15, accentColor:dr.cor?.color||NAVY }} />
                                 <div style={{ flex:1 }}>
                                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                                    <span style={{ fontSize:12, fontWeight:sel2?600:400, color:sel2?NAVY:'#555' }}>{o.nome}</span>
+                                    <span style={{ fontSize:12, fontWeight:isSel?600:400, color:isSel?NAVY:'#555' }}>{o.nome}</span>
                                     {o.exigir_robo && <span style={{ fontSize:9, padding:'1px 5px', borderRadius:4, background:'#EDE9FF', color:'#6366f1' }}>🤖</span>}
                                     {o.passivel_multa && <span style={{ fontSize:9, padding:'1px 5px', borderRadius:4, background:'#FEF2F2', color:'#dc2626' }}>⚠ multa</span>}
                                   </div>
                                   <div style={{ fontSize:10, color:'#aaa', marginTop:1 }}>{o.mininome} · {o.competencia} · Dia {o.dia_vencimento}</div>
                                 </div>
-                                {sel2 && <span style={{ fontSize:10, color:dr.cor?.color||NAVY, fontWeight:700 }}>✓</span>}
+                                {isSel && <span style={{ fontSize:10, color:dr.cor?.color||NAVY, fontWeight:700 }}>✓</span>}
                               </label>
                             )
                           })}
@@ -855,8 +774,7 @@ export default function Clientes() {
                 </div>
               )}
             </div>
-
-            {/* Footer */}
+            {/* ✅ Footer — Confirmar salva imediatamente no localStorage */}
             <div style={{ padding:'12px 20px', borderTop:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f8f9fb' }}>
               <div style={{ fontSize:12, color:NAVY }}>
                 <b style={{ fontSize:16 }}>{form.obrigacoes_vinculadas.length}</b> obrigações selecionadas
@@ -864,7 +782,7 @@ export default function Clientes() {
                   ({['Fiscal','Pessoal','Contábil','Bancos'].map(d=>`${d}: ${obrigsPorTrib.filter(o=>o.departamento===d&&form.obrigacoes_vinculadas.includes(o.id)).length}`).join(' · ')})
                 </span>
               </div>
-              <button onClick={()=>setModalObrig(false)} style={{ padding:'8px 22px', borderRadius:8, background:NAVY, color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>Confirmar</button>
+              <button onClick={confirmarObrigacoes} style={{ padding:'8px 22px', borderRadius:8, background:NAVY, color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>Confirmar</button>
             </div>
           </div>
         </div>
