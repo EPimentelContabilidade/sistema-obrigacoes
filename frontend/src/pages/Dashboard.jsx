@@ -1,510 +1,269 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit2, Trash2, X, Save, LayoutDashboard, Users, FileText, Send, Clock, AlertCircle, CheckCircle, DollarSign, BarChart2, TrendingUp, Calendar, RefreshCw, GripVertical, Eye, EyeOff, Settings } from 'lucide-react'
+import { Users, FileText, CheckCircle, AlertTriangle, Shield, TrendingUp, Clock, Send, Building2, User, BarChart2, RefreshCw } from 'lucide-react'
 
-const API = '/api/v1'
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 
-// Tipos de widgets disponíveis
-const TIPOS_WIDGET = [
-  { id: 'stat',        label: 'Contador / KPI',        icon: '📊', desc: 'Número com ícone e título' },
-  { id: 'lista',       label: 'Lista de Entregas',     icon: '📋', desc: 'Tabela de entregas recentes' },
-  { id: 'grafico_bar', label: 'Gráfico de Barras',     icon: '📈', desc: 'Comparativo mensal' },
-  { id: 'grafico_pie', label: 'Gráfico de Pizza',      icon: '🥧', desc: 'Distribuição por status' },
-  { id: 'calendario',  label: 'Calendário de Prazos',  icon: '📅', desc: 'Próximos vencimentos' },
-  { id: 'clientes',    label: 'Resumo de Clientes',    icon: '👥', desc: 'Clientes e status' },
-  { id: 'alertas',     label: 'Alertas e Pendências',  icon: '⚠️', desc: 'Itens que precisam de atenção' },
-  { id: 'texto',       label: 'Texto / Notas',         icon: '📝', desc: 'Bloco de texto livre' },
-]
+const statusCert = (validade) => {
+  if (!validade) return null
+  const dias = Math.ceil((new Date(validade) - new Date()) / (1000*60*60*24))
+  return dias
+}
 
-const ICONES_STAT = ['👥','📄','✉️','⏳','⚠️','✅','💰','📊','📅','🔔','⚡','🏆']
-const CORES_STAT = [
-  { nome: 'Azul', val: '#3b82f6' }, { nome: 'Verde', val: '#22c55e' },
-  { nome: 'Amarelo', val: '#f59e0b' }, { nome: 'Vermelho', val: '#ef4444' },
-  { nome: 'Roxo', val: '#8b5cf6' }, { nome: 'Dourado', val: GOLD },
-  { nome: 'Navy', val: NAVY }, { nome: 'Cinza', val: '#6b7280' },
-]
-
-// Dashboards iniciais
-const DASHBOARDS_INICIAL = [
-  {
-    id: 1, nome: 'Visão Geral', icone: '🏠',
-    widgets: [
-      { id: 1, tipo: 'stat', titulo: 'Clientes Ativos', icone: '👥', cor: '#3b82f6', fonte: 'clientes_ativos', w: 1 },
-      { id: 2, tipo: 'stat', titulo: 'Obrigações',      icone: '📄', cor: GOLD,       fonte: 'total_obrigacoes', w: 1 },
-      { id: 3, tipo: 'stat', titulo: 'Enviadas',        icone: '✉️', cor: '#22c55e',  fonte: 'enviadas', w: 1 },
-      { id: 4, tipo: 'stat', titulo: 'Pendentes',       icone: '⏳', cor: '#f59e0b',  fonte: 'pendentes', w: 1 },
-      { id: 5, tipo: 'stat', titulo: 'Com Erro',        icone: '⚠️', cor: '#ef4444',  fonte: 'com_erro', w: 1 },
-      { id: 6, tipo: 'lista', titulo: 'Entregas Recentes', w: 3 },
-    ]
-  },
-  {
-    id: 2, nome: 'Fiscal', icone: '📋',
-    widgets: [
-      { id: 7,  tipo: 'stat', titulo: 'Obrigações Fiscais', icone: '📄', cor: '#3b82f6', fonte: 'total_obrigacoes', w: 1 },
-      { id: 8,  tipo: 'stat', titulo: 'Atrasadas',          icone: '⚠️', cor: '#ef4444', fonte: 'com_erro', w: 1 },
-      { id: 9,  tipo: 'stat', titulo: 'Entregues Mês',      icone: '✅', cor: '#22c55e', fonte: 'enviadas', w: 1 },
-      { id: 10, tipo: 'alertas', titulo: 'Alertas Fiscais', w: 2 },
-      { id: 11, tipo: 'calendario', titulo: 'Vencimentos Abril', w: 2 },
-    ]
-  },
-  {
-    id: 3, nome: 'Clientes', icone: '👥',
-    widgets: [
-      { id: 12, tipo: 'clientes', titulo: 'Resumo de Clientes', w: 3 },
-      { id: 13, tipo: 'stat', titulo: 'Total Clientes', icone: '👥', cor: NAVY, fonte: 'clientes_ativos', w: 1 },
-    ]
-  },
-]
-
-// Mock de dados dinâmicos
-const MOCK_STATS = { clientes_ativos: 1, total_obrigacoes: 8, enviadas: 2, pendentes: 5, com_erro: 1 }
-const MOCK_ENTREGAS = [
-  { id: 1, cliente: 'EPIMENTEL-AUDITORIA & CONTABILIDADE LTDA', canal: 'Ambos', status: 'erro',    data: '03/04/2026, 17:47:43' },
-  { id: 2, cliente: 'EPIMENTEL-AUDITORIA & CONTABILIDADE LTDA', canal: 'Email', status: 'entregue', data: '02/04/2026, 09:15:00' },
-]
-const MOCK_CLIENTES = [
-  { nome: 'EPIMENTEL-AUDITORIA & CONTABILIDADE LTDA', cnpj: '22.939.803/0001-49', regime: 'Simples Nacional', status: 'ativo', obrigacoes: 8 },
-]
-const MOCK_ALERTAS = [
-  { tipo: 'atrasada', msg: 'EFD-Contribuições venceu em 10/04/2026', cliente: 'EPIMENTEL' },
-  { tipo: 'pendente', msg: 'Folha de Pagamento vence em 05/04/2026', cliente: 'EPIMENTEL' },
-  { tipo: 'robo',     msg: 'SPED Fiscal aguarda processamento do Robô', cliente: 'EPIMENTEL' },
-]
-const MOCK_PRAZOS = [
-  { dia: 5,  obrig: 'Folha de Pagamento', tipo: 'Pessoal' },
-  { dia: 7,  obrig: 'FGTS / GFIP',       tipo: 'Pessoal' },
-  { dia: 10, obrig: 'EFD-Contribuições', tipo: 'Fiscal' },
-  { dia: 15, obrig: 'DCTF',              tipo: 'Fiscal' },
-  { dia: 20, obrig: 'Declaração ISS',    tipo: 'Fiscal' },
-  { dia: 20, obrig: 'INSS (GPS)',        tipo: 'Pessoal' },
-  { dia: 30, obrig: 'Balancete Mensal',  tipo: 'Contábil' },
-]
+const fmtData = (d) => { try { return new Date(d).toLocaleDateString('pt-BR') } catch { return d||'—' } }
 
 export default function Dashboard() {
-  const [dashboards, setDashboards] = useState(DASHBOARDS_INICIAL)
-  const [abaAtiva, setAbaAtiva]     = useState(1)
-  const [modoEditar, setModoEditar] = useState(false)
-  const [modalDash, setModalDash]   = useState(null)   // null | 'novo' | dashboard obj
-  const [modalWidget, setModalWidget] = useState(null) // null | { dashId, widget | null }
-  const [formDash, setFormDash]     = useState({ nome: '', icone: '🏠' })
-  const [formWidget, setFormWidget] = useState({ tipo: 'stat', titulo: '', icone: '📊', cor: '#3b82f6', fonte: 'clientes_ativos', w: 1, texto: '' })
+  const [clientes,  setClientes]  = useState([])
+  const [certs,     setCerts]     = useState([])
+  const [tarefas,   setTarefas]   = useState([])
+  const [atualizado, setAtualizado] = useState(new Date())
 
-  const dashAtivo = dashboards.find(d => d.id === abaAtiva)
-
-  const salvarDash = () => {
-    if (modalDash === 'novo') {
-      const novo = { id: Date.now(), nome: formDash.nome, icone: formDash.icone, widgets: [] }
-      setDashboards(p => [...p, novo])
-      setAbaAtiva(novo.id)
-    } else {
-      setDashboards(p => p.map(d => d.id === modalDash.id ? { ...d, nome: formDash.nome, icone: formDash.icone } : d))
-    }
-    setModalDash(null)
+  const carregar = () => {
+    try { setClientes(JSON.parse(localStorage.getItem('ep_clientes')||'[]')) } catch {}
+    try { setCerts(JSON.parse(localStorage.getItem('ep_certificados')||'[]')) } catch {}
+    setAtualizado(new Date())
   }
 
-  const excluirDash = (id) => {
-    setDashboards(p => p.filter(d => d.id !== id))
-    if (abaAtiva === id) setAbaAtiva(dashboards.find(d => d.id !== id)?.id)
-  }
+  useEffect(() => { carregar() }, [])
 
-  const salvarWidget = () => {
-    const { dashId, widget } = modalWidget
-    const novoWidget = { ...formWidget, id: widget?.id || Date.now() }
-    setDashboards(p => p.map(d => d.id === dashId ? {
-      ...d,
-      widgets: widget
-        ? d.widgets.map(w => w.id === widget.id ? novoWidget : w)
-        : [...d.widgets, novoWidget]
-    } : d))
-    setModalWidget(null)
-  }
+  // KPIs clientes
+  const totalCli    = clientes.length
+  const ativos      = clientes.filter(c=>c.ativo!==false).length
+  const inativos    = totalCli - ativos
+  const semObrig    = clientes.filter(c=>!(c.obrigacoes_vinculadas||[]).length).length
 
-  const excluirWidget = (dashId, widgetId) => {
-    setDashboards(p => p.map(d => d.id === dashId ? { ...d, widgets: d.widgets.filter(w => w.id !== widgetId) } : d))
-  }
+  // KPIs certificados
+  const certVencidos = certs.filter(c=>{ const d=statusCert(c.validade); return d!==null&&d<0 }).length
+  const cert30       = certs.filter(c=>{ const d=statusCert(c.validade); return d!==null&&d>=0&&d<=30 }).length
+  const cert90       = certs.filter(c=>{ const d=statusCert(c.validade); return d!==null&&d>30&&d<=90 }).length
+  const certOk       = certs.filter(c=>{ const d=statusCert(c.validade); return d!==null&&d>90 }).length
+  const certPF       = certs.filter(c=>c.tipo==='PF').length
+  const certPJ       = certs.filter(c=>c.tipo==='PJ').length
 
-  const ICONES_DASH = ['🏠','📊','📋','👥','💰','📈','🔔','⚡','🏛️','🗂️','📅','🎯']
+  // Distribuição por regime
+  const regimes = ['Simples Nacional','MEI','Lucro Presumido','Lucro Real','RET','Imune/Isento']
+  const distRegime = regimes.map(r=>({
+    label: r,
+    n: clientes.filter(c=>(c.tributacao||c.regime)===r).length
+  })).filter(x=>x.n>0)
 
-  // ── Renderização dos widgets ──
-  const renderWidget = (w, dashId) => {
-    const wrapper = (content) => (
-      <div key={w.id} style={{
-        gridColumn: `span ${Math.min(w.w || 1, 3)}`,
-        background: '#fff', borderRadius: 12, border: '1px solid #e8e8e8',
-        padding: 16, position: 'relative',
-        boxShadow: modoEditar ? '0 0 0 2px ' + GOLD + '40' : 'none',
-        transition: 'box-shadow 0.2s',
-      }}>
-        {modoEditar && (
-          <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4, zIndex: 10 }}>
-            <button onClick={() => { setFormWidget({ ...w }); setModalWidget({ dashId, widget: w }) }}
-              style={{ padding: '3px 7px', borderRadius: 5, background: '#EBF5FF', color: '#1D6FA4', border: 'none', cursor: 'pointer', fontSize: 11 }}>✏️</button>
-            <button onClick={() => excluirWidget(dashId, w.id)}
-              style={{ padding: '3px 7px', borderRadius: 5, background: '#FEF2F2', color: '#dc2626', border: 'none', cursor: 'pointer', fontSize: 11 }}>✕</button>
-          </div>
-        )}
-        {content}
+  // Clientes com mais obrigações
+  const topCli = [...clientes]
+    .sort((a,b)=>(b.obrigacoes_vinculadas||[]).length-(a.obrigacoes_vinculadas||[]).length)
+    .slice(0,5)
+
+  // Certificados próximos do vencimento
+  const certAlertas = certs
+    .filter(c=>{ const d=statusCert(c.validade); return d!==null&&d>=0&&d<=90 })
+    .sort((a,b)=>new Date(a.validade)-new Date(b.validade))
+    .slice(0,6)
+
+  const maxObrig = Math.max(...topCli.map(c=>(c.obrigacoes_vinculadas||[]).length), 1)
+
+  const card = (icon, label, value, cor, bg, sub) => {
+    const Ic = icon
+    return (
+      <div style={{ background:'#fff', borderRadius:12, padding:'16px 20px', border:`1px solid ${cor}20`, display:'flex', alignItems:'center', gap:14, boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+        <div style={{ width:48, height:48, borderRadius:12, background:bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <Ic size={22} style={{ color:cor }}/>
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:26, fontWeight:800, color:cor, lineHeight:1 }}>{value}</div>
+          <div style={{ fontSize:12, color:'#888', fontWeight:500, marginTop:3 }}>{label}</div>
+          {sub&&<div style={{ fontSize:11, color:'#aaa', marginTop:2 }}>{sub}</div>}
+        </div>
       </div>
     )
-
-    if (w.tipo === 'stat') {
-      const val = MOCK_STATS[w.fonte] ?? 0
-      return wrapper(
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <div style={{ fontSize: 13, color: '#666', fontWeight: 500 }}>{w.titulo}</div>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: (w.cor || '#3b82f6') + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{w.icone || '📊'}</div>
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: w.cor || '#3b82f6' }}>{val}</div>
-        </>
-      )
-    }
-
-    if (w.tipo === 'lista') return wrapper(
-      <>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 12 }}>{w.titulo || 'Entregas Recentes'}</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-          <thead><tr style={{ borderBottom: '1px solid #f0f0f0' }}>{['#','Cliente','Canal','Status','Data'].map(h => <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, color: '#aaa', fontWeight: 600 }}>{h}</th>)}</tr></thead>
-          <tbody>
-            {MOCK_ENTREGAS.map((e, i) => (
-              <tr key={e.id} style={{ borderBottom: '1px solid #f8f8f8' }}>
-                <td style={{ padding: '8px', color: '#aaa' }}>{i+1}</td>
-                <td style={{ padding: '8px', fontWeight: 600, color: NAVY }}>{e.cliente}</td>
-                <td style={{ padding: '8px', color: '#555' }}>{e.canal}</td>
-                <td style={{ padding: '8px' }}>
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, background: e.status==='erro' ? '#FEF2F2' : '#F0FDF4', color: e.status==='erro' ? '#dc2626' : '#166534', fontWeight: 600 }}>
-                    {e.status==='erro' ? '⊙ erro' : '✓ entregue'}
-                  </span>
-                </td>
-                <td style={{ padding: '8px', color: '#aaa', fontSize: 11 }}>{e.data}</td>
-              </tr>
-            ))}
-            {MOCK_ENTREGAS.length === 0 && <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center', color: '#ccc' }}>Nenhuma entrega realizada ainda.</td></tr>}
-          </tbody>
-        </table>
-      </>
-    )
-
-    if (w.tipo === 'clientes') return wrapper(
-      <>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 12 }}>{w.titulo || 'Resumo de Clientes'}</div>
-        {MOCK_CLIENTES.map(c => (
-          <div key={c.nome} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{c.nome}</div>
-              <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{c.cnpj} · {c.regime}</div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, background: '#f5f5f5', color: '#666' }}>{c.obrigacoes} obrigações</span>
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 8, background: '#F0FDF4', color: '#166534', fontWeight: 600 }}>● ativo</span>
-            </div>
-          </div>
-        ))}
-      </>
-    )
-
-    if (w.tipo === 'alertas') return wrapper(
-      <>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>{w.titulo || 'Alertas e Pendências'}</div>
-        {MOCK_ALERTAS.map((a, i) => {
-          const cores = { atrasada: { bg: '#FEF2F2', color: '#dc2626', ic: '⚠️' }, pendente: { bg: '#FEF9C3', color: '#854D0E', ic: '⏳' }, robo: { bg: '#EDE9FF', color: '#6366f1', ic: '🤖' } }
-          const c = cores[a.tipo] || cores.pendente
-          return (
-            <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 10px', borderRadius: 8, background: c.bg, marginBottom: 6 }}>
-              <span style={{ fontSize: 16 }}>{c.ic}</span>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: c.color }}>{a.msg}</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 1 }}>{a.cliente}</div>
-              </div>
-            </div>
-          )
-        })}
-      </>
-    )
-
-    if (w.tipo === 'calendario') return wrapper(
-      <>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>{w.titulo || 'Vencimentos'}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {MOCK_PRAZOS.map((p, i) => {
-            const cores = { Fiscal: '#EBF5FF:#1D6FA4', Pessoal: '#EDFBF1:#1A7A3C', Contábil: '#F3EEFF:#6B3EC9' }
-            const [bg, color] = (cores[p.tipo] || '#f5f5f5:#666').split(':')
-            const hoje = new Date().getDate()
-            const urgente = p.dia - hoje <= 3
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 7, background: urgente ? '#FEF9C3' : '#fafafa', border: `1px solid ${urgente ? '#fde68a' : '#f0f0f0'}` }}>
-                <div style={{ width: 32, height: 32, borderRadius: 6, background: urgente ? '#f59e0b' : NAVY, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{p.dia}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{p.obrig}</div>
-                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 5, background: bg, color }}>{p.tipo}</span>
-                </div>
-                {urgente && <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 700 }}>URGENTE</span>}
-              </div>
-            )
-          })}
-        </div>
-      </>
-    )
-
-    if (w.tipo === 'grafico_bar') return wrapper(
-      <>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 14 }}>{w.titulo || 'Entregas por Mês'}</div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', height: 100 }}>
-          {[['Jan',40],['Fev',65],['Mar',55],['Abr',30],['Mai',0],['Jun',0]].map(([m, v]) => (
-            <div key={m} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: '100%', background: v > 0 ? NAVY : '#f0f0f0', borderRadius: '4px 4px 0 0', height: `${v}px`, transition: 'height 0.3s' }} />
-              <span style={{ fontSize: 10, color: '#aaa' }}>{m}</span>
-            </div>
-          ))}
-        </div>
-      </>
-    )
-
-    if (w.tipo === 'grafico_pie') return wrapper(
-      <>
-        <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 14 }}>{w.titulo || 'Status das Obrigações'}</div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <svg viewBox="0 0 100 100" style={{ width: 90, height: 90 }}>
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#f0f0f0" strokeWidth="20" />
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#22c55e" strokeWidth="20" strokeDasharray="50 200" strokeDashoffset="50" />
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#f59e0b" strokeWidth="20" strokeDasharray="100 200" strokeDashoffset="0" />
-            <circle cx="50" cy="50" r="40" fill="none" stroke="#ef4444" strokeWidth="20" strokeDasharray="20 200" strokeDashoffset="-100" />
-          </svg>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {[['Entregues','#22c55e','63%'],['Pendentes','#f59e0b','25%'],['Atrasadas','#ef4444','12%']].map(([l,c,p]) => (
-              <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
-                <span style={{ color: '#666' }}>{l}</span>
-                <span style={{ fontWeight: 700, color: NAVY }}>{p}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </>
-    )
-
-    if (w.tipo === 'texto') return wrapper(
-      <>
-        {modoEditar
-          ? <textarea defaultValue={w.texto || ''} placeholder="Digite suas notas aqui..." style={{ width: '100%', minHeight: 100, border: 'none', outline: 'none', resize: 'vertical', fontSize: 13, color: '#333', fontFamily: 'inherit', background: 'transparent', boxSizing: 'border-box' }} />
-          : <div style={{ fontSize: 13, color: '#555', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{w.texto || <span style={{ color: '#ccc' }}>Bloco de texto vazio. Clique em editar para adicionar notas.</span>}</div>
-        }
-      </>
-    )
-
-    return wrapper(<div style={{ color: '#ccc', textAlign: 'center', padding: 20 }}>Widget: {w.tipo}</div>)
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 44px)', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ flex:1, overflowY:'auto', padding:'16px 20px', background:'#f8f9fb', fontFamily:'Inter, system-ui, sans-serif' }}>
 
-      {/* Barra de abas dos dashboards */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e8e8e8', display: 'flex', alignItems: 'center', paddingLeft: 8, overflowX: 'auto', flexShrink: 0 }}>
-        {dashboards.map(d => (
-          <div key={d.id} style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-            <button onClick={() => setAbaAtiva(d.id)} style={{
-              padding: '10px 16px', fontSize: 13, fontWeight: abaAtiva===d.id ? 700 : 400,
-              color: abaAtiva===d.id ? NAVY : '#888', background: 'none', border: 'none',
-              borderBottom: abaAtiva===d.id ? `2px solid ${GOLD}` : '2px solid transparent',
-              cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              <span>{d.icone}</span> {d.nome}
-            </button>
-            {modoEditar && (
-              <div style={{ display: 'flex', gap: 2, marginRight: 4 }}>
-                <button onClick={() => { setFormDash({ nome: d.nome, icone: d.icone }); setModalDash(d) }}
-                  style={{ padding: '2px 5px', borderRadius: 4, background: '#f0f0f0', border: 'none', cursor: 'pointer', fontSize: 11, color: '#666' }}>✏️</button>
-                {dashboards.length > 1 && (
-                  <button onClick={() => excluirDash(d.id)}
-                    style={{ padding: '2px 5px', borderRadius: 4, background: '#FEF2F2', border: 'none', cursor: 'pointer', fontSize: 11, color: '#dc2626' }}>✕</button>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
+      {/* Cabeçalho */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div>
+          <div style={{ fontSize:18, fontWeight:800, color:NAVY }}>Dashboard</div>
+          <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>EPimentel Auditoria & Contabilidade · Atualizado {atualizado.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <button onClick={carregar} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:8, background:'#fff', color:NAVY, fontWeight:600, fontSize:12, border:`1px solid ${NAVY}30`, cursor:'pointer' }}>
+          <RefreshCw size={13}/> Atualizar
+        </button>
+      </div>
 
-        {/* Botão novo dashboard */}
-        {modoEditar && (
-          <button onClick={() => { setFormDash({ nome: '', icone: '🏠' }); setModalDash('novo') }}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 8, border: `1px dashed ${GOLD}`, background: GOLD+'10', color: GOLD, fontWeight: 600, fontSize: 12, cursor: 'pointer', marginLeft: 8, whiteSpace: 'nowrap' }}>
-            <Plus size={13} /> Novo Dashboard
-          </button>
-        )}
-
-        {/* Botão editar/salvar */}
-        <div style={{ marginLeft: 'auto', padding: '0 12px', flexShrink: 0 }}>
-          <button onClick={() => setModoEditar(e => !e)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: modoEditar ? GOLD : NAVY, color: modoEditar ? NAVY : '#fff', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer' }}>
-            {modoEditar ? <><Save size={13} /> Salvar Layout</> : <><Settings size={13} /> Editar</>}
-          </button>
+      {/* Linha 1 — KPIs Clientes */}
+      <div style={{ marginBottom:8 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', marginBottom:10, letterSpacing:0.5 }}>Carteira de Clientes</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12 }}>
+          {card(Users,       'Total de Clientes',    totalCli, '#1D6FA4', '#EBF5FF', `${ativos} ativos · ${inativos} inativos`)}
+          {card(CheckCircle, 'Clientes Ativos',      ativos,   '#16a34a', '#F0FDF4', `${Math.round(ativos/Math.max(totalCli,1)*100)}% da carteira`)}
+          {card(FileText,    'Com Obrigações',        ativos-semObrig, NAVY, '#f0f4ff', `${semObrig} sem vínculo`)}
+          {card(AlertTriangle,'Sem Obrigações',       semObrig, '#f59e0b', '#FEF9C3', 'Requer configuração')}
         </div>
       </div>
 
-      {/* Conteúdo do dashboard ativo */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', background: '#f8f9fb' }}>
-        {dashAtivo && (
-          <>
-            {/* Título */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{dashAtivo.icone} {dashAtivo.nome}</div>
-                <div style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>Visão geral do sistema de obrigações acessórias</div>
-              </div>
-              {modoEditar && (
-                <button onClick={() => { setFormWidget({ tipo: 'stat', titulo: '', icone: '📊', cor: '#3b82f6', fonte: 'clientes_ativos', w: 1, texto: '' }); setModalWidget({ dashId: dashAtivo.id, widget: null }) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, background: NAVY, color: '#fff', fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer' }}>
-                  <Plus size={13} /> Adicionar Widget
-                </button>
-              )}
-            </div>
+      {/* Linha 2 — KPIs Certificados */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'#aaa', textTransform:'uppercase', marginBottom:10, letterSpacing:0.5 }}>Certificados Digitais</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:12 }}>
+          {card(Shield,       'Total',          certs.length, '#1D6FA4', '#EBF5FF', `${certPJ} PJ · ${certPF} PF`)}
+          {card(CheckCircle,  'Válidos',         certOk,       '#16a34a', '#F0FDF4', 'Acima de 90 dias')}
+          {card(Clock,        'Vencem em 90d',   cert90,       '#3b82f6', '#EFF6FF', 'Atenção recomendada')}
+          {card(AlertTriangle,'Vencem em 30d',   cert30,       '#f59e0b', '#FEF9C3', 'Renovação urgente')}
+          {card(AlertTriangle,'Vencidos',        certVencidos, '#dc2626', '#FEF2F2', 'Ação imediata')}
+        </div>
+      </div>
 
-            {/* Grid de widgets */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-              {dashAtivo.widgets.map(w => renderWidget(w, dashAtivo.id))}
-              {dashAtivo.widgets.length === 0 && (
-                <div style={{ gridColumn: 'span 3', background: '#fff', borderRadius: 12, border: `2px dashed ${GOLD}30`, padding: 60, textAlign: 'center', color: '#ccc' }}>
-                  <LayoutDashboard size={40} style={{ marginBottom: 12, opacity: 0.3 }} />
-                  <div style={{ fontSize: 14 }}>Dashboard vazio.</div>
-                  {modoEditar && <div style={{ fontSize: 12, marginTop: 4 }}>Clique em "Adicionar Widget" para começar.</div>}
-                  {!modoEditar && <div style={{ fontSize: 12, marginTop: 4 }}>Clique em "Editar" para adicionar widgets.</div>}
+      {/* Linha 3 — Gráficos + Alertas */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16, marginBottom:16 }}>
+
+        {/* Distribuição por regime */}
+        <div style={{ background:'#fff', borderRadius:12, padding:'18px 20px', border:'1px solid #e8e8e8', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:14 }}>📊 Clientes por Regime</div>
+          {distRegime.length===0
+            ? <div style={{ textAlign:'center', color:'#ccc', padding:20, fontSize:12 }}>Nenhum cliente cadastrado</div>
+            : distRegime.map(r=>{
+              const pct = Math.round(r.n/Math.max(totalCli,1)*100)
+              const cores = {'Simples Nacional':'#1D6FA4','MEI':'#854D0E','Lucro Real':'#6B3EC9','Lucro Presumido':'#5b21b6','RET':'#1A7A3C','Imune/Isento':'#6B7280'}
+              const cor = cores[r.label]||'#888'
+              return (
+                <div key={r.label} style={{ marginBottom:10 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:NAVY }}>{r.label}</span>
+                    <span style={{ fontSize:11, color:'#888' }}>{r.n} ({pct}%)</span>
+                  </div>
+                  <div style={{ height:7, background:'#f0f0f0', borderRadius:4, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${pct}%`, background:cor, borderRadius:4, transition:'width .4s' }}/>
+                  </div>
                 </div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* ── Modal: Novo/Editar Dashboard ── */}
-      {modalDash !== null && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{modalDash==='novo' ? 'Novo Dashboard' : 'Editar Dashboard'}</div>
-              <button onClick={() => setModalDash(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa' }}><X size={18} /></button>
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 5 }}>Nome do Dashboard</label>
-              <input value={formDash.nome} onChange={e => setFormDash(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Fiscal, RH, Meus Relatórios..." style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #e0e0e0', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 8 }}>Ícone</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>
-                {ICONES_DASH.map(ic => (
-                  <button key={ic} onClick={() => setFormDash(f => ({ ...f, icone: ic }))} style={{ padding: '8px', borderRadius: 8, fontSize: 20, border: `2px solid ${formDash.icone===ic ? NAVY : '#e8e8e8'}`, background: formDash.icone===ic ? '#F0F4FF' : '#fff', cursor: 'pointer' }}>{ic}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setModalDash(null)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
-              <button onClick={salvarDash} disabled={!formDash.nome} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, background: formDash.nome ? NAVY : '#ccc', color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: formDash.nome ? 'pointer' : 'default' }}>
-                <Save size={13} /> Salvar
-              </button>
-            </div>
-          </div>
+              )
+            })
+          }
         </div>
-      )}
 
-      {/* ── Modal: Adicionar/Editar Widget ── */}
-      {modalWidget !== null && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 560, maxHeight: '90vh', overflow: 'auto', padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{modalWidget.widget ? 'Editar Widget' : 'Adicionar Widget'}</div>
-              <button onClick={() => setModalWidget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#aaa' }}><X size={18} /></button>
-            </div>
+        {/* Top clientes por obrigações */}
+        <div style={{ background:'#fff', borderRadius:12, padding:'18px 20px', border:'1px solid #e8e8e8', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:14 }}>📋 Mais Obrigações</div>
+          {topCli.length===0
+            ? <div style={{ textAlign:'center', color:'#ccc', padding:20, fontSize:12 }}>Nenhum cliente</div>
+            : topCli.map((c,i)=>{
+              const n = (c.obrigacoes_vinculadas||[]).length
+              const pct = Math.round(n/maxObrig*100)
+              return (
+                <div key={c.id} style={{ marginBottom:10 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <span style={{ fontSize:11, fontWeight:600, color:NAVY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'75%' }} title={c.nome}>{i+1}. {c.nome}</span>
+                    <span style={{ fontSize:11, color:GOLD, fontWeight:700 }}>{n}</span>
+                  </div>
+                  <div style={{ height:6, background:'#f0f0f0', borderRadius:4, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${pct}%`, background:GOLD, borderRadius:4 }}/>
+                  </div>
+                </div>
+              )
+            })
+          }
+        </div>
 
-            {/* Tipo */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 8 }}>Tipo de Widget</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7 }}>
-                {TIPOS_WIDGET.map(t => (
-                  <button key={t.id} onClick={() => setFormWidget(f => ({ ...f, tipo: t.id }))} style={{ padding: '9px 12px', borderRadius: 8, textAlign: 'left', cursor: 'pointer', border: `2px solid ${formWidget.tipo===t.id ? NAVY : '#e8e8e8'}`, background: formWidget.tipo===t.id ? '#F0F4FF' : '#fff' }}>
-                    <div style={{ fontSize: 16, marginBottom: 2 }}>{t.icon}</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{t.label}</div>
-                    <div style={{ fontSize: 10, color: '#aaa', marginTop: 1 }}>{t.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Título */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 5 }}>Título do Widget</label>
-              <input value={formWidget.titulo} onChange={e => setFormWidget(f => ({ ...f, titulo: e.target.value }))} placeholder="Ex: Total de Clientes" style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #e0e0e0', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-            </div>
-
-            {/* Largura */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 5 }}>Largura</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[1,2,3].map(w => (
-                  <button key={w} onClick={() => setFormWidget(f => ({ ...f, w }))} style={{ flex: 1, padding: '8px', borderRadius: 8, border: `2px solid ${formWidget.w===w ? NAVY : '#e8e8e8'}`, background: formWidget.w===w ? '#F0F4FF' : '#fff', cursor: 'pointer', fontSize: 12, fontWeight: formWidget.w===w ? 700 : 400, color: NAVY }}>
-                    {w===1 ? '⅓ Pequeno' : w===2 ? '⅔ Médio' : '⬛ Largo'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Config específica por tipo */}
-            {formWidget.tipo === 'stat' && (
+        {/* Certificados - Distribuição PJ vs PF */}
+        <div style={{ background:'#fff', borderRadius:12, padding:'18px 20px', border:'1px solid #e8e8e8', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:14 }}>🔐 Certificados por Tipo</div>
+          {certs.length===0
+            ? <div style={{ textAlign:'center', color:'#ccc', padding:20, fontSize:12 }}>Nenhum certificado</div>
+            : (
               <>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 5 }}>Fonte de dados</label>
-                  <select value={formWidget.fonte} onChange={e => setFormWidget(f => ({ ...f, fonte: e.target.value }))} style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #e0e0e0', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box', cursor: 'pointer' }}>
-                    <option value="clientes_ativos">Clientes Ativos</option>
-                    <option value="total_obrigacoes">Total de Obrigações</option>
-                    <option value="enviadas">Enviadas</option>
-                    <option value="pendentes">Pendentes</option>
-                    <option value="com_erro">Com Erro</option>
-                  </select>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 5 }}>Ícone</label>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {ICONES_STAT.map(ic => <button key={ic} onClick={() => setFormWidget(f => ({ ...f, icone: ic }))} style={{ padding: '6px', borderRadius: 7, fontSize: 18, border: `2px solid ${formWidget.icone===ic ? NAVY : '#e8e8e8'}`, background: formWidget.icone===ic ? '#F0F4FF' : '#fff', cursor: 'pointer' }}>{ic}</button>)}
+                {[
+                  { label:'PJ — Empresa', n:certPJ, cor:NAVY, ic:Building2 },
+                  { label:'PF — Pessoa Física', n:certPF, cor:'#854D0E', ic:User },
+                ].map(t=>{ const Ic=t.ic; const pct=Math.round(t.n/Math.max(certs.length,1)*100); return (
+                  <div key={t.label} style={{ marginBottom:14 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:5 }}>
+                      <Ic size={13} style={{ color:t.cor }}/>
+                      <span style={{ fontSize:12, fontWeight:600, color:NAVY, flex:1 }}>{t.label}</span>
+                      <span style={{ fontSize:13, fontWeight:800, color:t.cor }}>{t.n}</span>
+                    </div>
+                    <div style={{ height:8, background:'#f0f0f0', borderRadius:4, overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${pct}%`, background:t.cor, borderRadius:4 }}/>
+                    </div>
+                    <div style={{ fontSize:10, color:'#aaa', marginTop:2 }}>{pct}% do total</div>
                   </div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 5 }}>Cor</label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {CORES_STAT.map(c => <button key={c.val} onClick={() => setFormWidget(f => ({ ...f, cor: c.val }))} title={c.nome} style={{ width: 28, height: 28, borderRadius: '50%', background: c.val, border: `3px solid ${formWidget.cor===c.val ? '#333' : 'transparent'}`, cursor: 'pointer' }} />)}
-                  </div>
+                )})}
+                <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid #f0f0f0' }}>
+                  {[{l:'A1 — Software', c:'#3b82f6'},{l:'A3 — Token', c:'#8b5cf6'}].map(t=>(
+                    <div key={t.l} style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'#888', marginBottom:4 }}>
+                      <span>{t.l}</span>
+                      <span style={{ fontWeight:700, color:t.c }}>{certs.filter(c=>c.tipo_cert===t.l.split(' ')[0]).length}</span>
+                    </div>
+                  ))}
                 </div>
               </>
-            )}
-
-            {formWidget.tipo === 'texto' && (
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, color: '#888', fontWeight: 600, display: 'block', marginBottom: 5 }}>Conteúdo</label>
-                <textarea value={formWidget.texto} onChange={e => setFormWidget(f => ({ ...f, texto: e.target.value }))} placeholder="Escreva suas notas aqui..." style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #e0e0e0', fontSize: 13, outline: 'none', width: '100%', height: 100, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
-              </div>
-            )}
-
-            {/* Preview */}
-            <div style={{ marginBottom: 18, padding: '10px 14px', borderRadius: 9, background: '#f8f9fb', border: '1px solid #e8e8e8' }}>
-              <div style={{ fontSize: 10, color: '#aaa', fontWeight: 700, marginBottom: 6, textTransform: 'uppercase' }}>Preview</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {formWidget.tipo==='stat' && <>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: (formWidget.cor||'#3b82f6')+'18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>{formWidget.icone||'📊'}</div>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#666' }}>{formWidget.titulo || 'Título do KPI'}</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: formWidget.cor||'#3b82f6' }}>{MOCK_STATS[formWidget.fonte] ?? 0}</div>
-                  </div>
-                </>}
-                {formWidget.tipo!=='stat' && <div style={{ fontSize: 13, color: '#888' }}>{TIPOS_WIDGET.find(t=>t.id===formWidget.tipo)?.icon} {formWidget.titulo || TIPOS_WIDGET.find(t=>t.id===formWidget.tipo)?.label}</div>}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => setModalWidget(null)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Cancelar</button>
-              <button onClick={salvarWidget} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 8, background: NAVY, color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: 'pointer' }}>
-                <Save size={13} /> {modalWidget.widget ? 'Atualizar' : 'Adicionar'}
-              </button>
-            </div>
-          </div>
+            )
+          }
         </div>
-      )}
+      </div>
+
+      {/* Linha 4 — Alertas certificados + Clientes sem obrigações */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+
+        {/* Alertas certificados */}
+        <div style={{ background:'#fff', borderRadius:12, padding:'18px 20px', border:'1px solid #e8e8e8', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+            <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>⚠ Certificados — Próximos Vencimentos</div>
+            {certAlertas.length>0&&<span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:'#FEF9C3', color:'#854D0E', fontWeight:700 }}>{certAlertas.length}</span>}
+          </div>
+          {certAlertas.length===0
+            ? <div style={{ textAlign:'center', color:'#16a34a', padding:20, fontSize:12 }}>✓ Nenhum certificado próximo do vencimento</div>
+            : certAlertas.map((c,i)=>{
+              const dias = statusCert(c.validade)
+              const cor  = dias<=30?'#f59e0b':'#3b82f6'
+              const bg   = dias<=30?'#FEF9C3':'#EFF6FF'
+              const isPF = c.tipo==='PF'
+              return (
+                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, background:i%2===0?'#fafafa':'#fff', marginBottom:4, border:`1px solid ${cor}20` }}>
+                  <div style={{ width:36, height:36, borderRadius:8, background:bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:11, fontWeight:800, color:cor }}>{dias}d</div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:NAVY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.cliente_nome}</div>
+                    {isPF&&<div style={{ fontSize:10, color:'#888' }}>👤 {c.responsavel_nome}</div>}
+                    <div style={{ fontSize:10, color:'#aaa' }}>{c.tipo_cert} · Vence {fmtData(c.validade)}</div>
+                  </div>
+                  <span style={{ fontSize:10, padding:'2px 7px', borderRadius:6, background:isPF?GOLD+'20':NAVY+'15', color:isPF?'#854D0E':NAVY, fontWeight:700 }}>{c.tipo}</span>
+                </div>
+              )
+            })
+          }
+        </div>
+
+        {/* Clientes sem obrigações */}
+        <div style={{ background:'#fff', borderRadius:12, padding:'18px 20px', border:'1px solid #e8e8e8', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+            <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>📌 Clientes sem Obrigações Vinculadas</div>
+            {semObrig>0&&<span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:'#FEF9C3', color:'#854D0E', fontWeight:700 }}>{semObrig}</span>}
+          </div>
+          {semObrig===0
+            ? <div style={{ textAlign:'center', color:'#16a34a', padding:20, fontSize:12 }}>✓ Todos os clientes têm obrigações vinculadas</div>
+            : clientes.filter(c=>!(c.obrigacoes_vinculadas||[]).length&&c.ativo!==false).slice(0,8).map((c,i)=>{
+              const ct = c.tributacao||c.regime||'—'
+              const cores = {'Simples Nacional':'#1D6FA4','MEI':'#854D0E','Lucro Real':'#6B3EC9','Lucro Presumido':'#5b21b6','RET':'#1A7A3C'}
+              const cor = cores[ct]||'#888'
+              return (
+                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:9, background:i%2===0?'#fafafa':'#fff', marginBottom:4 }}>
+                  <div style={{ width:32, height:32, borderRadius:8, background:NAVY+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:13, fontWeight:800, color:NAVY }}>
+                    {(c.nome||'?')[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:12, fontWeight:600, color:NAVY, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.nome}</div>
+                    <div style={{ fontSize:10, color:'#aaa' }}>{c.cnpj}</div>
+                  </div>
+                  <span style={{ fontSize:10, padding:'2px 7px', borderRadius:6, background:cor+'15', color:cor, fontWeight:600, whiteSpace:'nowrap' }}>{ct}</span>
+                </div>
+              )
+            })
+          }
+          {clientes.filter(c=>!(c.obrigacoes_vinculadas||[]).length&&c.ativo!==false).length>8&&(
+            <div style={{ textAlign:'center', fontSize:11, color:'#aaa', marginTop:8 }}>
+              + {clientes.filter(c=>!(c.obrigacoes_vinculadas||[]).length&&c.ativo!==false).length-8} outros
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
