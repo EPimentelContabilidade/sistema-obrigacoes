@@ -1,8 +1,110 @@
 import { useState, useEffect } from 'react'
-import { Search, ExternalLink, CheckCircle, AlertTriangle, FileText, Building2, ChevronDown, ChevronUp, X, Loader, Zap, Shield } from 'lucide-react'
+import { Search, ExternalLink, CheckCircle, AlertTriangle, FileText, Building2, ChevronDown, ChevronUp, X, Loader, Zap, Shield, Download } from 'lucide-react'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
+
+// ── Geração de PDF ────────────────────────────────────────────────────────────
+const carregarJsPDF = () => new Promise((resolve) => {
+  if (window.jspdf) { resolve(window.jspdf.jsPDF); return }
+  const s = document.createElement('script')
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  s.onload = () => resolve(window.jspdf.jsPDF)
+  s.onerror = () => resolve(null)
+  document.head.appendChild(s)
+})
+
+const gerarPDFFiscal = async (historico, clientes, filtroCliente) => {
+  const JsPDF = await carregarJsPDF()
+  if (!JsPDF) { alert('Erro ao carregar gerador de PDF.'); return }
+  const doc = new JsPDF({ orientation:'landscape', unit:'mm', format:'a4' })
+  const W = 297, H = 210
+  const NAVY_RGB = [27,42,74], GOLD_RGB = [197,165,90]
+  const hoje = new Date().toLocaleDateString('pt-BR')
+
+  // Cabeçalho
+  doc.setFillColor(...NAVY_RGB); doc.rect(0,0,W,28,'F')
+  doc.setTextColor(255,255,255)
+  doc.setFontSize(16); doc.setFont('helvetica','bold')
+  doc.text('EPimentel Auditoria & Contabilidade', 14, 11)
+  doc.setFontSize(10); doc.setFont('helvetica','normal')
+  doc.text('Relatório de Consultas Fiscais', 14, 18)
+  doc.setFontSize(9)
+  doc.text(`Emitido em: ${hoje}`, W-14, 11, {align:'right'})
+  doc.text('CRC/GO 026.994/O-8', W-14, 18, {align:'right'})
+  doc.setFillColor(...GOLD_RGB); doc.rect(0,28,W,1.5,'F')
+
+  // Filtro
+  const lista = filtroCliente ? historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliente.toLowerCase())) : historico
+  const clisUnicos = [...new Set(lista.map(h=>h.cliente_nome))].filter(Boolean)
+
+  // Resumo
+  doc.setTextColor(...NAVY_RGB); doc.setFontSize(11); doc.setFont('helvetica','bold')
+  doc.text(`Total de consultas: ${lista.length}  |  Clientes: ${clisUnicos.length}`, 14, 38)
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,100,100)
+  if (filtroCliente) doc.text(`Filtro: ${filtroCliente}`, 14, 44)
+
+  // Tabela
+  const cols = [
+    { label:'Data',        w:22 },
+    { label:'Cliente',     w:65 },
+    { label:'CNPJ',        w:34 },
+    { label:'Relatório',   w:52 },
+    { label:'Status',      w:40 },
+    { label:'Observações', w:60 },
+    { label:'Usuário',     w:22 },
+  ]
+  let y = filtroCliente ? 50 : 44
+  doc.setFillColor(...NAVY_RGB); doc.rect(14,y,W-28,7,'F')
+  doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold')
+  let x = 16
+  cols.forEach(c=>{ doc.text(c.label,x,y+5); x+=c.w })
+  y += 7; doc.setFont('helvetica','normal')
+
+  const stCores = {
+    'Sem pendências': [22,163,74], 'Pendências regularizadas': [22,163,74],
+    'Pendente — débitos': [220,38,38], 'Pendente — cadastral': [220,38,38],
+    'Irregular': [220,38,38], 'Não consultado': [150,150,150],
+  }
+
+  lista.forEach((h,i) => {
+    if (y > H-18) {
+      doc.addPage(); y=20
+      doc.setFillColor(...NAVY_RGB); doc.rect(14,y,W-28,7,'F')
+      doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold')
+      let xh=16; cols.forEach(c=>{ doc.text(c.label,xh,y+5); xh+=c.w }); y+=7; doc.setFont('helvetica','normal')
+    }
+    if(i%2===0){doc.setFillColor(248,249,251)}else{doc.setFillColor(255,255,255)}
+    doc.rect(14,y,W-28,7,'F')
+    const cor = stCores[h.status]||[100,100,100]
+    x=16; doc.setTextColor(60,60,60)
+    try{ doc.text((new Date(h.data).toLocaleDateString('pt-BR')).substring(0,10),x,y+5)}catch{doc.text(h.data||'—',x,y+5)}; x+=cols[0].w
+    doc.text((h.cliente_nome||'—').substring(0,28),x,y+5); x+=cols[1].w
+    doc.text((h.cnpj||'—').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5').substring(0,18),x,y+5); x+=cols[2].w
+    doc.text((h.relatorio||'—').substring(0,24),x,y+5); x+=cols[3].w
+    doc.setTextColor(...cor); doc.setFont('helvetica','bold')
+    doc.text((h.status||'—').substring(0,22),x,y+5); doc.setFont('helvetica','normal'); doc.setTextColor(60,60,60); x+=cols[4].w
+    doc.text((h.obs||'—').substring(0,30),x,y+5); x+=cols[5].w
+    doc.text((h.usuario||'—').substring(0,14),x,y+5)
+    y+=7
+  })
+
+  // Rodapé
+  const pags=doc.getNumberOfPages()
+  for(let p=1;p<=pags;p++){
+    doc.setPage(p); doc.setFillColor(...NAVY_RGB); doc.rect(0,H-10,W,10,'F')
+    doc.setTextColor(255,255,255); doc.setFontSize(7)
+    doc.text('EPimentel Auditoria & Contabilidade Ltda  ·  CRC/GO 026.994/O-8  ·  Documento gerado eletronicamente',14,H-4)
+    doc.text(`Pág. ${p}/${pags}`,W-14,H-4,{align:'right'})
+  }
+
+  if (lista.length===0) {
+    doc.setTextColor(150,150,150); doc.setFontSize(14); doc.setFont('helvetica','italic')
+    doc.text('Nenhuma consulta registrada.',W/2,H/2,{align:'center'})
+  }
+
+  doc.save(`EPimentel_RelatorioFiscal_${hoje.replace(/\//g,'-')}.pdf`)
+}
 const API = '/api/v1'
 const BACKEND = window.location.hostname.includes('railway.app')
   ? 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
@@ -156,7 +258,7 @@ export default function RelatorioFiscal() {
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif'}}>
       <div style={{background:'#fff',borderBottom:'1px solid #e8e8e8',display:'flex',alignItems:'center',padding:'0 16px'}}>
-        {[['consulta','🔍 Consulta'],['dashboard','📊 Dashboard'],['historico','📋 Histórico']].map(([id,label])=>(
+        {[['consulta','🔍 Consulta'],['dashboard','📊 Dashboard'],['historico','📋 Histórico'],['pdf','📄 PDF']].map(([id,label])=>(
           <button key={id} onClick={()=>setAba(id)} style={{padding:'11px 16px',fontSize:13,fontWeight:aba===id?700:400,color:aba===id?NAVY:'#999',background:'none',border:'none',borderBottom:aba===id?`2px solid ${GOLD}`:'2px solid transparent',cursor:'pointer'}}>{label}</button>
         ))}
         <div style={{marginLeft:'auto',display:'flex',gap:8}}>
@@ -319,6 +421,78 @@ export default function RelatorioFiscal() {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {aba==='pdf'&&(
+        <div style={{flex:1,overflowY:'auto',padding:'20px',background:'#f8f9fb'}}>
+          <div style={{maxWidth:700,margin:'0 auto',background:'#fff',borderRadius:12,padding:28,border:'1px solid #e8e8e8'}}>
+            <div style={{fontWeight:700,color:NAVY,fontSize:16,marginBottom:6}}>📄 Gerar Relatório PDF</div>
+            <div style={{fontSize:12,color:'#888',marginBottom:24}}>Gere um relatório profissional com todas as consultas fiscais registradas.</div>
+
+            {/* Filtros */}
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:6,textTransform:'uppercase'}}>Filtrar por Cliente</label>
+              <select value={filtroCliDash} onChange={e=>setFiltroCliDash(e.target.value)} style={{...inp,maxWidth:400,cursor:'pointer'}}>
+                <option value="">Todos os clientes</option>
+                {[...new Set(historico.map(h=>h.cliente_nome).filter(Boolean))].map(n=><option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+
+            {/* Preview */}
+            <div style={{marginBottom:20,padding:'14px 16px',borderRadius:10,background:'#f0f4ff',border:'1px solid #c7d7fd'}}>
+              <div style={{fontSize:12,fontWeight:700,color:NAVY,marginBottom:10}}>📊 Prévia do relatório</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+                {[
+                  {l:'Total de consultas',n:(filtroCliDash?historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliDash.toLowerCase())):historico).length,c:NAVY},
+                  {l:'Clientes incluídos',n:[...new Set((filtroCliDash?historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliDash.toLowerCase())):historico).map(h=>h.cliente_nome).filter(Boolean))].length,c:'#1D6FA4'},
+                  {l:'Com pendências',n:(filtroCliDash?historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliDash.toLowerCase())):historico).filter(h=>h.status?.includes('Pendente')||h.status==='Irregular').length,c:'#dc2626'},
+                ].map(s=>(
+                  <div key={s.l} style={{textAlign:'center',padding:'10px',borderRadius:8,background:'#fff',border:'1px solid #e8e8e8'}}>
+                    <div style={{fontSize:22,fontWeight:800,color:s.c}}>{s.n}</div>
+                    <div style={{fontSize:10,color:'#888'}}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Últimas consultas */}
+            {historico.length>0&&(
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:8}}>Últimas consultas incluídas</div>
+                {(filtroCliDash?historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliDash.toLowerCase())):historico).slice(0,4).map((h,i)=>{
+                  const cor=h.status?.includes('Pendente')||h.status==='Irregular'?'#dc2626':h.status==='Sem pendências'?'#16a34a':'#888'
+                  return (
+                    <div key={h.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',borderRadius:7,background:i%2===0?'#fafafa':'#fff',marginBottom:3}}>
+                      <span style={{fontSize:10,padding:'1px 7px',borderRadius:5,background:cor+'15',color:cor,fontWeight:700}}>{h.status}</span>
+                      <span style={{fontSize:11,color:NAVY,fontWeight:600,flex:1}}>{h.cliente_nome}</span>
+                      <span style={{fontSize:11,color:'#888'}}>{h.relatorio}</span>
+                      <span style={{fontSize:10,color:'#aaa'}}>{h.data}</span>
+                    </div>
+                  )
+                })}
+                {(filtroCliDash?historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliDash.toLowerCase())):historico).length>4&&(
+                  <div style={{fontSize:11,color:'#aaa',textAlign:'center',marginTop:4}}>
+                    + {(filtroCliDash?historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliDash.toLowerCase())):historico).length-4} mais registros no PDF
+                  </div>
+                )}
+              </div>
+            )}
+
+            {historico.length===0&&(
+              <div style={{padding:30,textAlign:'center',color:'#ccc',background:'#fafafa',borderRadius:10,marginBottom:20}}>
+                <FileText size={40} style={{marginBottom:8,opacity:.3}}/>
+                <div style={{fontSize:13}}>Nenhuma consulta registrada ainda.</div>
+                <div style={{fontSize:11,marginTop:4}}>Faça consultas na aba "Consulta" para gerar o relatório.</div>
+              </div>
+            )}
+
+            <button onClick={()=>gerarPDFFiscal(historico,clientes,filtroCliDash)}
+              disabled={historico.length===0}
+              style={{display:'flex',alignItems:'center',gap:8,padding:'12px 28px',borderRadius:10,background:historico.length>0?'#dc2626':'#ccc',color:'#fff',fontWeight:700,fontSize:14,border:'none',cursor:historico.length>0?'pointer':'default'}}>
+              <Download size={16}/> Gerar PDF
+            </button>
           </div>
         </div>
       )}
