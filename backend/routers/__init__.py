@@ -15,3 +15,4 @@ from .extras import contratos_router, comunicacao_router
 from .certidoes_real import certidoes_router
 from .goiania_robo import goiania_router, robo_obrig_router
 from .certificados import router as certificados_router
+from .ecac_download import router as ecac_download_router
