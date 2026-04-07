@@ -24,7 +24,6 @@ const gerarRelatorioCliente = async (cli, resultados, historico) => {
   const hojeD = new Date().toLocaleDateString('pt-BR')
   let y = M
 
-  // ── Cabeçalho institucional ──
   doc.setFillColor(240,240,240); doc.rect(M,y,W-M*2,22,'F')
   doc.setFillColor(...NAVY); doc.rect(M,y,3,22,'F')
   doc.setTextColor(...NAVY); doc.setFontSize(11); doc.setFont('helvetica','bold')
@@ -36,13 +35,11 @@ const gerarRelatorioCliente = async (cli, resultados, historico) => {
   doc.text('Página: 1 / 1', W-M, y+12, {align:'right'})
   y += 26
 
-  // ── Título do relatório ──
   doc.setFillColor(...NAVY); doc.rect(M,y,W-M*2,8,'F')
   doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont('helvetica','bold')
   doc.text('INFORMAÇÕES DE APOIO — DIAGNÓSTICO FISCAL', W/2, y+5.5, {align:'center'})
   y += 12
 
-  // ── Dados cadastrais ──
   const cnpjR = resultados?.cnpj_dados || resultados?.completo || {}
   const simplesR = resultados?.simples || resultados?.completo || {}
   const pgfnR = resultados?.pgfn || {}
@@ -79,18 +76,15 @@ const gerarRelatorioCliente = async (cli, resultados, historico) => {
   }
   campo('Capital Social', cnpjR.capital_social ? `R$ ${Number(cnpjR.capital_social).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '—', M, y)
 
-  // Regime
   const regime = simplesR.regime || (simplesR.optante_simples ? 'Simples Nacional' : simplesR.optante_mei ? 'MEI' : '—')
   campo('Regime', regime, M+95, y)
   y+=6
 
-  // Simples
   if (simplesR.optante_simples || simplesR.optante_mei) {
     campo('Opção Simples', simplesR.data_opcao_simples ? new Date(simplesR.data_opcao_simples).toLocaleDateString('pt-BR') : '—', M, y)
     y+=6
   }
 
-  // Sócios
   if (cnpjR.socios?.length > 0) {
     y+=2
     doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY); doc.setFontSize(8.5)
@@ -102,7 +96,6 @@ const gerarRelatorioCliente = async (cli, resultados, historico) => {
     })
   }
 
-  // ── Certidão ──
   y+=3
   doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY); doc.setFontSize(9.5)
   doc.text('Certidão Emitida', M, y); y+=1
@@ -111,7 +104,6 @@ const gerarRelatorioCliente = async (cli, resultados, historico) => {
   const semPendencias = !pgfnR.possui_debito &&
     (cnpjR.situacao_cadastral||'').toLowerCase().includes('ativa')
 
-  // Box resultado
   const boxH = 28
   doc.setFillColor(semPendencias?240:255, semPendencias?253:240, semPendencias?244:240)
   doc.setDrawColor(semPendencias?22:220, semPendencias?163:38, semPendencias?74:38)
@@ -128,14 +120,12 @@ const gerarRelatorioCliente = async (cli, resultados, historico) => {
     W/2, y+16, {align:'center', maxWidth: W-M*2-10}
   )
 
-  // PGFN status
   if (pgfnR.situacao) {
     doc.setTextColor(...GRAY); doc.setFontSize(8)
     doc.text(`PGFN: ${pgfnR.situacao}`, W/2, y+23, {align:'center'})
   }
   y += boxH + 6
 
-  // ── Histórico de consultas ──
   const histCli = historico.filter(h=>String(h.cliente_id)===String(cli?.id))
   if (histCli.length > 0) {
     doc.setFont('helvetica','bold'); doc.setTextColor(...NAVY); doc.setFontSize(9.5)
@@ -157,7 +147,6 @@ const gerarRelatorioCliente = async (cli, resultados, historico) => {
     })
   }
 
-  // ── Rodapé ──
   const rodY = 280
   doc.setFillColor(...NAVY); doc.rect(0,rodY,W,17,'F')
   doc.setFillColor(...GOLD); doc.rect(0,rodY,W,1.5,'F')
@@ -187,68 +176,13 @@ const gerarPDFFiscal = async (historico, clientes, filtroCliente) => {
   doc.setFillColor(...GOLD_RGB); doc.rect(0,28,W,1.5,'F')
 
   const lista = filtroCliente ? historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliente.toLowerCase())) : historico
-  const cols = [{label:'Data',w:22},{label:'Cliente',w:65},{label:'CNPJ',w:34},{label:'Relatório',w:52},{label:'Status',w:40},{label:'Observações',w:60},{label:'Usuário',w:22}]
-  let y = 38
-  doc.setFillColor(...NAVY_RGB); doc.rect(14,y,W-28,7,'F')
-  doc.setTextColor(255,255,255); doc.setFontSize(7.5); doc.setFont('helvetica','bold')
-  let x = 16; cols.forEach(c=>{doc.text(c.label,x,y+5);x+=c.w}); y+=7; doc.setFont('helvetica','normal')
-
-  const stCores = {'Sem pendências':[22,163,74],'Pendências regularizadas':[22,163,74],'Pendente — débitos':[220,38,38],'Pendente — cadastral':[220,38,38],'Irregular':[220,38,38],'Não consultado':[150,150,150]}
-
-  lista.forEach((h,i) => {
-    if(y>H-18){doc.addPage();y=20;doc.setFillColor(...NAVY_RGB);doc.rect(14,y,W-28,7,'F');doc.setTextColor(255,255,255);doc.setFontSize(7.5);doc.setFont('helvetica','bold');let xh=16;cols.forEach(c=>{doc.text(c.label,xh,y+5);xh+=c.w});y+=7;doc.setFont('helvetica','normal')}
-    if(i%2===0){doc.setFillColor(248,249,251)}else{doc.setFillColor(255,255,255)}
-    doc.rect(14,y,W-28,7,'F')
-    const cor=stCores[h.status]||[100,100,100]
-    x=16;doc.setTextColor(60,60,60)
-    try{doc.text((new Date(h.data).toLocaleDateString('pt-BR')).substring(0,10),x,y+5)}catch{doc.text(h.data||'—',x,y+5)};x+=cols[0].w
-    doc.text((h.cliente_nome||'—').substring(0,28),x,y+5);x+=cols[1].w
-    doc.text((h.cnpj||'—').replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5').substring(0,18),x,y+5);x+=cols[2].w
-    doc.text((h.relatorio||'—').substring(0,24),x,y+5);x+=cols[3].w
-    doc.setTextColor(...cor);doc.setFont('helvetica','bold')
-    doc.text((h.status||'—').substring(0,22),x,y+5);doc.setFont('helvetica','normal');doc.setTextColor(60,60,60);x+=cols[4].w
-    doc.text((h.obs||'—').substring(0,30),x,y+5);x+=cols[5].w
-    doc.text((h.usuario||'—').substring(0,14),x,y+5)
-    y+=7
-  })
-
-  const pags=doc.getNumberOfPages()
-  for(let p=1;p<=pags;p++){doc.setPage(p);doc.setFillColor(...NAVY_RGB);doc.rect(0,H-10,W,10,'F');doc.setTextColor(255,255,255);doc.setFontSize(7);doc.text('EPimentel Auditoria & Contabilidade Ltda  ·  CRC/GO 026.994/O-8',14,H-4);doc.text(`Pág. ${p}/${pags}`,W-14,H-4,{align:'right'})}
-
-  if(lista.length===0){doc.setTextColor(150,150,150);doc.setFontSize(14);doc.setFont('helvetica','italic');doc.text('Nenhuma consulta registrada.',W/2,H/2,{align:'center'})}
-
-  doc.save(`EPimentel_RelatorioFiscal_${hoje.replace(/\//g,'-')}.pdf`)
-}
-  const JsPDF = await carregarJsPDF()
-  if (!JsPDF) { alert('Erro ao carregar gerador de PDF.'); return }
-  const doc = new JsPDF({ orientation:'landscape', unit:'mm', format:'a4' })
-  const W = 297, H = 210
-  const NAVY_RGB = [27,42,74], GOLD_RGB = [197,165,90]
-  const hoje = new Date().toLocaleDateString('pt-BR')
-
-  // Cabeçalho
-  doc.setFillColor(...NAVY_RGB); doc.rect(0,0,W,28,'F')
-  doc.setTextColor(255,255,255)
-  doc.setFontSize(16); doc.setFont('helvetica','bold')
-  doc.text('EPimentel Auditoria & Contabilidade', 14, 11)
-  doc.setFontSize(10); doc.setFont('helvetica','normal')
-  doc.text('Relatório de Consultas Fiscais', 14, 18)
-  doc.setFontSize(9)
-  doc.text(`Emitido em: ${hoje}`, W-14, 11, {align:'right'})
-  doc.text('CRC/GO 026.994/O-8', W-14, 18, {align:'right'})
-  doc.setFillColor(...GOLD_RGB); doc.rect(0,28,W,1.5,'F')
-
-  // Filtro
-  const lista = filtroCliente ? historico.filter(h=>h.cliente_nome?.toLowerCase().includes(filtroCliente.toLowerCase())) : historico
   const clisUnicos = [...new Set(lista.map(h=>h.cliente_nome))].filter(Boolean)
 
-  // Resumo
   doc.setTextColor(...NAVY_RGB); doc.setFontSize(11); doc.setFont('helvetica','bold')
   doc.text(`Total de consultas: ${lista.length}  |  Clientes: ${clisUnicos.length}`, 14, 38)
   doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,100,100)
   if (filtroCliente) doc.text(`Filtro: ${filtroCliente}`, 14, 44)
 
-  // Tabela
   const cols = [
     { label:'Data',        w:22 },
     { label:'Cliente',     w:65 },
@@ -293,7 +227,6 @@ const gerarPDFFiscal = async (historico, clientes, filtroCliente) => {
     y+=7
   })
 
-  // Rodapé
   const pags=doc.getNumberOfPages()
   for(let p=1;p<=pags;p++){
     doc.setPage(p); doc.setFillColor(...NAVY_RGB); doc.rect(0,H-10,W,10,'F')
@@ -309,6 +242,7 @@ const gerarPDFFiscal = async (historico, clientes, filtroCliente) => {
 
   doc.save(`EPimentel_RelatorioFiscal_${hoje.replace(/\//g,'-')}.pdf`)
 }
+
 const API = '/api/v1'
 const BACKEND = window.location.hostname.includes('railway.app')
   ? 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
@@ -525,8 +459,8 @@ export default function RelatorioFiscal() {
               <>
                 <div style={{background:'#fff',borderRadius:10,padding:'12px 16px',marginBottom:14,border:'1px solid #e8e8e8',display:'flex',alignItems:'center',gap:12}}>
                   <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:NAVY}}>{cliSel.nome}</div><div style={{fontSize:11,color:'#888'}}>{cliSel.cnpj} · {portalSel.length} relatório(s)</div></div>
-                        <button onClick={()=>gerarRelatorioCliente(cliSel, resultados, historico)} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',fontWeight:700,fontSize:12,border:'1px solid #dc262630',cursor:'pointer'}}><Download size={11}/> Diagnóstico PDF</button>
-                        <button onClick={consultarTodosAuto} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 18px',borderRadius:9,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}><Zap size={14}/> Consultar Automaticamente</button>
+                  <button onClick={()=>gerarRelatorioCliente(cliSel, resultados, historico)} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',fontWeight:700,fontSize:12,border:'1px solid #dc262630',cursor:'pointer'}}><Download size={11}/> Diagnóstico PDF</button>
+                  <button onClick={consultarTodosAuto} style={{display:'flex',alignItems:'center',gap:7,padding:'9px 18px',borderRadius:9,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}><Zap size={14}/> Consultar Automaticamente</button>
                 </div>
                 {PORTAIS.filter(p=>portalSel.includes(p.id)).map(p=>{
                   const uc=ultimaConsulta(cliSel.id,p.id); const stUC=stCor(uc?.status); const loading=carregando[p.id]; const res=resultados[p.id]; const exp=expandidos[p.id]
@@ -648,7 +582,6 @@ export default function RelatorioFiscal() {
             <div style={{fontWeight:700,color:NAVY,fontSize:16,marginBottom:6}}>📄 Gerar Relatório PDF</div>
             <div style={{fontSize:12,color:'#888',marginBottom:24}}>Gere um relatório profissional com todas as consultas fiscais registradas.</div>
 
-            {/* Filtros */}
             <div style={{marginBottom:16}}>
               <label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:6,textTransform:'uppercase'}}>Filtrar por Cliente</label>
               <select value={filtroCliDash} onChange={e=>setFiltroCliDash(e.target.value)} style={{...inp,maxWidth:400,cursor:'pointer'}}>
@@ -657,7 +590,6 @@ export default function RelatorioFiscal() {
               </select>
             </div>
 
-            {/* Diagnóstico por cliente */}
             <div style={{marginBottom:20,padding:'14px 16px',borderRadius:10,background:'#FEF2F2',border:'1px solid #fca5a5'}}>
               <div style={{fontSize:12,fontWeight:700,color:'#dc2626',marginBottom:10}}>📋 Diagnóstico Fiscal Individual (por cliente)</div>
               <div style={{fontSize:11,color:'#888',marginBottom:10}}>Gera um relatório no formato da Receita Federal com todos os dados do cliente selecionado.</div>
@@ -678,7 +610,6 @@ export default function RelatorioFiscal() {
               </div>
             </div>
 
-            {/* Preview */}
             <div style={{marginBottom:20,padding:'14px 16px',borderRadius:10,background:'#f0f4ff',border:'1px solid #c7d7fd'}}>
               <div style={{fontSize:12,fontWeight:700,color:NAVY,marginBottom:10}}>📊 Prévia do relatório</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
@@ -695,7 +626,6 @@ export default function RelatorioFiscal() {
               </div>
             </div>
 
-            {/* Últimas consultas */}
             {historico.length>0&&(
               <div style={{marginBottom:20}}>
                 <div style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:8}}>Últimas consultas incluídas</div>
@@ -732,8 +662,6 @@ export default function RelatorioFiscal() {
                 style={{display:'flex',alignItems:'center',gap:8,padding:'12px 24px',borderRadius:10,background:historico.length>0?'#dc2626':'#ccc',color:'#fff',fontWeight:700,fontSize:14,border:'none',cursor:historico.length>0?'pointer':'default'}}>
                 <Download size={16}/> Gerar PDF
               </button>
-
-              {/* Enviar por WhatsApp */}
               {(()=>{
                 const cliAtual = filtroCliDash ? clientes.find(c=>c.nome?.toLowerCase().includes(filtroCliDash.toLowerCase())) : null
                 const wpp = cliAtual?.contatos?.find(c=>c.whatsapp)?.whatsapp || cliAtual?.whatsapp
@@ -752,7 +680,6 @@ export default function RelatorioFiscal() {
                       📧 Enviar E-mail
                     </button>
                   )}
-                  {/* Botões do escritório sempre visíveis */}
                   <button onClick={()=>window.open(`https://wa.me/5562999999999?text=${msg}`,'_blank')}
                     style={{display:'flex',alignItems:'center',gap:8,padding:'12px 20px',borderRadius:10,background:'#EDFBF1',color:'#166534',fontWeight:700,fontSize:14,border:'1px solid #bbf7d0',cursor:'pointer'}}>
                     💬 WhatsApp Escritório
