@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/ecac", tags=["ecac-download"])
+router = APIRouter(prefix="/api/v1/ecac", tags=["ecac-download"])
 
 CERT_DIR = Path("/app/certificados_servidor")
 DOWNLOAD_DIR = Path("/app/downloads_temp")
