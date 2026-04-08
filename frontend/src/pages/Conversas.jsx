@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 const WPP_GREEN = '#25D366'
-const EVOLUTION_URL = 'https://evolution-api-production-1e92.up.railway.app'
+const WPP_API = '/api/v1/whatsapp'
 
 // ── Helper: busca cliente pelo número ────────────────────────────────────────
 function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch { return [] } }
@@ -79,17 +79,17 @@ function TabConversas() {
   const chatRef=useRef()
 
   const carregar=useCallback(async()=>{
-    try { const r=await fetch(`${EVOLUTION_URL}/chat/findChats/${INSTANCE}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({})}); const d=await r.json(); setConversas(Array.isArray(d)?d:[]) } catch { setConversas([]) }
+    try { const r=await fetch(`${WPP_API}/chats`); const d=await r.json(); setConversas(Array.isArray(d)?d:[]) } catch { setConversas([]) }
   },[])
 
   const carregarMsgs=useCallback(async(jid)=>{
-    try { const r=await fetch(`${EVOLUTION_URL}/chat/findMessages/${INSTANCE}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({where:{key:{remoteJid:jid}},limit:50})}); const d=await r.json(); const m=Array.isArray(d?.messages?.records)?d.messages.records:[]; setMensagens(m.sort((a,b)=>a.messageTimestamp-b.messageTimestamp)) } catch { setMensagens([]) }
+    try { const r=await fetch(`${WPP_API}/messages`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({where:{key:{remoteJid:jid}},limit:50})}); const d=await r.json(); const m=Array.isArray(d?.messages?.records)?d.messages.records:[]; setMensagens(m.sort((a,b)=>a.messageTimestamp-b.messageTimestamp)) } catch { setMensagens([]) }
   },[])
 
   const enviar=async()=>{
     if(!texto.trim()||!convSel||enviando) return
     setEnviando(true)
-    try { await fetch(`${EVOLUTION_URL}/message/sendText/${INSTANCE}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({number:convSel.id,text:texto})}); setTexto(''); await carregarMsgs(convSel.id) } finally { setEnviando(false) }
+    try { await fetch(`${WPP_API}/send`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({number:convSel.id,text:texto})}); setTexto(''); await carregarMsgs(convSel.id) } finally { setEnviando(false) }
   }
 
   useEffect(()=>{ carregar() },[])
