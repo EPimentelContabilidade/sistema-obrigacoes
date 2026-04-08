@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 
+
+// ── Helper clientes ──────────────────────────────────────────────────────────
+function getClienteById(id) { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]').find(c=>String(c.id)===String(id))||null } catch { return null } }
 const NAVY = "#1B2A4A";
 const GOLD = "#C5A55A";
 const fmtData = d => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
@@ -591,7 +594,10 @@ function TabProcessos({ templates }) {
                 <span style={{ fontWeight:700,color:NAVY,fontSize:13 }}>{p.titulo}</span>
                 <Badge cor={STATUS_CORES[p.status]||"#999"} texto={p.status} />
               </div>
-              <div style={{ fontSize:12,color:"#666",marginBottom:5 }}>👤 {p.cliente}{p.categoria?` · ${p.categoria}`:""}</div>
+              <div style={{ fontSize:12,color:"#666",marginBottom:5 }}>
+                👤 {p.cliente}{p.categoria?` · ${p.categoria}`:""}
+                {p.clienteId&&(()=>{ const cli=getClienteById(p.clienteId); return cli&&cli.tributacao?<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:6,background:"#EBF5FF",color:"#1D6FA4",fontWeight:600}}>{cli.tributacao}</span>:null })()}
+              </div>
               <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                 <div style={{ flex:1,height:4,background:"#eee",borderRadius:4 }}><div style={{ width:`${progresso(p)}%`,height:"100%",background:GOLD,borderRadius:4 }} /></div>
                 <span style={{ fontSize:11,color:"#888" }}>{progresso(p)}%</span>
@@ -617,6 +623,22 @@ function TabProcessos({ templates }) {
             </div>
             <button onClick={()=>setSelecionado(null)} style={{ background:"none",border:"none",cursor:"pointer",fontSize:22,color:"#999" }}>×</button>
           </div>
+          {/* Card do cliente */}
+          {selecionado.clienteId&&(()=>{ const cli=getClienteById(selecionado.clienteId); return cli?(
+            <div style={{background:"#EBF5FF",borderRadius:10,padding:"10px 14px",marginBottom:12,border:"1px solid #c7d7fd",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:NAVY,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:13,flexShrink:0}}>{(cli.nome_razao||cli.nome||"?")[0]}</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,color:NAVY,fontSize:13}}>{cli.nome_razao||cli.nome}</div>
+                <div style={{display:"flex",gap:8,marginTop:2,flexWrap:"wrap"}}>
+                  <span style={{fontSize:11,color:"#555"}}>{cli.cnpj}</span>
+                  <span style={{fontSize:11,padding:"1px 7px",borderRadius:6,background:"#fff",color:"#1D6FA4",fontWeight:600}}>{cli.tributacao||cli.regime}</span>
+                  {cli.canal_padrao==="whatsapp"&&cli.whatsapp&&<a href={"https://wa.me/55"+cli.whatsapp.replace(/\D/g,"")} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#25D366",fontWeight:700,textDecoration:"none"}}>💬 WhatsApp</a>}
+                  {cli.email&&<a href={"mailto:"+cli.email} style={{fontSize:11,color:"#1976D2",textDecoration:"none"}}>📧 E-mail</a>}
+                </div>
+              </div>
+              <span style={{fontSize:11,padding:"2px 9px",borderRadius:8,background:cli.ativo!==false?"#F0FDF4":"#f5f5f5",color:cli.ativo!==false?"#166534":"#888",fontWeight:600}}>{cli.ativo!==false?"● Ativo":"○ Inativo"}</span>
+            </div>
+          ):null })()}
           <div style={{ background:"#fff",borderRadius:10,padding:14,marginBottom:14,border:"1px solid #eee" }}>
             <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}><span style={{ fontWeight:700,color:NAVY,fontSize:13 }}>Progresso</span><span style={{ fontWeight:700,color:GOLD }}>{progresso(selecionado)}%</span></div>
             <div style={{ height:8,background:"#eee",borderRadius:4 }}><div style={{ width:`${progresso(selecionado)}%`,height:"100%",background:GOLD,borderRadius:4,transition:"width .3s" }} /></div>
