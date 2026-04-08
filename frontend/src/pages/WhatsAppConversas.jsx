@@ -1,501 +1,388 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Send, Paperclip, Link2, Search, X, Check, CheckCheck, FileText, RefreshCw, Plus, QrCode, Wifi, WifiOff, Loader, Trash2, Reply } from 'lucide-react'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 const WPP_GREEN = '#25D366'
-const EVOLUTION_URL = 'https://evolution-api-production-1e92.up.railway.app'
+const BACKEND = window.location.hostname.includes('railway.app')
+  ? 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
+  : '/api/v1'
 
-// ── Helper: busca cliente pelo número ────────────────────────────────────────
-function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch { return [] } }
-function clientePorTel(jid) {
-  const num = (jid||'').split('@')[0].replace(/\D/g,'').replace(/^55/,'')
-  return getClientes().find(c => {
-    const ws = (c.whatsapp||c.telefone||'').replace(/\D/g,'').replace(/^55/,'')
-    return ws && ws === num
-  }) || null
+const addDDI = (t) => { const n=(t||'').replace(/\D/g,''); return n.startsWith('55')?n:'55'+n }
+const fmtHora = (iso) => { try { return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) } catch { return '' } }
+const fmtData = (iso) => { try { const d=new Date(iso),h=new Date(); if(d.toDateString()===h.toDateString()) return 'Hoje'; const on=new Date(h); on.setDate(h.getDate()-1); if(d.toDateString()===on.toDateString()) return 'Ontem'; return d.toLocaleDateString('pt-BR') } catch { return '' } }
+const fmtTam = (b) => { if(!b) return ''; if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(1)+'MB' }
+
+function Tick({ status }) {
+  if(status==='lida'||status==='reproduzida') return <CheckCheck size={12} style={{color:'#53bdeb'}}/>
+  if(status==='entregue') return <CheckCheck size={12} style={{color:'rgba(255,255,255,.55)'}}/>
+  if(status==='enviada') return <Check size={12} style={{color:'rgba(255,255,255,.55)'}}/>
+  return null
 }
 
-const EVOLUTION_KEY = 'epimentel-secret'
-const INSTANCE = 'epimentel'
-
-function tocarSom() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain); gain.connect(ctx.destination)
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(880, ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1)
-    gain.gain.setValueAtTime(0.3, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
-    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3)
-  } catch {}
-}
-
-async function notificar(titulo, corpo) {
-  if (!('Notification' in window)) return
-  if (Notification.permission === 'default') await Notification.requestPermission()
-  if (Notification.permission === 'granted') {
-    const n = new Notification(titulo, { body: corpo, icon: '/favicon.ico', tag: 'ep-msg' })
-    setTimeout(() => n.close(), 5000)
-  }
-}
-
-const fmtHora = iso => { try { return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) } catch { return '' } }
-
-const USUARIO_LOCAL = (() => { try { return JSON.parse(localStorage.getItem('usuario')||'{}') } catch { return {} } })()
-const MEU_NOME = USUARIO_LOCAL.nome || 'Eduardo Pimentel'
-const MEU_AVATAR = MEU_NOME.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
-
-function Avatar({ nome, size=38, cor=NAVY }) {
-  const ini = (nome||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
-  return <div style={{width:size,height:size,borderRadius:'50%',background:cor,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:size*0.36,flexShrink:0}}>{ini}</div>
-}
-
-function Popup({ msg, onClose }) {
-  useEffect(() => { const t=setTimeout(onClose,5000); return ()=>clearTimeout(t) },[])
+function Bolha({ msg, onReply }) {
+  const env = msg.direcao==='enviada'
   return (
-    <div style={{position:'fixed',bottom:24,right:24,zIndex:9999,background:'#fff',borderRadius:12,padding:'14px 18px',boxShadow:'0 8px 32px rgba(0,0,0,.18)',border:`2px solid ${WPP_GREEN}`,maxWidth:320,display:'flex',gap:12,alignItems:'flex-start'}}>
-      <div style={{fontSize:28}}>💬</div>
-      <div style={{flex:1}}>
-        <div style={{fontWeight:700,color:NAVY,fontSize:13}}>{msg.de}</div>
-        <div style={{fontSize:12,color:'#555',marginTop:2}}>{msg.texto}</div>
-        <div style={{fontSize:10,color:'#aaa',marginTop:4}}>{fmtHora(msg.timestamp)}</div>
+    <div style={{display:'flex',flexDirection:'column',alignItems:env?'flex-end':'flex-start',marginBottom:3}}>
+      <div style={{maxWidth:'75%',padding:'7px 11px 5px',borderRadius:env?'12px 2px 12px 12px':'2px 12px 12px 12px',background:env?NAVY:'#fff',color:env?'#fff':'#333',boxShadow:'0 1px 3px rgba(0,0,0,.1)'}}>
+        {!env&&msg.cliente_nome&&<div style={{fontSize:10,fontWeight:700,color:WPP_GREEN,marginBottom:2}}>{msg.cliente_nome}</div>}
+        {msg.resposta_a&&<div style={{padding:'3px 8px',borderRadius:6,background:env?'rgba(255,255,255,.15)':'#f0f4ff',borderLeft:`3px solid ${WPP_GREEN}`,marginBottom:5,fontSize:11,color:env?'rgba(255,255,255,.8)':'#555'}}>{msg.resposta_a}</div>}
+        {(msg.tipo==='document'||msg.tipo==='image')&&msg.nome_arquivo&&(
+          <div style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:7,background:env?'rgba(255,255,255,.12)':'#f0f4ff',marginBottom:4}}>
+            <FileText size={20} style={{color:env?'#fff':NAVY,flexShrink:0}}/>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:11,fontWeight:600,color:env?'#fff':NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:180}}>{msg.nome_arquivo}</div>
+              {msg.tamanho&&<div style={{fontSize:9,color:env?'rgba(255,255,255,.6)':'#888'}}>{fmtTam(msg.tamanho)}</div>}
+            </div>
+          </div>
+        )}
+        {msg.mensagem&&!msg.mensagem.startsWith('[')&&<div style={{fontSize:13,lineHeight:1.45,wordBreak:'break-word',whiteSpace:'pre-wrap'}}>{msg.mensagem}</div>}
+        {msg.mensagem&&msg.mensagem.startsWith('[')&&!msg.nome_arquivo&&<div style={{fontSize:12,color:env?'rgba(255,255,255,.65)':'#888',fontStyle:'italic'}}>{msg.mensagem}</div>}
+        <div style={{display:'flex',alignItems:'center',gap:3,justifyContent:'flex-end',marginTop:2}}>
+          <span style={{fontSize:10,color:env?'rgba(255,255,255,.5)':'#aaa'}}>{fmtHora(msg.timestamp)}</span>
+          {env&&<Tick status={msg.status}/>}
+        </div>
       </div>
-      <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa',fontSize:16}}>×</button>
     </div>
   )
 }
 
-// ── TabConversas ──────────────────────────────────────────────────────────────
-function TabConversas() {
-  const [conversas,setConversas]=useState([])
-  const [convSel,setConvSel]=useState(null)
-  const [mensagens,setMensagens]=useState([])
-  const [texto,setTexto]=useState('')
-  const [enviando,setEnviando]=useState(false)
-  const [busca,setBusca]=useState('')
-  const chatRef=useRef()
+export default function WhatsAppConversas() {
+  const [conversas, setConversas] = useState([])
+  const [convSel, setConvSel] = useState(null)
+  const [mensagens, setMensagens] = useState([])
+  const [texto, setTexto] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [docAnexo, setDocAnexo] = useState(null)
+  const [legendaDoc, setLegendaDoc] = useState('')
+  const [modalLink, setModalLink] = useState(false)
+  const [modalNova, setModalNova] = useState(false)
+  const [modalQR, setModalQR] = useState(false)
+  const [linkForm, setLinkForm] = useState({url:'',mensagem:''})
+  const [novaForm, setNovaForm] = useState({telefone:'',cliente_nome:'',mensagem_inicial:''})
+  const [status, setStatus] = useState(null)
+  const [qrCode, setQrCode] = useState('')
+  const [carregandoMsgs, setCarregandoMsgs] = useState(false)
+  const [respondendo, setRespondendo] = useState(null)
+  const [clientes, setClientes] = useState([])
+  const [clienteBusca, setClienteBusca] = useState('')
+  const chatRef = useRef()
+  const inputRef = useRef()
 
-  const carregar=useCallback(async()=>{
-    try { const r=await fetch(`${EVOLUTION_URL}/chat/findChats/${INSTANCE}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({})}); const d=await r.json(); setConversas(Array.isArray(d)?d:[]) } catch { setConversas([]) }
-  },[])
+  useEffect(() => {
+    try { setClientes(JSON.parse(localStorage.getItem('ep_clientes')||'[]')) } catch {}
+    verificarStatus(); carregarConversas()
+    const iv = setInterval(() => { carregarConversas(); if(convSel) carregarMensagens(convSel.telefone,false) }, 8000)
+    return () => clearInterval(iv)
+  }, [])
 
-  const carregarMsgs=useCallback(async(jid)=>{
-    try { const r=await fetch(`${EVOLUTION_URL}/chat/findMessages/${INSTANCE}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({where:{key:{remoteJid:jid}},limit:50})}); const d=await r.json(); const m=Array.isArray(d?.messages?.records)?d.messages.records:[]; setMensagens(m.sort((a,b)=>a.messageTimestamp-b.messageTimestamp)) } catch { setMensagens([]) }
-  },[])
+  useEffect(() => { if(chatRef.current) chatRef.current.scrollTop=chatRef.current.scrollHeight }, [mensagens])
 
-  const enviar=async()=>{
+  const verificarStatus = async () => {
+    try { const r=await fetch(`${BACKEND}/whatsapp/status`); const d=await r.json(); setStatus(d); if(d.status==='desconectado') buscarQR() }
+    catch { setStatus({status:'erro',mensagem:'Backend indisponível'}) }
+  }
+
+  const buscarQR = async () => {
+    try { const r=await fetch(`${BACKEND}/whatsapp/qrcode`); const d=await r.json(); if(d.qrcode) setQrCode(d.qrcode) } catch {}
+  }
+
+  const carregarConversas = async () => {
+    try { const r=await fetch(`${BACKEND}/whatsapp/conversas`); const d=await r.json(); setConversas(d.conversas||[]) } catch {}
+  }
+
+  const carregarMensagens = async (tel, loader=true) => {
+    if(loader) setCarregandoMsgs(true)
+    try { const r=await fetch(`${BACKEND}/whatsapp/historico/${tel}`); const d=await r.json(); setMensagens(d.mensagens||[]) } catch {}
+    if(loader) setCarregandoMsgs(false)
+  }
+
+  const selecionarConversa = async (conv) => {
+    setConvSel(conv); setDocAnexo(null); setLegendaDoc(''); setRespondendo(null)
+    await carregarMensagens(conv.telefone)
+    await fetch(`${BACKEND}/whatsapp/marcar-todas-lidas/${conv.telefone}`,{method:'POST'})
+    await carregarConversas()
+    setTimeout(()=>inputRef.current?.focus(),100)
+  }
+
+  const enviarTexto = async () => {
     if(!texto.trim()||!convSel||enviando) return
-    setEnviando(true)
-    try { await fetch(`${EVOLUTION_URL}/message/sendText/${INSTANCE}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({number:convSel.id,text:texto})}); setTexto(''); await carregarMsgs(convSel.id) } finally { setEnviando(false) }
-  }
-
-  useEffect(()=>{ carregar() },[])
-  useEffect(()=>{ if(convSel) carregarMsgs(convSel.id) },[convSel])
-  useEffect(()=>{ chatRef.current?.scrollTo(0,chatRef.current.scrollHeight) },[mensagens])
-  useEffect(()=>{ const iv=setInterval(()=>{ if(convSel) carregarMsgs(convSel.id) },8000); return()=>clearInterval(iv) },[convSel])
-
-  const filtradas=conversas.filter(c=>!busca||(c.pushName||c.id||'').toLowerCase().includes(busca.toLowerCase()))
-
-  return (
-    <div style={{display:'flex',flex:1,overflow:'hidden'}}>
-      <div style={{width:300,background:'#fff',borderRight:'1px solid #E0E0E0',display:'flex',flexDirection:'column'}}>
-        <div style={{padding:'10px 12px',borderBottom:'1px solid #eee'}}>
-          <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar..." style={{width:'100%',padding:'8px 12px',borderRadius:20,border:'1px solid #ddd',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
-        </div>
-        <div style={{flex:1,overflowY:'auto'}}>
-          {filtradas.length===0&&<div style={{padding:24,textAlign:'center',color:'#aaa',fontSize:13}}>Nenhuma conversa.<br/>Conecte o WhatsApp.</div>}
-          {filtradas.map(c=>(
-            <div key={c.id} onClick={()=>setConvSel(c)} style={{padding:'12px 14px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',borderBottom:'1px solid #F5F5F5',background:convSel?.id===c.id?'#E8F5E9':'transparent'}}>
-              <Avatar nome={c.pushName||c.id} cor={WPP_GREEN}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:600,color:NAVY,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.pushName||c.id?.split('@')[0]}</div>
-                <div style={{fontSize:11,color:'#888',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.lastMessage?.message?.conversation||''}</div>
-              </div>
-              {c.unreadCount>0&&<div style={{background:WPP_GREEN,color:'#fff',borderRadius:10,padding:'1px 7px',fontSize:11,fontWeight:700}}>{c.unreadCount}</div>}
-            </div>
-          ))}
-        </div>
-        <div style={{padding:10}}>
-          <button onClick={carregar} style={{width:'100%',padding:8,background:NAVY,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700}}>🔄 Atualizar</button>
-        </div>
-      </div>
-      <div style={{flex:1,display:'flex',flexDirection:'column',background:'#ECE5DD'}}>
-        {!convSel?(
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10}}><div style={{fontSize:48}}>💬</div><div style={{color:'#aaa',fontSize:14}}>Selecione uma conversa</div></div>
-        ):(
-          <>
-            <div style={{background:'#075E54',padding:'10px 16px',display:'flex',alignItems:'center',gap:12}}>
-              <Avatar nome={convSel.pushName||convSel.id} cor={WPP_GREEN}/>
-              <div style={{flex:1}}>
-                <div style={{color:'#fff',fontWeight:700}}>{convSel.pushName||convSel.id?.split('@')[0]}</div>
-                {(()=>{ const cli=clientePorTel(convSel.id); return cli?(
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:2}}>
-                    <span style={{color:'#88c8a8',fontSize:11}}>📋 {cli.nome_razao||cli.nome}</span>
-                    <span style={{color:GOLD,fontSize:10,background:'rgba(197,165,90,.2)',padding:'1px 6px',borderRadius:6}}>{cli.tributacao||cli.regime}</span>
-                    {cli.cnpj&&<span style={{color:'rgba(255,255,255,.5)',fontSize:10}}>{cli.cnpj}</span>}
-                  </div>
-                ):<div style={{color:'#88c8a8',fontSize:11}}>{convSel.id?.split('@')[0]}</div>})()}
-              </div>
-            </div>
-            <div ref={chatRef} style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:4}}>
-              {mensagens.map((m,i)=>{
-                const minha=m.key?.fromMe
-                const txt=m.message?.conversation||m.message?.extendedTextMessage?.text||'[mídia]'
-                return (
-                  <div key={i} style={{display:'flex',justifyContent:minha?'flex-end':'flex-start'}}>
-                    <div style={{maxWidth:'72%',padding:'7px 11px 5px',borderRadius:minha?'12px 2px 12px 12px':'2px 12px 12px 12px',background:minha?'#DCF8C6':'#fff',boxShadow:'0 1px 2px rgba(0,0,0,.1)',fontSize:13}}>
-                      <div>{txt}</div>
-                      <div style={{fontSize:10,color:'#999',textAlign:'right',marginTop:2}}>{new Date(m.messageTimestamp*1000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}{minha&&' ✓✓'}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div style={{background:'#F0F2F5',padding:'8px 12px',display:'flex',gap:8}}>
-              <input value={texto} onChange={e=>setTexto(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enviar()} placeholder="Digite uma mensagem..." style={{flex:1,padding:'10px 14px',borderRadius:20,border:'none',fontSize:13,outline:'none'}}/>
-              <button onClick={enviar} disabled={!texto.trim()||enviando} style={{background:WPP_GREEN,color:'#fff',border:'none',borderRadius:'50%',width:42,height:42,cursor:'pointer',fontSize:18,opacity:!texto.trim()?0.5:1}}>➤</button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── TabQRCode ─────────────────────────────────────────────────────────────────
-function TabQRCode() {
-  const [status,setStatus]=useState(null)
-  const [qr,setQr]=useState(null)
-  const [loading,setLoading]=useState(false)
-  const [countdown,setCountdown]=useState(0)
-  const timerRef=useRef()
-
-  const verificar=async()=>{
+    const msg = texto.trim()
+    const msgFinal = respondendo ? `_↩ "${respondendo.mensagem?.substring(0,40)}"_\n\n${msg}` : msg
+    setTexto(''); setRespondendo(null); setEnviando(true)
+    setMensagens(prev=>[...prev,{id:'tmp_'+Date.now(),tipo:'texto',mensagem:msg,direcao:'enviada',status:'enviando',timestamp:new Date().toISOString(),resposta_a:respondendo?.mensagem?.substring(0,60)}])
     try {
-      const r=await fetch(`${EVOLUTION_URL}/instance/fetchInstances`,{headers:{apikey:EVOLUTION_KEY}})
-      const d=await r.json()
-      const inst=Array.isArray(d)?d.find(i=>i.instance?.instanceName===INSTANCE):null
-      const ok=inst?.instance?.connectionStatus==='open'
-      setStatus(ok?'conectado':'desconectado')
-      return ok
-    } catch { setStatus('erro'); return false }
-  }
-
-  const gerarQR=async()=>{
-    setLoading(true); setQr(null)
-    try {
-      try { await fetch(`${EVOLUTION_URL}/instance/create`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({instanceName:INSTANCE,qrcode:true,integration:'WHATSAPP-BAILEYS'})}) } catch {}
-      const r=await fetch(`${EVOLUTION_URL}/instance/connect/${INSTANCE}`,{headers:{apikey:EVOLUTION_KEY}})
-      const d=await r.json()
-      const code=d.base64||d.qrcode?.base64||d.code
-      if(code){
-        setQr(code.startsWith('data:')?code:`data:image/png;base64,${code}`)
-        setCountdown(60)
-        clearInterval(timerRef.current)
-        timerRef.current=setInterval(()=>setCountdown(c=>{if(c<=1){clearInterval(timerRef.current);return 0}return c-1}),1000)
-      }
-    } catch(e){console.error('QR:',e)}
-    setLoading(false)
-  }
-
-  useEffect(()=>{
-    verificar()
-    const iv=setInterval(async()=>{ const ok=await verificar(); if(ok){setQr(null);clearInterval(timerRef.current)} },5000)
-    return()=>{clearInterval(iv);clearInterval(timerRef.current)}
-  },[])
-
-  return (
-    <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#F0F2F5'}}>
-      <div style={{background:'#fff',borderRadius:16,padding:40,boxShadow:'0 4px 24px rgba(0,0,0,.08)',textAlign:'center',maxWidth:420,width:'100%'}}>
-        <div style={{fontSize:44,marginBottom:12}}>📱</div>
-        <h2 style={{color:NAVY,margin:'0 0 6px'}}>Conectar WhatsApp</h2>
-        <p style={{color:'#666',fontSize:13,marginBottom:24}}>Abra o WhatsApp → Menu → Dispositivos conectados → Conectar dispositivo</p>
-        {status==='conectado'?(
-          <div style={{background:'#E8F5E9',borderRadius:10,padding:20,marginBottom:16}}>
-            <div style={{fontSize:36}}>✅</div>
-            <div style={{color:'#2E7D32',fontWeight:700,fontSize:16,marginTop:8}}>WhatsApp Conectado!</div>
-            <div style={{color:'#555',fontSize:12,marginTop:4}}>Instância: {INSTANCE}</div>
-          </div>
-        ):qr&&countdown>0?(
-          <div style={{marginBottom:16}}>
-            <img src={qr} alt="QR Code" style={{width:250,height:250,border:`4px solid ${NAVY}`,borderRadius:12}}/>
-            <div style={{marginTop:8,fontSize:12,color:'#888'}}>Expira em <b style={{color:countdown<15?'#e53935':'#555'}}>{countdown}s</b></div>
-          </div>
-        ):(
-          <div style={{marginBottom:16}}>
-            {status==='desconectado'&&<div style={{background:'#FFF3E0',borderRadius:8,padding:10,marginBottom:12,fontSize:12,color:'#E65100'}}>⚠ WhatsApp desconectado</div>}
-            {status==='erro'&&<div style={{background:'#FFEBEE',borderRadius:8,padding:10,marginBottom:12,fontSize:12,color:'#C62828'}}>❌ Erro ao conectar com Evolution API</div>}
-            {countdown===0&&qr&&<div style={{background:'#FFEBEE',borderRadius:8,padding:10,marginBottom:12,fontSize:12,color:'#C62828'}}>QR Code expirado. Gere novamente.</div>}
-          </div>
-        )}
-        <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-          {(!qr||countdown===0)?
-            <button onClick={gerarQR} disabled={loading} style={{background:NAVY,color:'#fff',border:'none',borderRadius:10,padding:'11px 24px',cursor:'pointer',fontWeight:700,fontSize:14,opacity:loading?0.6:1}}>{loading?'Gerando...':'📱 Gerar QR Code'}</button>
-          :
-            <button onClick={gerarQR} style={{background:'none',border:`1px solid ${NAVY}`,color:NAVY,borderRadius:8,padding:'8px 16px',cursor:'pointer',fontSize:13}}>🔄 Novo QR Code</button>
-          }
-          <button onClick={verificar} style={{background:'none',border:'1px solid #ddd',color:'#555',borderRadius:8,padding:'8px 16px',cursor:'pointer',fontSize:13}}>🔍 Verificar Status</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── TabEnviar ─────────────────────────────────────────────────────────────────
-function TabEnviar() {
-  const [numero,setNumero]=useState('')
-  const [mensagem,setMensagem]=useState('')
-  const [enviando,setEnviando]=useState(false)
-  const [fb,setFb]=useState(null)
-
-  const enviar=async()=>{
-    if(!numero.trim()||!mensagem.trim()) return
-    setEnviando(true); setFb(null)
-    try {
-      const num=numero.replace(/\D/g,'')+'@s.whatsapp.net'
-      const r=await fetch(`${EVOLUTION_URL}/message/sendText/${INSTANCE}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:EVOLUTION_KEY},body:JSON.stringify({number:num,text:mensagem})})
-      if(r.ok){setFb({ok:true,msg:'Mensagem enviada!'});setMensagem('')}
-      else setFb({ok:false,msg:'Erro ao enviar.'})
-    } catch { setFb({ok:false,msg:'Falha de conexão.'}) }
+      await fetch(`${BACKEND}/whatsapp/enviar-texto`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone:convSel.telefone,mensagem:msgFinal,cliente_nome:convSel.cliente_nome})})
+      await carregarMensagens(convSel.telefone,false); await carregarConversas()
+    } catch {}
     setEnviando(false)
   }
 
-  return (
-    <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',background:'#F0F2F5'}}>
-      <div style={{background:'#fff',borderRadius:16,padding:36,boxShadow:'0 4px 24px rgba(0,0,0,.08)',width:'100%',maxWidth:500}}>
-        <h2 style={{color:NAVY,margin:'0 0 22px'}}>✉️ Enviar Mensagem</h2>
-        <div style={{marginBottom:14}}>
-          <label style={{display:'block',fontWeight:700,color:NAVY,marginBottom:6,fontSize:13}}>Número (DDD + número, sem +55)</label>
-          <input value={numero} onChange={e=>setNumero(e.target.value)} placeholder="Ex: 62999887766" style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid #ddd',fontSize:13,outline:'none',boxSizing:'border-box'}}/>
-        </div>
-        <div style={{marginBottom:18}}>
-          <label style={{display:'block',fontWeight:700,color:NAVY,marginBottom:6,fontSize:13}}>Mensagem</label>
-          <textarea value={mensagem} onChange={e=>setMensagem(e.target.value)} rows={5} placeholder="Digite a mensagem..." style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid #ddd',fontSize:13,resize:'vertical',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
-        </div>
-        {fb&&<div style={{padding:'10px 14px',borderRadius:8,marginBottom:14,background:fb.ok?'#E8F5E9':'#FFEBEE',color:fb.ok?'#2E7D32':'#C62828',fontWeight:600,fontSize:13}}>{fb.msg}</div>}
-        <button onClick={enviar} disabled={enviando||!numero.trim()||!mensagem.trim()} style={{width:'100%',padding:12,background:NAVY,color:'#fff',border:'none',borderRadius:10,fontWeight:700,fontSize:14,cursor:'pointer',opacity:(enviando||!numero.trim()||!mensagem.trim())?0.5:1}}>
-          {enviando?'Enviando...':'📤 Enviar Mensagem'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── TabEquipe ─────────────────────────────────────────────────────────────────
-const CANAIS = [
-  {id:'geral',   nome:'# geral',    icone:'🏢', desc:'Canal geral da equipe'},
-  {id:'fiscal',  nome:'# fiscal',   icone:'📊', desc:'Departamento Fiscal'},
-  {id:'pessoal', nome:'# pessoal',  icone:'👥', desc:'Departamento Pessoal'},
-  {id:'contabil',nome:'# contábil', icone:'📋', desc:'Departamento Contábil'},
-  {id:'urgente', nome:'🚨 urgente', icone:'🚨', desc:'Avisos urgentes'},
-]
-const EMOJIS=['👍','❤️','😂','😮','👏','✅']
-
-function TabEquipe({ setPopup, notifAtiva }) {
-  const [canal,setCanal]=useState('geral')
-  const [msgs,setMsgs]=useState(()=>{ try{return JSON.parse(localStorage.getItem('ep_chat_equipe')||'{}')}catch{return {}} })
-  const [texto,setTexto]=useState('')
-  const [usuarios]=useState(()=>{ try{return JSON.parse(localStorage.getItem('ep_usuarios')||'[]')}catch{return []} })
-  const chatRef=useRef()
-  const inputRef=useRef()
-  const prevRef=useRef(msgs)
-
-  const msgsCanal=(msgs[canal]||[]).slice(-200)
-
-  const salvar=novas=>{ localStorage.setItem('ep_chat_equipe',JSON.stringify(novas)); setMsgs(novas) }
-
-  const enviar=()=>{
-    if(!texto.trim()) return
-    const nova={id:Date.now(),de:MEU_NOME,avatar:MEU_AVATAR,texto:texto.trim(),timestamp:new Date().toISOString(),reacoes:{}}
-    salvar({...msgs,[canal]:[...(msgs[canal]||[]),nova]})
-    setTexto(''); inputRef.current?.focus()
+  const enviarDocumento = async () => {
+    if(!docAnexo||!convSel||enviando) return
+    setEnviando(true)
+    const fd=new FormData(); fd.append('arquivo',docAnexo); fd.append('telefone',convSel.telefone); fd.append('legenda',legendaDoc); fd.append('cliente_nome',convSel.cliente_nome||'')
+    try {
+      const r=await fetch(`${BACKEND}/whatsapp/enviar-documento`,{method:'POST',body:fd}); const d=await r.json()
+      if(!r.ok) alert('Erro: '+(d.detail||JSON.stringify(d)))
+      else { setDocAnexo(null); setLegendaDoc(''); await carregarMensagens(convSel.telefone,false); await carregarConversas() }
+    } catch(e) { alert('Erro: '+e.message) }
+    setEnviando(false)
   }
 
-  const reagir=(msgId,emoji)=>{
-    const lista=msgs[canal]||[]
-    const novaLista=lista.map(m=>{
-      if(m.id!==msgId) return m
-      const r={...m.reacoes}
-      if(r[emoji]?.includes(MEU_NOME)){r[emoji]=r[emoji].filter(n=>n!==MEU_NOME); if(!r[emoji].length) delete r[emoji]}
-      else r[emoji]=[...(r[emoji]||[]),MEU_NOME]
-      return {...m,reacoes:r}
-    })
-    salvar({...msgs,[canal]:novaLista})
+  const enviarLink = async () => {
+    if(!linkForm.url||!convSel) return
+    setEnviando(true)
+    try {
+      await fetch(`${BACKEND}/whatsapp/enviar-link`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone:convSel.telefone,mensagem:linkForm.mensagem,url:linkForm.url,cliente_nome:convSel.cliente_nome})})
+      setModalLink(false); setLinkForm({url:'',mensagem:''})
+      await carregarMensagens(convSel.telefone,false); await carregarConversas()
+    } catch {}
+    setEnviando(false)
   }
 
-  // Polling para novas mensagens de outros usuários
-  useEffect(()=>{
-    const iv=setInterval(()=>{
-      try {
-        const novas=JSON.parse(localStorage.getItem('ep_chat_equipe')||'{}')
-        const mCanal=novas[canal]||[]
-        const prevCanal=prevRef.current[canal]||[]
-        if(mCanal.length>prevCanal.length){
-          const nova=mCanal[mCanal.length-1]
-          if(nova.de!==MEU_NOME&&notifAtiva){
-            tocarSom()
-            setPopup({de:nova.de,texto:nova.texto,timestamp:nova.timestamp})
-            notificar(`💬 ${nova.de}`,nova.texto)
-          }
-        }
-        prevRef.current=novas; setMsgs(novas)
-      } catch {}
-    },2000)
-    return()=>clearInterval(iv)
-  },[canal,notifAtiva])
+  const iniciarConversa = async (tel,nome,msgInicial='') => {
+    const conv={telefone:addDDI(tel),cliente_nome:nome}
+    setConvSel(conv); setMensagens([]); setModalNova(false)
+    if(msgInicial) {
+      setEnviando(true)
+      try { await fetch(`${BACKEND}/whatsapp/enviar-texto`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone:addDDI(tel),mensagem:msgInicial,cliente_nome:nome})}); await carregarMensagens(addDDI(tel),false); await carregarConversas() } catch {}
+      setEnviando(false)
+    }
+    setNovaForm({telefone:'',cliente_nome:'',mensagem_inicial:''})
+  }
 
-  useEffect(()=>{ chatRef.current?.scrollTo(0,chatRef.current.scrollHeight) },[msgsCanal.length,canal])
+  const excluirConversa = async (tel) => {
+    if(!confirm('Excluir histórico?')) return
+    await fetch(`${BACKEND}/whatsapp/conversa/${tel}`,{method:'DELETE'}); await carregarConversas()
+    if(convSel?.telefone===tel) setConvSel(null)
+  }
 
-  const naoLidas=c=>(msgs[c]||[]).filter(m=>m.de!==MEU_NOME).length
+  const convsFiltradas = conversas.filter(c=>!busca||c.cliente_nome?.toLowerCase().includes(busca.toLowerCase())||c.telefone.includes(busca.replace(/\D/g,'')))
+  const cliFiltrados = clientes.filter(c=>c.ativo!==false&&(!clienteBusca||c.nome?.toLowerCase().includes(clienteBusca.toLowerCase())))
+  const grupos = mensagens.reduce((acc,msg)=>{ const d=fmtData(msg.timestamp)||'Sem data'; if(!acc[d]) acc[d]=[]; acc[d].push(msg); return acc },{})
+  const conectado = status?.status==='ok'
+
+  const inp = {padding:'7px 10px',borderRadius:7,border:'1px solid #ddd',fontSize:12,outline:'none',width:'100%',boxSizing:'border-box'}
 
   return (
-    <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+    <div style={{display:'flex',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif'}}>
+
       {/* Sidebar */}
-      <div style={{width:220,background:NAVY,display:'flex',flexDirection:'column'}}>
-        <div style={{padding:'14px 16px',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
-          <div style={{color:'#fff',fontWeight:700,fontSize:14}}>EPimentel</div>
-          <div style={{color:GOLD,fontSize:11}}>Chat da Equipe</div>
-        </div>
-        <div style={{flex:1,overflowY:'auto',paddingTop:8}}>
-          <div style={{padding:'6px 16px 4px',fontSize:10,color:'rgba(255,255,255,.4)',fontWeight:700,textTransform:'uppercase',letterSpacing:1}}>Canais</div>
-          {CANAIS.map(c=>{
-            const qtd=naoLidas(c.id)
-            return (
-              <button key={c.id} onClick={()=>setCanal(c.id)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 16px',background:canal===c.id?'rgba(197,165,90,.2)':'transparent',border:'none',cursor:'pointer',color:canal===c.id?GOLD:'rgba(255,255,255,.7)',textAlign:'left',fontSize:13,borderLeft:canal===c.id?`3px solid ${GOLD}`:'3px solid transparent'}}>
-                <span style={{flex:1}}>{c.nome}</span>
-                {qtd>0&&canal!==c.id&&<span style={{background:'#e53935',color:'#fff',borderRadius:10,padding:'1px 6px',fontSize:10,fontWeight:700}}>{qtd}</span>}
+      <div style={{width:340,minWidth:300,background:'#fff',display:'flex',flexDirection:'column',borderRight:'1px solid #e8e8e8'}}>
+        <div style={{background:NAVY,padding:'12px 14px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+            <div style={{fontWeight:800,fontSize:16,color:'#fff'}}>💬 WhatsApp</div>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <button onClick={verificarStatus} style={{background:'transparent',border:`1px solid ${conectado?WPP_GREEN:'#dc2626'}`,borderRadius:16,padding:'3px 9px',cursor:'pointer',color:conectado?WPP_GREEN:'#fca5a5',fontSize:10,display:'flex',alignItems:'center',gap:3}}>
+                {conectado?<Wifi size={11}/>:<WifiOff size={11}/>} {conectado?'Online':'Offline'}
               </button>
+              {!conectado&&<button onClick={()=>{setModalQR(true);buscarQR()}} style={{background:GOLD,border:'none',borderRadius:7,padding:'4px 8px',cursor:'pointer',color:NAVY,fontSize:10,fontWeight:700,display:'flex',alignItems:'center',gap:3}}><QrCode size={11}/> QR</button>}
+              <button onClick={()=>setModalNova(true)} style={{background:WPP_GREEN,border:'none',borderRadius:7,padding:'5px 10px',cursor:'pointer',color:'#fff',fontWeight:700,fontSize:12,display:'flex',alignItems:'center',gap:4}}><Plus size={12}/> Nova</button>
+            </div>
+          </div>
+          <div style={{position:'relative'}}>
+            <Search size={12} style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:'rgba(255,255,255,.4)'}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar conversa..." style={{...inp,paddingLeft:28,background:'rgba(255,255,255,.12)',border:'1px solid rgba(255,255,255,.15)',color:'#fff'}}/>
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:'auto'}}>
+          {convsFiltradas.length===0&&<div style={{padding:40,textAlign:'center',color:'#ccc'}}><div style={{fontSize:28,marginBottom:8}}>💬</div>Nenhuma conversa.</div>}
+          {convsFiltradas.map(conv=>{
+            const sel=convSel?.telefone===conv.telefone
+            return (
+              <div key={conv.telefone} onClick={()=>selecionarConversa(conv)}
+                style={{padding:'10px 14px',borderBottom:'1px solid #f5f5f5',cursor:'pointer',background:sel?'#f0f4ff':'#fff',display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:44,height:44,borderRadius:22,background:NAVY+'20',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700,color:NAVY,flexShrink:0}}>
+                  {conv.cliente_nome?conv.cliente_nome.charAt(0).toUpperCase():'📱'}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <div style={{fontWeight:600,color:NAVY,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{conv.cliente_nome||'+'+conv.telefone}</div>
+                    <div style={{fontSize:10,color:conv.nao_lidas?WPP_GREEN:'#aaa',whiteSpace:'nowrap',fontWeight:conv.nao_lidas?700:400}}>{fmtData(conv.ultima_data)}</div>
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:1}}>
+                    <div style={{fontSize:11,color:'#888',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{conv.ultima_mensagem}</div>
+                    {conv.nao_lidas>0&&<div style={{minWidth:19,height:19,borderRadius:10,background:WPP_GREEN,color:'#fff',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',padding:'0 4px',marginLeft:5}}>{conv.nao_lidas}</div>}
+                  </div>
+                </div>
+              </div>
             )
           })}
-          {usuarios.length>0&&<>
-            <div style={{padding:'12px 16px 4px',fontSize:10,color:'rgba(255,255,255,.4)',fontWeight:700,textTransform:'uppercase',letterSpacing:1,marginTop:8}}>Mensagens Diretas</div>
-            {usuarios.slice(0,8).map(u=>(
-              <button key={u.id} onClick={()=>setCanal(`dm_${u.id}`)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'7px 16px',background:canal===`dm_${u.id}`?'rgba(197,165,90,.2)':'transparent',border:'none',cursor:'pointer',color:'rgba(255,255,255,.7)',textAlign:'left',fontSize:12,borderLeft:canal===`dm_${u.id}`?`3px solid ${GOLD}`:'3px solid transparent'}}>
-                <div style={{width:24,height:24,borderRadius:'50%',background:GOLD,color:NAVY,display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0}}>{(u.nome||'').split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-                <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{u.nome}</span>
-              </button>
-            ))}
-          </>}
-        </div>
-        <div style={{padding:'10px 14px',borderTop:'1px solid rgba(255,255,255,.1)',display:'flex',alignItems:'center',gap:8}}>
-          <div style={{width:32,height:32,borderRadius:'50%',background:GOLD,color:NAVY,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700}}>{MEU_AVATAR}</div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{color:'#fff',fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{MEU_NOME}</div>
-            <div style={{color:GOLD,fontSize:10}}>● Online</div>
-          </div>
         </div>
       </div>
 
       {/* Chat */}
-      <div style={{flex:1,display:'flex',flexDirection:'column',background:'#F8F9FA'}}>
-        <div style={{background:'#fff',borderBottom:'1px solid #E0E0E0',padding:'12px 20px',display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:20}}>{CANAIS.find(c=>c.id===canal)?.icone||'💬'}</span>
-          <div>
-            <div style={{fontWeight:700,color:NAVY,fontSize:15}}>{CANAIS.find(c=>c.id===canal)?.nome||(canal.startsWith('dm_')?usuarios.find(u=>`dm_${u.id}`===canal)?.nome||'DM':canal)}</div>
-            <div style={{fontSize:11,color:'#888'}}>{CANAIS.find(c=>c.id===canal)?.desc||'Mensagem direta'}</div>
+      {!convSel?(
+        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:'#f0f2f5'}}>
+          <div style={{fontSize:48,marginBottom:16}}>💬</div>
+          <div style={{fontSize:18,fontWeight:700,color:NAVY,marginBottom:8}}>EPimentel WhatsApp</div>
+          <div style={{fontSize:13,color:'#888',textAlign:'center',maxWidth:280}}>
+            Selecione uma conversa ou inicie uma nova.<br/>
+            {!conectado&&<><br/><span style={{color:'#dc2626'}}>⚠ Escaneie o QR Code para conectar.</span></>}
           </div>
+          {!conectado&&<button onClick={()=>{setModalQR(true);buscarQR()}} style={{marginTop:20,display:'flex',alignItems:'center',gap:8,padding:'10px 24px',borderRadius:10,background:NAVY,color:'#fff',fontWeight:700,fontSize:14,border:'none',cursor:'pointer'}}><QrCode size={16}/> Escanear QR Code</button>}
         </div>
-        <div ref={chatRef} style={{flex:1,overflowY:'auto',padding:'16px 20px',display:'flex',flexDirection:'column',gap:2}}>
-          {msgsCanal.length===0&&(
-            <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:8,color:'#aaa'}}>
-              <div style={{fontSize:48}}>💬</div>
-              <div style={{fontSize:14}}>Nenhuma mensagem. Seja o primeiro!</div>
+      ):(
+        <div style={{flex:1,display:'flex',flexDirection:'column'}}>
+          {/* Header */}
+          <div style={{padding:'10px 16px',background:NAVY,display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:40,height:40,borderRadius:20,background:'rgba(255,255,255,.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,color:'#fff',fontWeight:700}}>
+              {convSel.cliente_nome?convSel.cliente_nome.charAt(0).toUpperCase():'📱'}
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:'#fff',fontSize:14}}>{convSel.cliente_nome||'+'+convSel.telefone}</div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,.55)'}}>+{convSel.telefone}</div>
+            </div>
+            <button onClick={()=>carregarMensagens(convSel.telefone)} style={{background:'rgba(255,255,255,.1)',border:'none',borderRadius:7,padding:'6px 8px',cursor:'pointer',color:'#fff'}}><RefreshCw size={13}/></button>
+            <button onClick={()=>window.open(`https://wa.me/${addDDI(convSel.telefone)}`,'_blank')} style={{background:'rgba(255,255,255,.1)',border:'none',borderRadius:7,padding:'6px 12px',cursor:'pointer',color:'#fff',fontSize:11,fontWeight:600}}>WA ↗</button>
+            <button onClick={()=>excluirConversa(convSel.telefone)} style={{background:'rgba(220,38,38,.25)',border:'none',borderRadius:7,padding:'6px 8px',cursor:'pointer',color:'#fca5a5'}}><Trash2 size={13}/></button>
+          </div>
+
+          {/* Mensagens */}
+          <div ref={chatRef} style={{flex:1,overflowY:'auto',padding:'10px 16px',background:'#e5ddd5'}}>
+            {carregandoMsgs&&<div style={{textAlign:'center',padding:16}}><Loader size={18} style={{color:'#888',animation:'spin 1s linear infinite'}}/></div>}
+            {Object.entries(grupos).map(([data,msgs])=>(
+              <div key={data}>
+                <div style={{textAlign:'center',margin:'8px 0'}}><span style={{fontSize:11,color:'#888',background:'rgba(255,255,255,.75)',padding:'2px 10px',borderRadius:8}}>{data}</span></div>
+                {msgs.map((msg,i)=><Bolha key={msg.id||i} msg={msg} onReply={setRespondendo}/>)}
+              </div>
+            ))}
+            {mensagens.length===0&&!carregandoMsgs&&<div style={{textAlign:'center',marginTop:50,color:'#888',fontSize:13}}>Nenhuma mensagem ainda. Envie a primeira!</div>}
+          </div>
+
+          {/* Resposta preview */}
+          {respondendo&&(
+            <div style={{padding:'6px 14px',background:'#f0f4ff',borderTop:`2px solid ${NAVY}`,display:'flex',alignItems:'center',gap:10}}>
+              <div style={{flex:1,borderLeft:`3px solid ${NAVY}`,paddingLeft:10}}>
+                <div style={{fontSize:10,color:NAVY,fontWeight:700}}>Respondendo</div>
+                <div style={{fontSize:11,color:'#555'}}>{respondendo.mensagem?.substring(0,60)}</div>
+              </div>
+              <button onClick={()=>setRespondendo(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={14}/></button>
             </div>
           )}
-          {msgsCanal.map((m,i)=>{
-            const minha=m.de===MEU_NOME
-            const showAvatar=i===0||msgsCanal[i-1]?.de!==m.de
-            return (
-              <div key={m.id} style={{display:'flex',gap:10,alignItems:'flex-end',justifyContent:minha?'flex-end':'flex-start',marginTop:showAvatar?8:2}}>
-                {!minha&&(showAvatar?<Avatar nome={m.de} size={32} cor="#607D8B"/>:<div style={{width:32}}/>)}
-                <div style={{maxWidth:'70%'}}>
-                  {!minha&&showAvatar&&<div style={{fontSize:11,fontWeight:700,color:'#555',marginBottom:2,marginLeft:4}}>{m.de}</div>}
-                  <div style={{padding:'8px 12px',borderRadius:minha?'12px 2px 12px 12px':'2px 12px 12px 12px',background:minha?NAVY:'#fff',color:minha?'#fff':'#333',boxShadow:'0 1px 3px rgba(0,0,0,.08)',fontSize:13,lineHeight:1.5,wordBreak:'break-word'}}>
-                    {m.texto}
-                    <div style={{fontSize:10,color:minha?'rgba(255,255,255,.5)':'#aaa',textAlign:'right',marginTop:3}}>{fmtHora(m.timestamp)}</div>
-                  </div>
-                  {Object.keys(m.reacoes||{}).length>0&&(
-                    <div style={{display:'flex',gap:4,marginTop:3,flexWrap:'wrap',justifyContent:minha?'flex-end':'flex-start'}}>
-                      {Object.entries(m.reacoes).map(([emoji,nomes])=>(
-                        <button key={emoji} onClick={()=>reagir(m.id,emoji)} style={{padding:'1px 7px',borderRadius:10,background:nomes.includes(MEU_NOME)?GOLD+'33':'#f0f0f0',border:`1px solid ${nomes.includes(MEU_NOME)?GOLD:'#ddd'}`,cursor:'pointer',fontSize:12}}>
-                          {emoji} {nomes.length}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{display:'flex',gap:2,marginTop:2,opacity:0,transition:'opacity .2s',justifyContent:minha?'flex-end':'flex-start'}} onMouseOver={e=>e.currentTarget.style.opacity=1} onMouseOut={e=>e.currentTarget.style.opacity=0}>
-                    {EMOJIS.map(e=><button key={e} onClick={()=>reagir(m.id,e)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,padding:'1px 2px',borderRadius:4}}>{e}</button>)}
-                  </div>
+
+          {/* Doc preview */}
+          {docAnexo&&(
+            <div style={{padding:'10px 14px',background:'#fff',borderTop:'1px solid #e8e8e8'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:9,background:'#f0f4ff',border:'1px solid #c7d7fd',marginBottom:8}}>
+                <FileText size={20} style={{color:NAVY,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{docAnexo.name}</div>
+                  <div style={{fontSize:10,color:'#888'}}>{fmtTam(docAnexo.size)}</div>
                 </div>
-                {minha&&(showAvatar?<Avatar nome={m.de} size={32} cor={NAVY}/>:<div style={{width:32}}/>)}
+                <button onClick={()=>{setDocAnexo(null);setLegendaDoc('')}} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={15}/></button>
               </div>
-            )
-          })}
+              <input value={legendaDoc} onChange={e=>setLegendaDoc(e.target.value)} placeholder="Legenda (opcional)" style={{...inp,marginBottom:8,fontSize:12}} onKeyDown={e=>e.key==='Enter'&&enviarDocumento()}/>
+              <button onClick={enviarDocumento} disabled={enviando} style={{width:'100%',padding:'8px',borderRadius:8,background:enviando?'#ccc':NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:enviando?'default':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                {enviando?<><Loader size={13} style={{animation:'spin 1s linear infinite'}}/> Enviando...</>:<><Send size={13}/> Enviar Documento</>}
+              </button>
+            </div>
+          )}
+
+          {/* Input */}
+          {!docAnexo&&(
+            <div style={{padding:'8px 12px',background:'#f0f2f5',display:'flex',gap:8,alignItems:'flex-end'}}>
+              <label style={{width:38,height:38,borderRadius:19,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,boxShadow:'0 1px 2px rgba(0,0,0,.1)'}}>
+                <Paperclip size={17} style={{color:'#888'}}/>
+                <input type="file" accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png" style={{display:'none'}} onChange={e=>{if(e.target.files[0]){setDocAnexo(e.target.files[0]);e.target.value=''}}}/>
+              </label>
+              <button onClick={()=>setModalLink(true)} style={{width:38,height:38,borderRadius:19,background:'#fff',border:'none',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 1px 2px rgba(0,0,0,.1)'}}>
+                <Link2 size={17} style={{color:'#888'}}/>
+              </button>
+              <div style={{flex:1,background:'#fff',borderRadius:20,boxShadow:'0 1px 2px rgba(0,0,0,.08)',padding:'8px 14px'}}>
+                <textarea ref={inputRef} value={texto} onChange={e=>setTexto(e.target.value)} placeholder="Digite uma mensagem" rows={1}
+                  style={{width:'100%',border:'none',outline:'none',resize:'none',fontSize:13,fontFamily:'inherit',maxHeight:110,overflow:'auto',background:'transparent',lineHeight:1.4}}
+                  onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviarTexto()}}}/>
+              </div>
+              <button onClick={enviarTexto} disabled={!texto.trim()||enviando}
+                style={{width:40,height:40,borderRadius:20,background:texto.trim()&&!enviando?WPP_GREEN:'#ccc',border:'none',cursor:texto.trim()&&!enviando?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'background .2s',boxShadow:'0 2px 4px rgba(0,0,0,.12)'}}>
+                {enviando?<Loader size={16} style={{color:'#fff',animation:'spin 1s linear infinite'}}/>:<Send size={16} style={{color:'#fff',marginLeft:1}}/>}
+              </button>
+            </div>
+          )}
         </div>
-        <div style={{background:'#fff',borderTop:'1px solid #E0E0E0',padding:'12px 20px'}}>
-          <div style={{display:'flex',gap:10,alignItems:'flex-end',background:'#F0F2F5',borderRadius:12,padding:'8px 14px'}}>
-            <textarea ref={inputRef} value={texto} onChange={e=>setTexto(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar()}}} placeholder={`Mensagem em ${CANAIS.find(c=>c.id===canal)?.nome||canal}...`} rows={1} style={{flex:1,background:'transparent',border:'none',outline:'none',fontSize:13,resize:'none',fontFamily:'inherit',lineHeight:1.5,maxHeight:100,overflowY:'auto'}}/>
-            <button onClick={enviar} disabled={!texto.trim()} style={{background:NAVY,color:'#fff',border:'none',borderRadius:8,width:38,height:38,cursor:'pointer',fontSize:16,flexShrink:0,opacity:!texto.trim()?0.4:1}}>➤</button>
+      )}
+
+      {/* Modal QR Code */}
+      {modalQR&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:400}}>
+          <div style={{background:'#fff',borderRadius:16,padding:28,maxWidth:360,width:'100%',textAlign:'center'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <div style={{fontWeight:700,color:NAVY,fontSize:16}}>📱 Conectar WhatsApp</div>
+              <button onClick={()=>setModalQR(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={18}/></button>
+            </div>
+            {qrCode?(
+              <>
+                <img src={qrCode.startsWith('data:')?qrCode:`data:image/png;base64,${qrCode}`} alt="QR" style={{width:220,height:220,borderRadius:12,border:'2px solid #e8e8e8'}}/>
+                <div style={{fontSize:11,color:'#888',marginTop:10}}>WhatsApp → Dispositivos Conectados → Conectar dispositivo</div>
+                <button onClick={()=>{buscarQR();verificarStatus()}} style={{marginTop:12,padding:'7px 18px',borderRadius:8,background:'#f0f4ff',color:NAVY,fontWeight:600,fontSize:12,border:'1px solid #c7d7fd',cursor:'pointer',display:'flex',alignItems:'center',gap:5,margin:'12px auto 0'}}>
+                  <RefreshCw size={12}/> Atualizar QR
+                </button>
+              </>
+            ):(
+              <div style={{padding:40,color:'#aaa'}}><Loader size={24} style={{animation:'spin 1s linear infinite',marginBottom:10}}/><br/>Aguarde...</div>
+            )}
           </div>
-          <div style={{fontSize:10,color:'#aaa',marginTop:4}}>Enter para enviar · Shift+Enter para nova linha</div>
         </div>
-      </div>
-    </div>
-  )
-}
+      )}
 
-// ── MAIN ──────────────────────────────────────────────────────────────────────
-export default function WhatsAppConversas() {
-  const [tab,setTab]=useState('conversas')
-  const [instStatus,setInstStatus]=useState(null)
-  const [popup,setPopup]=useState(null)
-  const [notifAtiva,setNotifAtiva]=useState(true)
-
-  useEffect(()=>{
-    const v=async()=>{
-      try {
-        const r=await fetch(`${EVOLUTION_URL}/instance/fetchInstances`,{headers:{apikey:EVOLUTION_KEY}})
-        const d=await r.json()
-        const inst=Array.isArray(d)?d.find(i=>i.instance?.instanceName===INSTANCE):null
-        setInstStatus(inst?.instance?.connectionStatus==='open'?'open':'closed')
-      } catch { setInstStatus('error') }
-    }
-    v(); const iv=setInterval(v,15000); return()=>clearInterval(iv)
-  },[])
-
-  useEffect(()=>{ if('Notification' in window&&Notification.permission==='default') Notification.requestPermission() },[])
-
-  const ABAS=[{id:'conversas',label:'💬 Conversas'},{id:'qrcode',label:'📱 QR Code'},{id:'enviar',label:'✉️ Enviar'},{id:'equipe',label:'👥 Equipe'}]
-
-  return (
-    <div style={{fontFamily:'Inter, system-ui, sans-serif',height:'100%',display:'flex',flexDirection:'column',background:'#F0F2F5'}}>
-      <div style={{background:NAVY,padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <span style={{fontSize:22}}>💬</span>
-          <span style={{color:'#fff',fontWeight:700,fontSize:17}}>WhatsApp</span>
-          <span style={{color:GOLD,fontWeight:700,fontSize:17}}>EPimentel</span>
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <button onClick={()=>setNotifAtiva(v=>!v)} style={{background:'none',border:`1px solid ${notifAtiva?GOLD:'#555'}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:notifAtiva?GOLD:'#888',fontSize:13}} title={notifAtiva?'Desativar notificações':'Ativar notificações'}>{notifAtiva?'🔔':'🔕'}</button>
-          <div style={{display:'flex',alignItems:'center',gap:6}}>
-            <div style={{width:10,height:10,borderRadius:'50%',background:instStatus==='open'?'#4CAF50':instStatus==='error'?'#FF9800':'#F44336'}}/>
-            <span style={{color:'#ccc',fontSize:12}}>{instStatus==='open'?'Conectado':'Desconectado'}</span>
+      {/* Modal Link */}
+      {modalLink&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
+          <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:420,padding:22}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:14}}><div style={{fontWeight:700,color:NAVY,fontSize:15}}>🔗 Enviar Link</div><button onClick={()=>setModalLink(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={18}/></button></div>
+            <div style={{marginBottom:10}}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>URL *</label><input value={linkForm.url} onChange={e=>setLinkForm(f=>({...f,url:e.target.value}))} placeholder="https://..." style={inp}/></div>
+            <div style={{marginBottom:16}}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>Mensagem</label><textarea value={linkForm.mensagem} onChange={e=>setLinkForm(f=>({...f,mensagem:e.target.value}))} placeholder="Texto acompanhante..." style={{...inp,height:70,resize:'vertical',fontFamily:'inherit'}}/></div>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>setModalLink(false)} style={{padding:'8px 14px',borderRadius:8,border:'1px solid #ddd',background:'#fff',cursor:'pointer',fontSize:12}}>Cancelar</button>
+              <button onClick={enviarLink} disabled={!linkForm.url||enviando} style={{display:'flex',alignItems:'center',gap:5,padding:'8px 18px',borderRadius:8,background:!linkForm.url||enviando?'#ccc':WPP_GREEN,color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:!linkForm.url||enviando?'default':'pointer'}}>
+                {enviando?<Loader size={12} style={{animation:'spin 1s linear infinite'}}/>:<Send size={12}/>} Enviar
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-      <div style={{background:'#fff',display:'flex',borderBottom:'2px solid #E0E0E0',flexShrink:0}}>
-        {ABAS.map(a=><button key={a.id} onClick={()=>setTab(a.id)} style={{padding:'12px 22px',border:'none',background:'none',cursor:'pointer',fontWeight:tab===a.id?700:400,color:tab===a.id?NAVY:'#666',fontSize:13,borderBottom:tab===a.id?`3px solid ${GOLD}`:'3px solid transparent'}}>{a.label}</button>)}
-      </div>
-      <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-        {tab==='conversas'&&<TabConversas/>}
-        {tab==='qrcode'&&<TabQRCode/>}
-        {tab==='enviar'&&<TabEnviar/>}
-        {tab==='equipe'&&<TabEquipe setPopup={setPopup} notifAtiva={notifAtiva}/>}
-      </div>
-      {popup&&<Popup msg={popup} onClose={()=>setPopup(null)}/>}
+      )}
+
+      {/* Modal Nova Conversa */}
+      {modalNova&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
+          <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:480,padding:22,maxHeight:'85vh',display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:14}}><div style={{fontWeight:700,color:NAVY,fontSize:15}}>💬 Nova Conversa</div><button onClick={()=>setModalNova(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={18}/></button></div>
+            <div style={{position:'relative',marginBottom:8}}>
+              <Search size={12} style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',color:'#aaa'}}/>
+              <input value={clienteBusca} onChange={e=>setClienteBusca(e.target.value)} placeholder="Buscar cliente..." style={{...inp,paddingLeft:28}}/>
+            </div>
+            <div style={{flex:1,overflowY:'auto',marginBottom:14,maxHeight:220}}>
+              {cliFiltrados.map(cli=>{
+                const wpp=cli.contatos?.find(c=>c.whatsapp)?.whatsapp||cli.whatsapp
+                return(
+                  <div key={cli.id} style={{display:'flex',alignItems:'center',gap:9,padding:'7px 10px',borderRadius:8,background:'#f8f9fb',border:'1px solid #e8e8e8',marginBottom:5,cursor:wpp?'pointer':'default',opacity:wpp?1:.5}} onClick={()=>wpp&&iniciarConversa(wpp,cli.nome)}>
+                    <div style={{width:32,height:32,borderRadius:16,background:NAVY+'15',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:NAVY,flexShrink:0}}>{cli.nome.charAt(0)}</div>
+                    <div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:NAVY}}>{cli.nome}</div><div style={{fontSize:10,color:'#888'}}>{wpp?`📱 ${wpp}`:'Sem WhatsApp'}</div></div>
+                    {wpp&&<Send size={12} style={{color:WPP_GREEN}}/>}
+                  </div>
+                )
+              })}
+            </div>
+            <div style={{borderTop:'1px solid #f0f0f0',paddingTop:12}}>
+              <div style={{fontSize:10,fontWeight:700,color:'#aaa',textTransform:'uppercase',marginBottom:8}}>Número Avulso</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                <div><label style={{fontSize:10,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>Telefone *</label><input value={novaForm.telefone} onChange={e=>setNovaForm(f=>({...f,telefone:e.target.value}))} placeholder="(62) 99999-9999" style={inp}/></div>
+                <div><label style={{fontSize:10,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>Nome</label><input value={novaForm.cliente_nome} onChange={e=>setNovaForm(f=>({...f,cliente_nome:e.target.value}))} placeholder="Nome" style={inp}/></div>
+              </div>
+              <textarea value={novaForm.mensagem_inicial} onChange={e=>setNovaForm(f=>({...f,mensagem_inicial:e.target.value}))} placeholder="Mensagem inicial (opcional)" style={{...inp,height:55,resize:'none',fontFamily:'inherit',marginBottom:8}}/>
+              <button onClick={()=>iniciarConversa(novaForm.telefone,novaForm.cliente_nome,novaForm.mensagem_inicial)} disabled={!novaForm.telefone}
+                style={{width:'100%',padding:'8px',borderRadius:8,background:!novaForm.telefone?'#ccc':WPP_GREEN,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:!novaForm.telefone?'default':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                <Send size={12}/> Iniciar Conversa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}*{scrollbar-width:thin;scrollbar-color:#ddd transparent}::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#ddd;border-radius:2px}`}</style>
     </div>
   )
 }
