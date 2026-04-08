@@ -31,6 +31,129 @@ const SB = {
   atrasada:    { bg:'#FEF2F2', color:'#991B1B', borda:'#fca5a5', icon:'⚠',  label:'Atrasada'    },
 }
 
+
+// ── Semáforo de prazo ─────────────────────────────────────────────────────────
+function semaforo(vencimento, passivelMulta, status) {
+  if (status === 'entregue') return { cor:'#22c55e', bg:'#F0FDF4', label:'Entregue', emoji:'✅' }
+  if (!vencimento) return { cor:'#aaa', bg:'#F5F5F5', label:'Sem prazo', emoji:'—' }
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const venc = new Date(vencimento + 'T12:00:00')
+  const dias = Math.ceil((venc - hoje) / 864e5)
+  if (dias < 0)  return { cor:'#dc2626', bg:'#FEF2F2', label:'Atrasado '+(Math.abs(dias))+'d', emoji:'🔴', dias }
+  if (passivelMulta && dias <= 3) return { cor:'#dc2626', bg:'#FEF2F2', label:'Risco multa', emoji:'🔴', dias }
+  if (dias <= 5) return { cor:'#f59e0b', bg:'#FEF9C3', label:'Vence em '+dias+'d', emoji:'🟡', dias }
+  return { cor:'#22c55e', bg:'#F0FDF4', label:'No prazo '+dias+'d', emoji:'🟢', dias }
+}
+
+// ── Exportar Excel/CSV ────────────────────────────────────────────────────────
+function exportarExcel(cliente, mes, tarefas) {
+  const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(mm)-1]+'/'+a }
+  const cabecalho = ['Obrigação','Código','Departamento','Responsável','Status','Vencimento','Competência','Passível Multa','Protocolo','Entregue Em','Entregue Por']
+  const linhas = tarefas.map(t => [
+    t.nome, t.codigo||'', t.departamento||'', t.responsavel||'Eduardo Pimentel',
+    t.status==='entregue'?'Entregue':'Pendente',
+    t.vencimento?new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'—',
+    t.competencia||mpe2(mes),
+    t.passivel_multa?'Sim':'Não',
+    t.protocolo||'',
+    t.data_entrega||'', t.entregue_por||''
+  ])
+  const bom = '\uFEFF'
+  const csv = [cabecalho,...linhas].map(l=>l.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+  const blob = new Blob([bom+csv],{type:'text/csv;charset=utf-8'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href=url; a.download=`entregas_${(cliente?.cnpj||'').replace(/\D/g,'')}_${mes||'geral'}.csv`
+  a.click(); URL.revokeObjectURL(url)
+}
+
+// ── Exportar PDF (janela de impressão) ────────────────────────────────────────
+function exportarPDF(cliente, mes, tarefas) {
+  const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(mm)-1]+'/'+a }
+  const ent = tarefas.filter(t=>t.status==='entregue').length
+  const pend = tarefas.filter(t=>t.status!=='entregue').length
+  const multas = tarefas.filter(t=>t.passivel_multa&&t.status!=='entregue').length
+  const linhas = tarefas.map((t,i) => {
+    const sm = semaforo(t.vencimento, t.passivel_multa, t.status)
+    return `<tr>
+      <td>${i+1}</td>
+      <td><b>${t.nome}</b>${t.passivel_multa?'<br><span style="color:#dc2626;font-size:10px">⚠ multa</span>':''}</td>
+      <td><span style="color:${sm.cor};font-size:16px">${sm.emoji}</span> ${sm.label}</td>
+      <td>${t.departamento||'—'}</td>
+      <td>${t.responsavel||'Eduardo Pimentel'}</td>
+      <td style="font-weight:700;color:${sm.cor}">${t.vencimento?new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td style="color:${t.status==='entregue'?'#22c55e':'#f59e0b'};font-weight:700">${t.status==='entregue'?'✓ Entregue':'⏳ Pendente'}</td>
+      <td>${t.data_entrega||'—'}</td>
+    </tr>`
+  }).join('')
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Relatório Entregas — ${cliente?.nome||''} — ${mpe2(mes)}</title>
+  <style>body{font-family:Arial,sans-serif;margin:24px;font-size:12px;color:#333}
+  h1{color:#1B2A4A;border-bottom:3px solid #C5A55A;padding-bottom:6px}
+  .cards{display:flex;gap:16px;margin:12px 0}
+  .card{border:1px solid #ddd;border-radius:8px;padding:10px 16px;text-align:center;min-width:100px}
+  .card .n{font-size:24px;font-weight:800} .card .l{font-size:10px;color:#666}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th{background:#1B2A4A;color:#fff;padding:8px 6px;text-align:left;font-size:10px}
+  td{padding:6px;border-bottom:1px solid #f0f0f0;font-size:11px}
+  tr:nth-child(even){background:#FAFAFA}
+  .footer{margin-top:18px;padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#aaa;text-align:center}
+  </style></head><body>
+  <h1>📋 Relatório de Entregas / Tarefas</h1>
+  <div><b>Cliente:</b> ${cliente?.nome||'—'} | <b>CNPJ:</b> ${cliente?.cnpj||'—'} | <b>Competência:</b> ${mpe2(mes)} | <b>Regime:</b> ${cliente?.tributacao||cliente?.regime||'—'}</div>
+  <div><b>Gerado em:</b> ${new Date().toLocaleString('pt-BR')} | EPimentel Auditoria & Contabilidade — CRC/GO 026.994/O-8</div>
+  <div class="cards">
+    <div class="card"><div class="n" style="color:#1B2A4A">${tarefas.length}</div><div class="l">Total</div></div>
+    <div class="card"><div class="n" style="color:#22c55e">${ent}</div><div class="l">Entregues</div></div>
+    <div class="card"><div class="n" style="color:#f59e0b">${pend}</div><div class="l">Pendentes</div></div>
+    <div class="card"><div class="n" style="color:#dc2626">${multas}</div><div class="l">Risco Multa</div></div>
+    <div class="card"><div class="n" style="color:#C5A55A">${tarefas.length?Math.round(ent/tarefas.length*100):0}%</div><div class="l">Concluído</div></div>
+  </div>
+  <table><thead><tr><th>#</th><th>Obrigação</th><th>Semáforo</th><th>Dpto</th><th>Responsável</th><th>Vencimento</th><th>Status</th><th>Entregue Em</th></tr></thead>
+  <tbody>${linhas}</tbody></table>
+  <div class="footer">Legenda: 🟢 No prazo &nbsp; 🟡 Vencendo em breve &nbsp; 🔴 Atrasado / Risco multa &nbsp;|&nbsp; LGPD Lei 13.709/2018</div>
+  </body></html>`
+  const win = window.open('','_blank'); win.document.write(html); win.document.close(); setTimeout(()=>win.print(),500)
+}
+
+// ── Enviar alertas WhatsApp (Evolution API) ───────────────────────────────────
+const EVOL_URL = 'https://evolution-api-production-1e92.up.railway.app'
+const EVOL_KEY = 'epimentel-secret'
+const EVOL_INST = 'epimentel'
+
+async function enviarAlertaWhatsApp(telefone, mensagem) {
+  try {
+    const num = '55' + telefone.replace(/\D/g,'')
+    await fetch(`${EVOL_URL}/message/sendText/${EVOL_INST}`, {
+      method:'POST', headers:{'Content-Type':'application/json', apikey:EVOL_KEY},
+      body: JSON.stringify({ number: num, text: mensagem })
+    })
+    return true
+  } catch { return false }
+}
+
+function gerarMensagemAlerta(cliente, tarefas, mes) {
+  const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(mm)-1]+'/'+a }
+  const pendentes = tarefas.filter(t=>t.status!=='entregue')
+  const multas = pendentes.filter(t=>t.passivel_multa)
+  const hoje = new Date(); hoje.setHours(0,0,0,0)
+  const urgentes = pendentes.filter(t=>{ if(!t.vencimento) return false; const d=Math.ceil((new Date(t.vencimento+'T12:00:00')-hoje)/864e5); return d<=5 })
+  return `🏢 *EPimentel Auditoria & Contabilidade*
+📋 *Resumo de Obrigações — ${mpe2(mes)}*
+👤 ${cliente?.nome}
+
+📊 Situação atual:
+✅ Entregues: ${tarefas.filter(t=>t.status==='entregue').length}/${tarefas.length}
+⏳ Pendentes: ${pendentes.length}
+🟡 Vencem em 5 dias: ${urgentes.length}
+🔴 Risco de multa: ${multas.length}
+
+${urgentes.length>0?'⚠️ *Obrigações urgentes:*
+'+urgentes.map(t=>`• ${t.nome} — vence ${new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}${t.passivel_multa?' ⚠️ MULTA':''}`).join('\n')+'\n':''}
+📞 Dúvidas: (62) 9xxxx-xxxx
+_EPimentel Auditoria & Contabilidade — CRC/GO 026.994/O-8_`
+}
+
 const DEPT_MAP = {
   'DAS':'Fiscal','DEFIS':'Fiscal','PGDAS-D':'Fiscal','DAS-MEI':'Fiscal','DASN-SIMEI':'Fiscal',
   'DARF-IRPJ':'Fiscal','DARF-CSLL':'Fiscal','PIS-LP':'Fiscal','COFINS-LP':'Fiscal',
@@ -74,6 +197,10 @@ export default function EntregasTarefas() {
   const [coments,    setComents]    = useState({})
   const [mVinc,      setMVinc]      = useState(false)
   const [mGerar,     setMGerar]     = useState(false)
+  const [mRelatorio, setMRelatorio] = useState(false)
+  const [alertandoIA, setAlertandoIA] = useState(false)
+  const [resultadoAlerta, setResultadoAlerta] = useState('')
+  const [modalAlerta, setModalAlerta] = useState(false)
   const [mReverter,  setMReverter]  = useState(null)
   const [motivoRev,  setMotivoRev]  = useState('')
   const [mRobo,      setMRobo]      = useState(null)
@@ -305,9 +432,18 @@ export default function EntregasTarefas() {
                     </div>
                   ))}
                   <input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,padding:'5px 9px'}}/>
-                  {/* ── Botão Gerar Obrigações ── */}
+                  {/* ── Botões ── */}
                   <button onClick={()=>setMGerar(true)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:`1px solid ${GOLD}`,background:GOLD+'15',color:'#854D0E',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                     <Calendar size={12}/> Gerar
+                  </button>
+                  <button onClick={()=>exportarExcel(cli,mes,tarefas)} title="Exportar Excel" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #22c55e',background:'#F0FDF4',color:'#166534',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                    📊 Excel
+                  </button>
+                  <button onClick={()=>exportarPDF(cli,mes,tarefas)} title="Exportar PDF" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #e53935',background:'#FEF2F2',color:'#dc2626',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                    📄 PDF
+                  </button>
+                  <button onClick={()=>setModalAlerta(true)} title="Enviar alertas WhatsApp/Email" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #6366f1',background:'#EDE9FF',color:'#6366f1',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                    🔔 Alertar
                   </button>
                   <button onClick={()=>setMVinc(true)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:`1px solid ${NAVY}`,background:'#fff',color:NAVY,fontSize:12,fontWeight:600,cursor:'pointer'}}>
                     <Settings size={12}/> Vincular
@@ -364,7 +500,7 @@ export default function EntregasTarefas() {
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                 <thead>
                   <tr style={{background:'#fff',borderBottom:'2px solid #e8e8e8',position:'sticky',top:0,zIndex:1}}>
-                    {['Obrigação / Tarefa','Status · Prazo','Dpto — Resp.','Vencimento','Competência','Protocolo','Rastreio','Ações'].map(h=>(
+                    {['','Obrigação / Tarefa','Status · Prazo','Dpto — Resp.','Vencimento','Prazo Meta','Competência','Protocolo','Rastreio','Ações'].map(h=>(
                       <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#888',whiteSpace:'nowrap'}}>{h}</th>
                     ))}
                   </tr>
@@ -383,7 +519,14 @@ export default function EntregasTarefas() {
                     return (
                       <React.Fragment key={t.id}>
                         <tr style={{background:ent2?'#FAFFF8':i%2===0?'#fff':'#fafafa',borderBottom:isE?'none':'1px solid #f0f0f0'}}>
-                          <td style={{padding:'9px 10px',cursor:'pointer'}} onClick={()=>setExpanded(isE?null:t.id)}>
+                          {/* Semáforo */}
+                        <td style={{padding:'6px 8px',textAlign:'center',width:36}} onClick={()=>setExpanded(isE?null:t.id)}>
+                          {(()=>{
+                            const sm=semaforo(t.vencimento,t.passivel_multa,t.status)
+                            return <div title={sm.label} style={{width:18,height:18,borderRadius:'50%',background:sm.cor,margin:'0 auto',cursor:'pointer',boxShadow:`0 0 0 3px ${sm.cor}33`}}/>
+                          })()}
+                        </td>
+                        <td style={{padding:'9px 10px',cursor:'pointer'}} onClick={()=>setExpanded(isE?null:t.id)}>
                             <div style={{display:'flex',alignItems:'flex-start',gap:6}}>
                               {isE?<ChevronUp size={12} style={{color:'#aaa',marginTop:2,flexShrink:0}}/>:<ChevronDown size={12} style={{color:'#aaa',marginTop:2,flexShrink:0}}/>}
                               <div>
@@ -407,7 +550,20 @@ export default function EntregasTarefas() {
                             <span style={{padding:'1px 6px',borderRadius:5,background:dc.bg,color:dc.color,fontWeight:500,marginRight:4,fontSize:10}}>{t.departamento}</span>
                             {t.responsavel||'Eduardo Pimentel'}
                           </td>
-                          <td style={{padding:'9px 10px',fontSize:11,color:t.passivel_multa?'#e53935':'#555',fontWeight:t.passivel_multa?700:400}}>{dv}</td>
+                          <td style={{padding:'9px 10px',fontSize:11,fontWeight:700}}>
+                            {(()=>{
+                              const sm=semaforo(t.vencimento,t.passivel_multa,t.status)
+                              return <span style={{color:sm.cor}}>{dv}{t.passivel_multa&&t.status!=='entregue'&&<span style={{marginLeft:5,fontSize:10}}>⚠️</span>}</span>
+                            })()}
+                          </td>
+                          <td style={{padding:'9px 10px',fontSize:11}}>
+                            {(()=>{
+                              const sm=semaforo(t.vencimento,t.passivel_multa,t.status)
+                              return <span style={{fontSize:11,padding:'2px 7px',borderRadius:8,background:sm.bg,color:sm.cor,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4}}>
+                                {sm.emoji} {sm.label}
+                              </span>
+                            })()}
+                          </td>
                           <td style={{padding:'9px 10px',fontSize:11,color:'#555'}}>{t.competencia||mpe(mes)}</td>
                           <td style={{padding:'9px 10px'}} onClick={e=>e.stopPropagation()}>
                             {!ent2
@@ -657,6 +813,79 @@ export default function EntregasTarefas() {
             <div style={{display:'flex',gap:10,justifyContent:'center'}}>
               <button onClick={()=>setMRobo(null)} style={{padding:'8px 16px',borderRadius:8,border:'1px solid #ddd',background:'#fff',cursor:'pointer',fontSize:13}}>Fechar</button>
               <button onClick={()=>setMRobo(null)} style={{padding:'8px 16px',borderRadius:8,background:'#6366f1',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,border:'none'}}>🤖 Ir para Robô</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ── Modal Alertas WhatsApp/Email ── */}
+      {modalAlerta&&cli&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
+          <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:620,maxHeight:'90vh',overflow:'auto',boxShadow:'0 8px 40px rgba(0,0,0,.2)'}}>
+            <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#EDE9FF'}}>
+              <div style={{fontWeight:700,color:'#6366f1',fontSize:15}}>🔔 Enviar Alertas de Vencimento</div>
+              <button onClick={()=>setModalAlerta(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button>
+            </div>
+            <div style={{padding:22}}>
+              {/* Preview da mensagem */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontWeight:700,color:NAVY,fontSize:13,marginBottom:8}}>📱 Mensagem WhatsApp (preview)</div>
+                <pre style={{background:'#ECE5DD',borderRadius:10,padding:14,fontSize:12,whiteSpace:'pre-wrap',fontFamily:'inherit',lineHeight:1.6,color:'#333',maxHeight:220,overflow:'auto'}}>
+                  {gerarMensagemAlerta(cli,tarefas,mes)}
+                </pre>
+              </div>
+              {/* Resumo de urgentes */}
+              <div style={{marginBottom:16,padding:'12px 14px',borderRadius:9,background:'#FEF9C3',border:'1px solid #fde68a'}}>
+                <div style={{fontWeight:700,color:'#854D0E',fontSize:12,marginBottom:6}}>⚠️ Resumo do período {mpe(mes)}</div>
+                <div style={{display:'flex',gap:16,flexWrap:'wrap',fontSize:12}}>
+                  <span>📋 <b>{tarefas.length}</b> total</span>
+                  <span style={{color:'#22c55e'}}>✅ <b>{tarefas.filter(t=>t.status==='entregue').length}</b> entregues</span>
+                  <span style={{color:'#f59e0b'}}>⏳ <b>{tarefas.filter(t=>t.status!=='entregue').length}</b> pendentes</span>
+                  <span style={{color:'#dc2626'}}>⚠️ <b>{tarefas.filter(t=>t.passivel_multa&&t.status!=='entregue').length}</b> risco multa</span>
+                </div>
+              </div>
+              {/* Obrigações urgentes listadas */}
+              {tarefas.filter(t=>{if(!t.vencimento||t.status==='entregue')return false;const d=Math.ceil((new Date(t.vencimento+'T12:00:00')-new Date())/864e5);return d<=5}).length>0&&(
+                <div style={{marginBottom:16}}>
+                  <div style={{fontWeight:700,color:NAVY,fontSize:12,marginBottom:8}}>🔴 Obrigações críticas (até 5 dias)</div>
+                  {tarefas.filter(t=>{if(!t.vencimento||t.status==='entregue')return false;const d=Math.ceil((new Date(t.vencimento+'T12:00:00')-new Date())/864e5);return d<=5}).map((t,i)=>{
+                    const sm=semaforo(t.vencimento,t.passivel_multa,t.status)
+                    return <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',background:sm.bg,borderRadius:7,marginBottom:4}}>
+                      <div style={{width:12,height:12,borderRadius:'50%',background:sm.cor,flexShrink:0}}/>
+                      <span style={{flex:1,fontSize:12,fontWeight:600,color:sm.cor}}>{t.nome}</span>
+                      <span style={{fontSize:11,color:sm.cor,fontWeight:700}}>{new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                      {t.passivel_multa&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:5,background:'#FEF2F2',color:'#dc2626',fontWeight:700}}>⚠ MULTA</span>}
+                    </div>
+                  })}
+                </div>
+              )}
+              {/* Botões de envio */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+                <button onClick={async()=>{
+                  const tel=cli.whatsapp||cli.telefone||''
+                  if(!tel){alert('Cliente sem WhatsApp cadastrado em Clientes → Comunicação.');return}
+                  const msg=gerarMensagemAlerta(cli,tarefas,mes)
+                  const ok=await enviarAlertaWhatsApp(tel,msg)
+                  alert(ok?'✅ Alerta enviado via WhatsApp!':'❌ Erro ao enviar. Verifique a conexão WhatsApp.')
+                }} style={{padding:'10px 0',borderRadius:9,background:'#25D366',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                  💬 Enviar via WhatsApp
+                </button>
+                <button onClick={()=>{
+                  const email=cli.email||''
+                  if(!email){alert('Cliente sem e-mail cadastrado.');return}
+                  window.open(`mailto:${email}?subject=Alertas de Vencimento - ${mpe(mes)} - EPimentel&body=${encodeURIComponent(gerarMensagemAlerta(cli,tarefas,mes).replace(/\*/g,''))}`)
+                }} style={{padding:'10px 0',borderRadius:9,background:'#3b82f6',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                  📧 Enviar por E-mail
+                </button>
+              </div>
+              <div style={{padding:'10px 14px',borderRadius:8,background:'#EBF5FF',border:'1px solid #c7d7fd',fontSize:11,color:'#1D6FA4',marginBottom:14}}>
+                💡 <b>Alerta semanal automático:</b> Configure os alertas semanais em <b>Config. Tarefas → Templates de Envio</b>. O sistema verificará todo domingo e enviará automaticamente.
+              </div>
+              <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
+                <button onClick={()=>exportarPDF(cli,mes,tarefas)} style={{padding:'8px 16px',borderRadius:8,background:'#e53935',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>📄 PDF</button>
+                <button onClick={()=>setModalAlerta(false)} style={{padding:'8px 18px',borderRadius:8,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>Fechar</button>
+              </div>
             </div>
           </div>
         </div>
