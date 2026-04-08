@@ -11,10 +11,9 @@ from .parcelamentos import router as parcelamentos_router
 from .financeiro import router as financeiro_router
 from .certificados import router as certificados_router
 from .receita_balanco import router as receita_balanco_router
-from .contratos import router as contratos_router
-from .comunicacao import router as comunicacao_router
-from .goiania import router as goiania_router
-from .robo_obrig import router as robo_obrig_router
+from .certidoes_real import router as certidoes_real_router
+from .goiania_robo import router as goiania_robo_router
+from .extras import router as extras_router
 from .consulta_fiscal import router as consulta_fiscal_router
 from .ecac_download import router as ecac_download_router
 from .whatsapp_evolution import router as whatsapp_evolution_router
