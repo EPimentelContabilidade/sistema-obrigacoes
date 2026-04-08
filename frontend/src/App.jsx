@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-  LayoutDashboard, Users, FileText, Send, Receipt,
+  LayoutDashboard, Users, FileText, Send, Receipt, Shield,
   CreditCard, DollarSign, BarChart2, Award, MessageSquare,
   Bot, Shield, CheckSquare, LogOut, Menu, Building2,
   ScrollText, Smartphone, BarChart, Repeat, Briefcase, Settings
@@ -13,6 +13,7 @@ import NotasFiscais          from './pages/NotasFiscais'
 import Parcelamentos         from './pages/Parcelamentos'
 import Financeiro            from './pages/Financeiro'
 import AnaliseBalanco        from './pages/AnaliseBalanco'
+import Certificados          from './pages/Certificados'
 import Certidoes             from './pages/Certidoes'
 import Conversas             from './pages/Conversas'
 import Robo                  from './pages/Robo'
@@ -37,6 +38,7 @@ const NAV = [
   { id: 'financeiro',            label: 'Financeiro',            icon: DollarSign },
   { id: 'balanco',               label: 'Análise Balanço',       icon: BarChart2 },
   { id: 'certidoes',             label: 'Certidões',             icon: Award },
+  { id: 'certificados',          label: 'Certificados Digitais', icon: Shield },
   { id: 'conversas',             label: 'WhatsApp',              icon: MessageSquare },
   { id: 'robo',                  label: 'Robô IA',               icon: Bot },
   { id: 'comunicacao',           label: 'Comunicação Interna',   icon: MessageSquare },
@@ -58,6 +60,7 @@ const PAGES = {
   parcelamentos:         Parcelamentos,
   financeiro:            Financeiro,
   balanco:               AnaliseBalanco,
+  certificados:          Certificados,
   certidoes:             Certidoes,
   conversas:             Conversas,
   robo:                  Robo,
