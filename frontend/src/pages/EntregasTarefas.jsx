@@ -107,67 +107,71 @@ export default function EntregasTarefas() {
 
   useEffect(()=>{ if(cli) gerar() },[cli,mes,vinc])
 
-  // ── Mescla sistema antigo + catálogo gerado ───────────────────────────────
+  // ── Carrega obrigações do ep_tarefas_entregas (geradas via GerarObrigacoes) ─
   const gerar = () => {
     try {
-      const fresh=JSON.parse(localStorage.getItem('ep_clientes')||'[]')
-      const cliAtual=fresh.find(c=>String(c.id)===String(cli?.id))||clientes.find(c=>String(c.id)===String(cli?.id))
-      const idsCliente=cliAtual?.obrigacoes_vinculadas||[]
-      const ids=vinc.length>0?vinc:idsCliente.length>0?idsCliente:[]
-      const listaAntiga=ids.length>0?OBRIGACOES_SISTEMA.filter(o=>o&&ids.includes(o.id)):[]
+      // Competência no formato "MM/YYYY"
+      const mesComp = mes
+        ? `${mes.split('-')[1].padStart(2,'0')}/${mes.split('-')[0]}`
+        : `${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}`
 
-      // Competência no formato "MM/YYYY" para comparar com ep_tarefas_entregas
-      const mesComp=mes?`${mes.split('-')[1].padStart(2,'0')}/${mes.split('-')[0]}`:''
-
-      // Tarefas geradas via GerarObrigacoes (catálogo ConfiguracoesTarefas)
-      const tarefasGeradas=(() => {
-        try {
-          const todas=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]')
-          return todas.filter(t=>String(t.cliente_id)===String(cli?.id)&&t.competencia===mesComp).map(t=>({
-            id:t.id, _origem:'catalogo',
-            nome:t.obrigacao, codigo:t.codigo,
-            departamento:DEPT_MAP[t.codigo]||'Fiscal',
-            responsavel:'Eduardo Pimentel',
-            status:t.status==='Entregue'?'entregue':'pendente',
-            data_entrega:t.data_entrega||null, entregue_por:t.entregue_por||null,
-            enviado:t.enviado||false, robo_ok:false,
-            exigir_robo:t.exigir_robo||false, passivel_multa:t.passivel_multa||false,
-            notif_whatsapp:t.notif_whatsapp||false, notif_email:t.notif_email||false,
-            vencimento:t.vencimento,
-            dia_vencimento:t.vencimento?parseInt(t.vencimento.split('-')[2]):20,
-            caminho_arquivo:t.caminho_arquivo||'',
-            visualizacoes:gerarRastreio(t.id||Math.random()),
-            anexos:t.anexos||[], historico:t.historico||[], competencia:t.competencia,
-          }))
-        } catch { return [] }
-      })()
-
-      // Tarefas do sistema antigo (sem duplicar as do catálogo)
-      const codigosCatalogo=new Set(tarefasGeradas.map(t=>t.codigo).filter(Boolean))
-      const tarefasSistema=listaAntiga
-        .filter(o=>!codigosCatalogo.has(o.codigo)&&!codigosCatalogo.has(o.mininome))
-        .map((o,i)=>({
-          ...o, _origem:'sistema',
-          nome:o.nome||'Obrigação', departamento:o.departamento||'Fiscal',
-          responsavel:o.responsavel||'Eduardo Pimentel',
-          status:'pendente', data_entrega:null, entregue_por:null,
-          enviado:false, robo_ok:false,
-          visualizacoes:gerarRastreio(o.id||i), anexos:[],
+      // 1. Buscar tarefas geradas via catálogo (principal)
+      const todas = JSON.parse(localStorage.getItem('ep_tarefas_entregas') || '[]')
+      const tarefasGeradas = todas
+        .filter(t => String(t.cliente_id) === String(cli?.id) && t.competencia === mesComp)
+        .map(t => ({
+          id: t.id,
+          _origem: 'catalogo',
+          nome: t.obrigacao,
+          codigo: t.codigo,
+          departamento: DEPT_MAP[t.codigo] || 'Fiscal',
+          responsavel: 'Eduardo Pimentel',
+          status: t.status === 'Entregue' ? 'entregue' : 'pendente',
+          data_entrega: t.data_entrega || null,
+          entregue_por: t.entregue_por || null,
+          enviado: t.enviado || false,
+          robo_ok: false,
+          exigir_robo: t.exigir_robo || false,
+          passivel_multa: t.passivel_multa || false,
+          vencimento: t.vencimento,
+          dia_vencimento: t.vencimento ? parseInt(t.vencimento.split('-')[2]) : 20,
+          competencia: t.competencia,
+          visualizacoes: gerarRastreio(t.id || Math.random()),
+          anexos: t.anexos || [],
+          historico: t.historico || [],
         }))
 
-      const merged=[...tarefasGeradas,...tarefasSistema]
-
-      if(merged.length>0){
-        setTarefas(merged); if(vinc.length===0) setVinc(ids)
-      } else if(listaAntiga.length>0){
-        setTarefas(listaAntiga.map((o,i)=>({...o,_origem:'sistema',nome:o.nome||'Obrigação',departamento:o.departamento||'Fiscal',responsavel:o.responsavel||'Eduardo Pimentel',status:'pendente',data_entrega:null,entregue_por:null,enviado:false,robo_ok:false,visualizacoes:gerarRastreio(o.id||i),anexos:[]})))
-        if(vinc.length===0) setVinc(ids)
-      } else {
-        const fallback=OBRIGACOES_SISTEMA.filter(o=>o&&o.ativa).slice(0,8)
-        setTarefas(fallback.map((o,i)=>({...o,_origem:'sistema',nome:o.nome||'Obrigação',departamento:o.departamento||'Fiscal',responsavel:o.responsavel||'Eduardo Pimentel',status:'pendente',data_entrega:null,entregue_por:null,enviado:false,robo_ok:false,visualizacoes:gerarRastreio(o.id||i),anexos:[]})))
-        setVinc(fallback.map(o=>o.id))
+      if (tarefasGeradas.length > 0) {
+        setTarefas(tarefasGeradas)
+        return
       }
-    } catch(err){ console.error('Erro ao gerar tarefas:',err) }
+
+      // 2. Fallback: obrigacoes_vinculadas do cliente (sistema antigo)
+      const fresh = JSON.parse(localStorage.getItem('ep_clientes') || '[]')
+      const cliAtual = fresh.find(c => String(c.id) === String(cli?.id))
+      const ids = cliAtual?.obrigacoes_vinculadas || []
+      if (ids.length > 0) {
+        const lista = OBRIGACOES_SISTEMA.filter(o => o && ids.includes(o.id))
+        if (lista.length > 0) {
+          setTarefas(lista.map((o, i) => ({
+            ...o, _origem: 'sistema',
+            nome: o.nome || 'Obrigação',
+            departamento: o.departamento || 'Fiscal',
+            responsavel: o.responsavel || 'Eduardo Pimentel',
+            status: 'pendente', data_entrega: null, entregue_por: null,
+            enviado: false, robo_ok: false,
+            visualizacoes: gerarRastreio(o.id || i), anexos: [],
+          })))
+          return
+        }
+      }
+
+      // 3. Sem obrigações para este cliente/mês
+      setTarefas([])
+    } catch (err) {
+      console.error('Erro ao carregar tarefas:', err)
+      setTarefas([])
+    }
   }
 
   // Atualiza ep_tarefas_entregas ao marcar como entregue
@@ -488,10 +492,10 @@ export default function EntregasTarefas() {
               </table>
               {filtradas.length===0&&(
                 <div style={{textAlign:'center',padding:40,color:'#bbb'}}>
-                  Nenhuma tarefa.{' '}
-                  <button onClick={()=>setMGerar(true)} style={{color:GOLD,background:'none',border:'none',cursor:'pointer',fontWeight:700}}>📅 Gerar Obrigações</button>
-                  {' ou '}
-                  <button onClick={()=>setMVinc(true)} style={{color:NAVY,background:'none',border:'none',cursor:'pointer'}}>vincular manualmente</button>
+                  Nenhuma obrigação para <b>{cli?.nome}</b> em <b>{mpe(mes)}</b>.{' '}
+                  <button onClick={()=>setMGerar(true)} style={{color:GOLD,background:'none',border:'none',cursor:'pointer',fontWeight:700,textDecoration:'underline'}}>📅 Clique aqui para Gerar Obrigações</button>
+                  {' — use também '}
+                  <button onClick={()=>setMVinc(true)} style={{color:NAVY,background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}}>Vincular manualmente</button>
                 </div>
               )}
             </div>
