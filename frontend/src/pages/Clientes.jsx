@@ -9,6 +9,24 @@ const API   = '/api/v1'
 const inp = { padding:'7px 10px', borderRadius:6, border:'1px solid #ddd', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', color:'#333' }
 const sel = { ...inp, cursor:'pointer', background:'#fff' }
 
+// ── ALTERAÇÃO 1: helper catálogo v2 ──────────────────────────────────────────
+function obrigsCatalogo(regime) {
+  try {
+    const mapa = {
+      'Simples Nacional': 'Simples Nacional',
+      'MEI': 'MEI',
+      'Lucro Presumido': 'Lucro Presumido',
+      'Lucro Real': 'Lucro Real',
+      'RET': 'RET/Imobiliário',
+      'Imune/Isento': 'Simples Nacional',
+    };
+    const chave = mapa[regime] || regime;
+    const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2') || 'null');
+    if (!cat) return [];
+    return (cat[chave] || []).filter(o => o.ativo);
+  } catch { return []; }
+}
+
 const REGIME_OBRIG_AUTO = {
   'Simples Nacional': [27,33,50,68,75,78,86],
   'MEI': [28,29,33],
@@ -27,6 +45,7 @@ const ABA_TABS = [
   { id:'comunicacao', label:'📱 Comunicação', icon:Phone },
 ]
 
+// ── ALTERAÇÃO 2: obrigacoes_catalogo no FORM_VAZIO ───────────────────────────
 const FORM_VAZIO = {
   nome:'', cnpj:'', email:'', whatsapp:'', telefone:'',
   regime:'Simples Nacional', tributacao:'Simples Nacional', grupo:'', nome_fantasia:'',
@@ -36,7 +55,7 @@ const FORM_VAZIO = {
   contatos:[{nome:'',departamento:'',cargo:'',email:'',whatsapp:'',telefone:'',tipo:'principal'}],
   dia_vencimento:20, periodicidade:'Mensal', valor_honorario:0,
   email_nfe:'', email_folha:'', canal_padrao:'whatsapp',
-  obrigacoes_vinculadas:[], observacoes:'', ativo:true,
+  obrigacoes_vinculadas:[], obrigacoes_catalogo:[], observacoes:'', ativo:true,
 }
 
 export default function Clientes() {
@@ -91,6 +110,7 @@ export default function Clientes() {
 
   const setF = (k,v) => setForm(f => ({ ...f, [k]:v }))
 
+  // ── ALTERAÇÃO 3: onTributacaoChange com catálogo v2 ───────────────────────
   const onTributacaoChange = (novoRegime) => {
     setF('tributacao', novoRegime)
     setF('regime', novoRegime)
@@ -99,27 +119,27 @@ export default function Clientes() {
     setObrigSugeridas(todas)
     setF('obrigacoes_vinculadas', todas)
     setConfirmObrig(true)
+    // Novo catálogo ConfiguracoesTarefas
+    setF('obrigacoes_catalogo', obrigsCatalogo(novoRegime))
   }
 
-  // ✅ Gerar obrigações pelo regime e salvar imediatamente no localStorage
   const gerarObrigacoes = () => {
     if (!form.tributacao) return
     const obrigEspecificas = REGIME_OBRIG_AUTO[form.tributacao] || []
     const todas = [...new Set([...OBRIGAS_COMUNS, ...obrigEspecificas])]
     setF('obrigacoes_vinculadas', todas)
+    setF('obrigacoes_catalogo', obrigsCatalogo(form.tributacao))
     setConfirmObrig(true)
-    // Salvar imediatamente se já tiver um cliente (editando)
     if (editId) {
       const clisLocal = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
       const updated = clisLocal.map(c =>
-        String(c.id)===String(editId) ? {...c, obrigacoes_vinculadas: todas, tributacao: form.tributacao, regime: form.tributacao} : c
+        String(c.id)===String(editId) ? {...c, obrigacoes_vinculadas: todas, obrigacoes_catalogo: obrigsCatalogo(form.tributacao), tributacao: form.tributacao, regime: form.tributacao} : c
       )
       localStorage.setItem('ep_clientes', JSON.stringify(updated))
       setClientes(updated)
     }
   }
 
-  // ✅ Confirmar modal obrigações salva imediatamente no localStorage se editando
   const confirmarObrigacoes = () => {
     setModalObrig(false)
     if (editId) {
@@ -158,12 +178,14 @@ export default function Clientes() {
     setBuscandoCNPJ(false)
   }
 
+  // ── ALTERAÇÃO 4: obrigacoes_catalogo no salvar ────────────────────────────
   const salvar = async () => {
     const novoCliente = {
       ...form,
       id:   editId || Date.now(),
       ativo: form.ativo !== false,
       obrigacoes_vinculadas: form.obrigacoes_vinculadas || [],
+      obrigacoes_catalogo:   form.obrigacoes_catalogo   || [],
       responsaveis: form.responsaveis || [],
       contatos:     form.contatos     || [],
       tributacao:   form.tributacao   || '',
@@ -196,6 +218,7 @@ export default function Clientes() {
       ...FORM_VAZIO,
       ...cli,
       obrigacoes_vinculadas: cli.obrigacoes_vinculadas || [],
+      obrigacoes_catalogo:   cli.obrigacoes_catalogo   || [],
       responsaveis: cli.responsaveis || [],
       contatos: cli.contatos?.length ? cli.contatos : [{nome:'',departamento:'',cargo:'',email:'',whatsapp:'',telefone:'',tipo:'principal'}],
       ativo: cli.ativo !== false,
@@ -286,7 +309,7 @@ export default function Clientes() {
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
               <thead>
                 <tr style={{ background:'#fff', borderBottom:'2px solid #e8e8e8', position:'sticky', top:0, zIndex:1 }}>
-                  {['Cliente','CNPJ','Regime / Tributação','Responsável','Canal','Obrig.','Status','Ações'].map(h=>(
+                  {['Cliente','CNPJ','Regime / Tributação','Responsável','Canal','Obrig.','Catálogo','Status','Ações'].map(h=>(
                     <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:'#888', textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -309,6 +332,11 @@ export default function Clientes() {
                       <td style={{ padding:'9px 12px', textAlign:'center' }}>
                         <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:'#EBF5FF', color:NAVY, fontWeight:600 }}>{(c.obrigacoes_vinculadas||[]).length}</span>
                       </td>
+                      <td style={{ padding:'9px 12px', textAlign:'center' }}>
+                        <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:'#FFFBF0', color:'#854D0E', fontWeight:600, border:'1px solid #C5A55A44' }}>
+                          {(c.obrigacoes_catalogo||[]).length > 0 ? `📋 ${(c.obrigacoes_catalogo||[]).length}` : '—'}
+                        </span>
+                      </td>
                       <td style={{ padding:'9px 12px' }}>
                         <span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:c.ativo!==false?'#F0FDF4':'#f5f5f5', color:c.ativo!==false?'#166534':'#888', fontWeight:600 }}>
                           {c.ativo!==false?'● Ativo':'○ Inativo'}
@@ -321,7 +349,7 @@ export default function Clientes() {
                   )
                 })}
                 {clientesFiltrados.length===0 && (
-                  <tr><td colSpan={8} style={{ padding:40, textAlign:'center', color:'#ccc' }}>Nenhum cliente encontrado.</td></tr>
+                  <tr><td colSpan={9} style={{ padding:40, textAlign:'center', color:'#ccc' }}>Nenhum cliente encontrado.</td></tr>
                 )}
               </tbody>
             </table>
@@ -398,7 +426,6 @@ export default function Clientes() {
                         <button onClick={()=>setModalObrig(true)} style={{ color:NAVY, background:'none', border:'none', cursor:'pointer', fontWeight:700, textDecoration:'underline', fontSize:11, whiteSpace:'nowrap' }}>
                           Ver obrigações →
                         </button>
-                        {/* ✅ BOTÃO GERAR OBRIGAÇÕES */}
                         <button onClick={gerarObrigacoes} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:7, background:NAVY, color:'#fff', fontWeight:700, fontSize:11, border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
                           <Zap size={11}/> Gerar Obrigações
                         </button>
@@ -417,6 +444,59 @@ export default function Clientes() {
                         </button>
                       </div>
                       <button onClick={()=>setConfirmObrig(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#aaa' }}><X size={14} /></button>
+                    </div>
+                  )}
+
+                  {/* ── ALTERAÇÃO 5: painel catálogo ConfiguracoesTarefas ──────── */}
+                  {form.tributacao && (form.obrigacoes_catalogo || obrigsCatalogo(form.tributacao)).length > 0 && (
+                    <div style={{ marginBottom:14, padding:'12px 16px', borderRadius:10, border:'1px solid #C5A55A33', background:'#FFFBF0' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ fontSize:16 }}>📋</span>
+                          <span style={{ fontWeight:700, color:NAVY, fontSize:13 }}>
+                            Obrigações do Catálogo (Config. Tarefas)
+                          </span>
+                          <span style={{ fontSize:11, padding:'1px 8px', borderRadius:10, background:NAVY, color:'#fff', fontWeight:700 }}>
+                            {(form.obrigacoes_catalogo || obrigsCatalogo(form.tributacao)).length} ativas
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const lista = form.obrigacoes_catalogo?.length ? form.obrigacoes_catalogo : obrigsCatalogo(form.tributacao)
+                            setF('obrigacoes_catalogo', lista)
+                            if (editId) {
+                              const local = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
+                              const updated = local.map(c => String(c.id)===String(editId) ? {...c, obrigacoes_catalogo:lista, tributacao:form.tributacao} : c)
+                              localStorage.setItem('ep_clientes', JSON.stringify(updated))
+                              setClientes(updated)
+                            }
+                          }}
+                          style={{ fontSize:11, padding:'4px 12px', borderRadius:7, background:NAVY, color:'#fff', border:'none', cursor:'pointer', fontWeight:700 }}
+                        >
+                          ✅ Vincular ao Cliente
+                        </button>
+                      </div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                        {(form.obrigacoes_catalogo?.length ? form.obrigacoes_catalogo : obrigsCatalogo(form.tributacao)).map(o => (
+                          <span key={o.codigo} title={`${o.nome} · ${o.periodicidade} · Venc: ${o.dias_entrega?.Janeiro||'Dia 20'}`} style={{
+                            fontSize:11, padding:'3px 9px', borderRadius:8,
+                            background: o.passivel_multa==='Sim' ? '#FEF2F2' : '#F0F4FF',
+                            color: o.passivel_multa==='Sim' ? '#DC2626' : NAVY,
+                            border: `1px solid ${o.passivel_multa==='Sim' ? '#FCA5A5' : '#C7D7FD'}`,
+                            fontWeight:600, display:'inline-flex', alignItems:'center', gap:3, cursor:'default'
+                          }}>
+                            {o.passivel_multa==='Sim' && <span title="Passível de multa">⚠️</span>}
+                            {o.exigir_robo==='Sim' && <span title="Exige Robô">🤖</span>}
+                            {o.notif_whatsapp && <span title="Notificação WhatsApp">💬</span>}
+                            {o.notif_email && <span title="Notificação E-mail">✉️</span>}
+                            {o.codigo}
+                            <span style={{ fontWeight:400, color:'#888', fontSize:10 }}>· {o.periodicidade}</span>
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ marginTop:8, fontSize:11, color:'#888' }}>
+                        💡 Passe o mouse nos badges para ver detalhes. Configure em <b>Config. Tarefas → Obrigações por Regime</b>
+                      </div>
                     </div>
                   )}
 
@@ -555,14 +635,10 @@ export default function Clientes() {
                               </select>
                             )}
                             {ct.whatsapp && (
-                              <a href={`https://wa.me/${ct.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EDFBF1', color:'#1A7A3C', fontSize:10, fontWeight:700, textDecoration:'none' }}>
-                                💬 WhatsApp
-                              </a>
+                              <a href={`https://wa.me/${ct.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EDFBF1', color:'#1A7A3C', fontSize:10, fontWeight:700, textDecoration:'none' }}>💬 WhatsApp</a>
                             )}
                             {ct.email && (
-                              <a href={`mailto:${ct.email}`} style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EFF6FF', color:'#1D4ED8', fontSize:10, fontWeight:700, textDecoration:'none' }}>
-                                📧 E-mail
-                              </a>
+                              <a href={`mailto:${ct.email}`} style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 9px', borderRadius:8, background:'#EFF6FF', color:'#1D4ED8', fontSize:10, fontWeight:700, textDecoration:'none' }}>📧 E-mail</a>
                             )}
                           </div>
                           {!isPrincipal && (
@@ -774,7 +850,6 @@ export default function Clientes() {
                 </div>
               )}
             </div>
-            {/* ✅ Footer — Confirmar salva imediatamente no localStorage */}
             <div style={{ padding:'12px 20px', borderTop:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f8f9fb' }}>
               <div style={{ fontSize:12, color:NAVY }}>
                 <b style={{ fontSize:16 }}>{form.obrigacoes_vinculadas.length}</b> obrigações selecionadas
