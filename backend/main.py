@@ -8,7 +8,7 @@ from routers import (
     webhook_router, dashboard_router, conversas_router,
     robo_router, admin_router, notas_router, parcelamentos_router,
     financeiro_router, certificados_router, receita_balanco_router,
-    certidoes_router, contratos_router, comunicacao_router,
+    contratos_router, comunicacao_router,
     goiania_router, robo_obrig_router, consulta_fiscal_router,
     ecac_download_router, whatsapp_evolution_router,
 )
@@ -41,7 +41,6 @@ app.include_router(parcelamentos_router)
 app.include_router(financeiro_router)
 app.include_router(certificados_router)
 app.include_router(receita_balanco_router)
-app.include_router(certidoes_router)
 app.include_router(contratos_router)
 app.include_router(comunicacao_router)
 app.include_router(goiania_router)
