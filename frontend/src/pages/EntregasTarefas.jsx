@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { CheckCircle, Send, Settings, Search, X, AlertTriangle, Filter, Save, Eye, ChevronDown, ChevronUp, Edit2, Trash2, FileText, Upload, Download, Paperclip, Monitor, Smartphone, MapPin, Calendar } from 'lucide-react'
+import { CheckCircle, Send, Settings, Search, X, AlertTriangle, Filter, Save, Eye, ChevronDown, ChevronUp, Edit2, Trash2, FileText, Upload, Download, Paperclip, Monitor, Smartphone, MapPin } from 'lucide-react'
 import { OBRIGACOES_SISTEMA } from './obrigacoes_data'
 import GerarObrigacoes from './GerarObrigacoes'
 
@@ -434,7 +434,7 @@ export default function EntregasTarefas() {
                   <input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,padding:'5px 9px'}}/>
                   {/* ── Botões ── */}
                   <button onClick={()=>setMGerar(true)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:`1px solid ${GOLD}`,background:GOLD+'15',color:'#854D0E',fontSize:12,fontWeight:700,cursor:'pointer'}}>
-                    <Calendar size={12}/> Gerar
+                    📅 Gerar
                   </button>
                   <button onClick={()=>exportarExcel(cli,mes,tarefas)} title="Exportar Excel" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #22c55e',background:'#F0FDF4',color:'#166534',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                     📊 Excel
