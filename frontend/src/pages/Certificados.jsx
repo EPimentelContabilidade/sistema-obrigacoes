@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { Search, Shield, RefreshCw, Edit2, Download, Trash2, Eye, EyeOff, Lock, AlertTriangle } from 'lucide-react'
+import { Search, Shield, RefreshCw, Edit2, Download, Trash2, Eye, EyeOff, Lock, FileText } from 'lucide-react'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 const inp = { padding:'7px 10px', borderRadius:6, border:'1px solid #ddd', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', color:'#333' }
 const sel = { ...inp, cursor:'pointer', background:'#fff' }
-
 const CERT_EMISSORAS = ['Serasa','Certisign','Soluti','Valid','Safeweb','ICP-Brasil','Outro']
 const ORGAOS_PROC = ['e-CAC (Receita Federal)','SEFAZ Estadual','Prefeitura / NFS-e','Portal Simples Nacional','Junta Comercial','INSS / eSocial','FGTS / Caixa','Outro']
 
@@ -20,53 +19,238 @@ function statusCert(dias) {
   return {cor:'#22c55e',bg:'#F0FDF4',label:dias+'d',icon:'✅'}
 }
 
-async function parseCertificado(file) {
-  return new Promise(resolve => {
-    const reader = new FileReader()
-    reader.onload = ev => {
-      try {
-        const bytes = new Uint8Array(ev.target.result)
-        const nome = file.name.toLowerCase()
-        let tipo = 'e-CNPJ'
-        if(nome.includes('cpf')||nome.includes('ecpf')||nome.includes('e-cpf')) tipo='e-CPF'
-        else if(nome.includes('cnpj')||nome.includes('ecnpj')||nome.includes('e-cnpj')) tipo='e-CNPJ'
-        const strings=[]
-        let cur=''
-        for(let i=0;i<Math.min(bytes.length,8000);i++){
-          const c=bytes[i]
-          if(c>=32&&c<127) cur+=String.fromCharCode(c)
-          else { if(cur.length>=4) strings.push(cur); cur='' }
-        }
-        let cnpj_cpf='', titular='', emissora='', validade=''
-        for(const s of strings){
-          const m14=s.match(/\d{14}/)
-          if(m14&&!cnpj_cpf) cnpj_cpf=m14[0]
-          const m11=s.match(/\d{11}/)
-          if(m11&&tipo==='e-CPF'&&!cnpj_cpf) cnpj_cpf=m11[0]
-          for(const em of CERT_EMISSORAS){ if(s.toLowerCase().includes(em.toLowerCase())&&!emissora) emissora=em }
-          const cn=s.match(/CN=([^,/]+)/)
-          if(cn&&!titular) titular=cn[1].trim()
-          const dt=s.match(/(\d{4})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/)
-          if(dt&&!validade){ const a=parseInt(dt[1]); if(a>=2024&&a<=2040) validade=`${dt[1]}-${dt[2]}-${dt[3]}` }
-        }
-        if(cnpj_cpf.length===14){ cnpj_cpf=cnpj_cpf.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5'); tipo='e-CNPJ' }
-        else if(cnpj_cpf.length===11){ cnpj_cpf=cnpj_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4'); tipo='e-CPF' }
-        const clientes=getClientes()
-        const limpo=cnpj_cpf.replace(/\D/g,'')
-        const cli=clientes.find(c=>{
-          if((c.cnpj||'').replace(/\D/g,'')===limpo&&limpo) return true
-          return (c.socios||[]).some(s=>(s.cpf||'').replace(/\D/g,'')===limpo&&limpo)
-        })||null
-        resolve({arquivo:file.name,tipo,cnpj_cpf,titular,emissora:emissora||'',validade,cliente:cli,eh_socio:cli&&limpo.length===11,tamanho:file.size})
-      } catch { resolve({arquivo:file.name,tipo:'e-CNPJ',cnpj_cpf:'',titular:'',emissora:'',validade:'',cliente:null}) }
-    }
-    reader.readAsArrayBuffer(file)
+// ── Carrega node-forge do CDN para parse real de PFX ─────────────────────────
+let forgePromise = null
+function loadForge() {
+  if(forgePromise) return forgePromise
+  forgePromise = new Promise((res,rej) => {
+    if(window.forge) { res(window.forge); return }
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/forge/1.3.1/forge.min.js'
+    s.onload = () => res(window.forge)
+    s.onerror = rej
+    document.head.appendChild(s)
   })
+  return forgePromise
 }
 
-function SenhaInput({value,onChange}) {
+// ── Parse REAL do .pfx com senha usando node-forge ────────────────────────────
+async function parsePfxComSenha(file, senha) {
+  try {
+    const forge = await loadForge()
+    const buf = await file.arrayBuffer()
+    const der = forge.util.createBuffer(buf)
+    const asn1 = forge.asn1.fromDer(der)
+    const pfx = forge.pkcs12.pkcs12FromAsn1(asn1, senha || '')
+    
+    // Extrair certificado
+    const bags = pfx.getBags({ bagType: forge.pki.oids.certBag })
+    const certBags = bags[forge.pki.oids.certBag] || []
+    if(!certBags.length) return { erro:'Nenhum certificado encontrado no arquivo.' }
+    
+    const cert = certBags[0].cert
+    const subj = cert.subject
+    const getAttr = (oid) => subj.getField(oid)?.value || ''
+    
+    const cn = getAttr('CN') || getAttr('commonName') || ''
+    const o  = getAttr('O')  || getAttr('organizationName') || ''
+    const ou = getAttr('OU') || getAttr('organizationalUnitName') || ''
+    const serial = cert.serialNumber
+    
+    // Extrair CNPJ/CPF do CN (padrão ICP-Brasil: "NOME:00000000000000")
+    let cnpj_cpf = ''
+    let titular = cn
+    const partes = cn.split(':')
+    if(partes.length === 2) {
+      titular = partes[0].trim()
+      cnpj_cpf = partes[1].replace(/\D/g,'')
+    } else {
+      // Tentar extrair do campo serialNumber do subject
+      const sn = getAttr('serialNumber') || ''
+      cnpj_cpf = sn.replace(/\D/g,'')
+    }
+    
+    // Formatar
+    if(cnpj_cpf.length===14) cnpj_cpf = cnpj_cpf.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5')
+    else if(cnpj_cpf.length===11) cnpj_cpf = cnpj_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4')
+    
+    const tipo = cnpj_cpf.replace(/\D/g,'').length===11 ? 'e-CPF' : 'e-CNPJ'
+    
+    // Validade
+    const validade = cert.validity.notAfter
+    const validadeStr = validade ? `${validade.getFullYear()}-${String(validade.getMonth()+1).padStart(2,'0')}-${String(validade.getDate()).padStart(2,'0')}` : ''
+    
+    // Emissora (Issuer CN)
+    const issuerCN = cert.issuer?.getField('CN')?.value || cert.issuer?.getField('O')?.value || ''
+    let emissora = ''
+    for(const em of CERT_EMISSORAS) { if(issuerCN.toLowerCase().includes(em.toLowerCase())) { emissora = em; break } }
+    
+    // Cruzar com clientes
+    const limpo = cnpj_cpf.replace(/\D/g,'')
+    const cliente = getClientes().find(c => {
+      if((c.cnpj||'').replace(/\D/g,'')===limpo&&limpo) return true
+      return (c.socios||[]).some(s=>(s.cpf||'').replace(/\D/g,'')===limpo&&limpo)
+    })||null
+    
+    return {
+      arquivo: file.name, tipo, cnpj_cpf, titular, emissora,
+      validade: validadeStr, cliente, eh_socio: cliente && limpo.length===11,
+      tamanho: file.size, serial, issuer: issuerCN,
+      ou, o, senha_ok: true
+    }
+  } catch(e) {
+    if(e.message?.includes('password') || e.message?.includes('mac') || e.message?.toLowerCase().includes('invalid')) {
+      return { erro: '🔑 Senha incorreta. Verifique a senha do certificado.', senha_invalida: true }
+    }
+    // Fallback: parse por nome
+    const nome = file.name.toLowerCase()
+    return {
+      arquivo: file.name, erro_parse: e.message,
+      tipo: nome.includes('cpf')?'e-CPF':'e-CNPJ',
+      cnpj_cpf:'', titular:'', emissora:'', validade:'', cliente:null,
+      tamanho: file.size, senha_ok: false,
+      aviso: 'Não foi possível ler o certificado automaticamente. Preencha os campos manualmente.'
+    }
+  }
+}
+
+// ── Relatório via Claude API ──────────────────────────────────────────────────
+async function gerarRelatorioIA(certClientes, tipo='analise') {
+  const dados = certClientes.map(x=>({
+    cliente: x.c.nome, cnpj: x.c.cnpj, regime: x.c.tributacao||x.c.regime,
+    cert_tipo: x.cert.cert_tipo||'—', titular: x.cert.cert_titular||'—',
+    validade: x.cert.cert_validade||null, dias: x.diasCert,
+    status: statusCert(x.diasCert).label, emissora: x.cert.cert_emissora||'—',
+    procuracao: x.temProc, proc_validade: x.cert.proc_validade||null,
+    proc_orgaos: x.cert.proc_orgaos||[],
+  }))
+  
+  const vencidos = dados.filter(d=>d.dias!==null&&d.dias<0)
+  const alertas  = dados.filter(d=>d.dias!==null&&d.dias>=0&&d.dias<=30)
+  const semCert  = dados.filter(d=>d.dias===null)
+  
+  const prompt = tipo==='alerta'
+    ? `Você é um assistente do escritório EPimentel Auditoria & Contabilidade (CRC/GO 026.994/O-8).
+
+Analise a situação dos certificados digitais e gere um ALERTA para o escritório:
+
+VENCIDOS (${vencidos.length}): ${JSON.stringify(vencidos.map(d=>({cliente:d.cliente,validade:d.validade,dias:d.dias})))}
+ALERTA 30 DIAS (${alertas.length}): ${JSON.stringify(alertas.map(d=>({cliente:d.cliente,validade:d.validade,dias:d.dias})))}
+SEM CERTIFICADO (${semCert.length}): ${JSON.stringify(semCert.map(d=>d.cliente))}
+
+Gere um alerta profissional e direto para o time do escritório, com:
+1. Resumo executivo da situação
+2. Ações urgentes (vencidos)
+3. Ações preventivas (próximos 30 dias)
+4. Orientações para os sem certificado
+5. Mensagem de WhatsApp pronta para enviar aos clientes com certificado vencido
+
+Use emojis e linguagem profissional. Seja objetivo.`
+    : `Analise estes ${dados.length} certificados digitais do escritório EPimentel e produza:
+1. Diagnóstico geral da carteira
+2. Indicadores: % com certificado válido, médio de dias até vencimento
+3. Lista priorizada de ações
+4. Recomendações de renovação
+5. Texto para relatório em PDF
+
+Dados: ${JSON.stringify(dados)}`
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1200, messages:[{role:'user',content:prompt}] })
+  })
+  const d = await r.json()
+  return d.content?.[0]?.text || 'Erro ao gerar análise.'
+}
+
+// ── Exportar Excel simples ────────────────────────────────────────────────────
+function exportarExcel(certClientes) {
+  const linhas = [
+    ['Cliente','CNPJ','Regime','Tipo Cert.','Titular','CPF/CNPJ Cert.','Emissora','Validade','Dias Restantes','Status','Procuração','Órgãos Proc.','Data Proc.','Validade Proc.'],
+    ...certClientes.map(x=>[
+      x.c.nome, x.c.cnpj, x.c.tributacao||x.c.regime||'',
+      x.cert.cert_tipo||'', x.cert.cert_titular||'', x.cert.cert_cnpj_cpf||'',
+      x.cert.cert_emissora||'', x.cert.cert_validade||'',
+      x.diasCert===null?'':x.diasCert, statusCert(x.diasCert).label,
+      x.temProc?'Sim':'Não', (x.cert.proc_orgaos||[]).join('; '),
+      x.cert.proc_data||'', x.cert.proc_validade||''
+    ])
+  ]
+  const csv = linhas.map(l=>l.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+  const bom = '\uFEFF'
+  const blob = new Blob([bom+csv],{type:'text/csv;charset=utf-8'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href=url; a.download=`certificados_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`; a.click()
+  URL.revokeObjectURL(url)
+  logLGPD('exportacao_excel_certificados',{qtd:certClientes.length})
+}
+
+// ── Exportar PDF via impressão ────────────────────────────────────────────────
+function exportarPDF(certClientes, analiseIA='') {
+  const vencidos  = certClientes.filter(x=>x.diasCert!==null&&x.diasCert<0)
+  const alertas   = certClientes.filter(x=>x.diasCert!==null&&x.diasCert>=0&&x.diasCert<=30)
+  const validos   = certClientes.filter(x=>x.diasCert!==null&&x.diasCert>30)
+  const semCert   = certClientes.filter(x=>x.diasCert===null)
+  
+  const linhasTabela = certClientes.map(x=>{
+    const st=statusCert(x.diasCert)
+    return `<tr>
+      <td>${x.c.nome}</td>
+      <td>${x.c.cnpj}</td>
+      <td>${x.c.tributacao||x.c.regime||'—'}</td>
+      <td>${x.cert.cert_tipo||'—'}</td>
+      <td>${x.cert.cert_titular||'—'}</td>
+      <td>${x.cert.cert_emissora||'—'}</td>
+      <td style="color:${st.cor};font-weight:700">${x.cert.cert_validade?new Date(x.cert.cert_validade+'T12:00:00').toLocaleDateString('pt-BR'):'Não informado'}</td>
+      <td style="color:${st.cor};font-weight:700">${st.icon} ${st.label}</td>
+      <td>${x.temProc?'✅ Sim':'—'}</td>
+    </tr>`
+  }).join('')
+  
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>Relatório Certificados Digitais — EPimentel</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:30px;color:#333;font-size:12px}
+    h1{color:#1B2A4A;border-bottom:3px solid #C5A55A;padding-bottom:8px}
+    h2{color:#1B2A4A;margin-top:20px}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+    .card{border:1px solid #ddd;border-radius:8px;padding:12px;text-align:center}
+    .card .num{font-size:28px;font-weight:800}
+    .card .lbl{font-size:11px;color:#666}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th{background:#1B2A4A;color:#fff;padding:8px 6px;text-align:left;font-size:11px}
+    td{padding:6px;border-bottom:1px solid #f0f0f0;font-size:11px}
+    tr:nth-child(even){background:#FAFAFA}
+    .analise{background:#F0F4FF;border:1px solid #C7D7FD;border-radius:8px;padding:14px;margin-top:16px;white-space:pre-wrap;font-size:12px}
+    .footer{margin-top:24px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#aaa;text-align:center}
+  </style></head><body>
+  <h1>🔐 Relatório de Certificados Digitais</h1>
+  <div><b>Escritório:</b> EPimentel Auditoria & Contabilidade Ltda | <b>CRC/GO:</b> 026.994/O-8 | <b>Data:</b> ${new Date().toLocaleString('pt-BR')}</div>
+  <div class="cards">
+    <div class="card"><div class="num" style="color:#1B2A4A">${certClientes.length}</div><div class="lbl">Total</div></div>
+    <div class="card"><div class="num" style="color:#dc2626">${vencidos.length}</div><div class="lbl">Vencidos</div></div>
+    <div class="card"><div class="num" style="color:#f59e0b">${alertas.length}</div><div class="lbl">Alerta 30d</div></div>
+    <div class="card"><div class="num" style="color:#22c55e">${validos.length}</div><div class="lbl">Válidos</div></div>
+  </div>
+  <h2>📋 Listagem Completa</h2>
+  <table><thead><tr><th>Cliente</th><th>CNPJ</th><th>Regime</th><th>Tipo</th><th>Titular</th><th>Emissora</th><th>Validade</th><th>Status</th><th>Proc.</th></tr></thead>
+  <tbody>${linhasTabela}</tbody></table>
+  ${analiseIA?`<h2>🤖 Análise Claude IA</h2><div class="analise">${analiseIA}</div>`:''}
+  <div class="footer">Documento gerado pelo Sistema EPimentel | LGPD Lei 13.709/2018 | Uso restrito ao controlador autorizado</div>
+  </body></html>`
+  
+  const win = window.open('','_blank')
+  win.document.write(html)
+  win.document.close()
+  setTimeout(()=>win.print(),500)
+  logLGPD('exportacao_pdf_certificados',{qtd:certClientes.length})
+}
+
+function logLGPD(acao,extra={}){ const l=JSON.parse(localStorage.getItem('ep_lgpd_log')||'[]'); l.push({acao,...extra,data:new Date().toISOString(),usuario:JSON.parse(localStorage.getItem('usuario')||'{}').nome||'Sistema'}); localStorage.setItem('ep_lgpd_log',JSON.stringify(l.slice(-200))) }
+
+function SenhaInput({value,onChange,placeholder='••••••••'}) {
   const [show,setShow]=useState(false)
-  return <div style={{position:'relative'}}><input type={show?'text':'password'} value={value} onChange={onChange} placeholder="••••••••" style={{...inp,paddingRight:36}}/><button type="button" onClick={()=>setShow(s=>!s)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#aaa'}}>{show?<EyeOff size={14}/>:<Eye size={14}/>}</button></div>
+  return <div style={{position:'relative'}}><input type={show?'text':'password'} value={value} onChange={onChange} placeholder={placeholder} style={{...inp,paddingRight:36}}/><button type="button" onClick={()=>setShow(s=>!s)} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#aaa'}}>{show?<EyeOff size={14}/>:<Eye size={14}/>}</button></div>
 }
 
 export default function Certificados() {
@@ -82,44 +266,82 @@ export default function Certificados() {
   const [modalExcluir,setModalExcluir]=useState(null)
   const [modalImportar,setModalImportar]=useState(null)
   const [analisando,setAnalisando]=useState(false)
+  const [senhaImport,setSenhaImport]=useState('')
+  const [arquivoImport,setArquivoImport]=useState(null)
+  const [erroParse,setErroParse]=useState('')
   const [lgpdConsent,setLgpdConsent]=useState(()=>!!localStorage.getItem('ep_lgpd_cert_consent'))
   const [showLgpd,setShowLgpd]=useState(false)
+  const [analisandoIA,setAnalisandoIA]=useState(false)
+  const [resultadoIA,setResultadoIA]=useState('')
+  const [modalIA,setModalIA]=useState(false)
   const fileRef=useRef()
 
   useEffect(()=>{ setClientes(getClientes()) },[])
   const reload=()=>setClientes(getClientes())
 
-  const log=(acao,extra={})=>{ const l=JSON.parse(localStorage.getItem('ep_lgpd_log')||'[]'); l.push({acao,...extra,data:new Date().toISOString(),usuario:JSON.parse(localStorage.getItem('usuario')||'{}').nome||'Sistema'}); localStorage.setItem('ep_lgpd_log',JSON.stringify(l.slice(-200))) }
+  // Tentar parse com senha quando senha for preenchida
+  useEffect(()=>{
+    if(!arquivoImport||!senhaImport||senhaImport.length<1) return
+    const timer=setTimeout(async()=>{
+      setAnalisando(true); setErroParse('')
+      const dados=await parsePfxComSenha(arquivoImport,senhaImport)
+      setAnalisando(false)
+      if(dados.erro){ setErroParse(dados.erro); return }
+      setModalImportar(m=>({...m,...dados,senha:senhaImport}))
+    },800)
+    return ()=>clearTimeout(timer)
+  },[senhaImport])
 
-  const handleArquivoCert=async(file)=>{ if(!lgpdConsent){setShowLgpd(true);return}; setAnalisando(true); const d=await parseCertificado(file); setAnalisando(false); setModalImportar({...d,senha:''}) }
-
-  const confirmarImportacao=()=>{
-    if(!modalImportar) return
-    if(modalImportar.cliente){
-      const lista=getClientes().map(c=>c.id!==modalImportar.cliente.id?c:{...c,credenciais:{...(c.credenciais||{}),cert_arquivo:modalImportar.arquivo,cert_tipo:modalImportar.tipo,cert_titular:modalImportar.titular,cert_cnpj_cpf:modalImportar.cnpj_cpf,cert_emissora:modalImportar.emissora,cert_validade:modalImportar.validade,cert_senha:modalImportar.senha}})
-      salvarClientes(lista); setClientes(lista)
-    }
-    log('importacao_certificado',{arquivo:modalImportar.arquivo,cliente:modalImportar.cliente?.nome})
-    setModalImportar(null); reload()
+  const handleArquivoCert=async(file)=>{
+    if(!lgpdConsent){setShowLgpd(true);return}
+    setArquivoImport(file); setSenhaImport(''); setErroParse('')
+    setAnalisando(true)
+    // Parse inicial sem senha (extrai o que for possível)
+    const dados=await parsePfxComSenha(file,'')
+    setAnalisando(false)
+    setModalImportar({...dados,arquivo:file.name,senha:'',_arquivo:file})
   }
 
-  const excluirCert=(clienteId)=>{
-    const lista=getClientes().map(c=>c.id!==clienteId?c:{...c,credenciais:{...(c.credenciais||{}),cert_arquivo:'',cert_tipo:'',cert_titular:'',cert_cnpj_cpf:'',cert_emissora:'',cert_validade:'',cert_senha:''}})
-    salvarClientes(lista); log('exclusao_certificado',{cliente_id:clienteId}); setModalExcluir(null); reload()
+  const tentarComSenha=async()=>{
+    if(!arquivoImport||!senhaImport) return
+    setAnalisando(true); setErroParse('')
+    const dados=await parsePfxComSenha(arquivoImport,senhaImport)
+    setAnalisando(false)
+    if(dados.erro){ setErroParse(dados.erro); return }
+    setModalImportar(m=>({...m,...dados,senha:senhaImport}))
+  }
+
+  const confirmarImportacao=()=>{
+    if(!modalImportar?.cliente) return
+    const lista=getClientes().map(c=>c.id!==modalImportar.cliente.id?c:{...c,credenciais:{...(c.credenciais||{}),cert_arquivo:modalImportar.arquivo,cert_tipo:modalImportar.tipo,cert_titular:modalImportar.titular,cert_cnpj_cpf:modalImportar.cnpj_cpf,cert_emissora:modalImportar.emissora,cert_validade:modalImportar.validade,cert_serial:modalImportar.serial||'',cert_issuer:modalImportar.issuer||''}})
+    salvarClientes(lista); setClientes(lista)
+    logLGPD('importacao_certificado',{arquivo:modalImportar.arquivo,cliente:modalImportar.cliente.nome})
+    setModalImportar(null); setArquivoImport(null); setSenhaImport(''); reload()
+  }
+
+  const excluirCert=(cId)=>{
+    const lista=getClientes().map(c=>c.id!==cId?c:{...c,credenciais:{...(c.credenciais||{}),cert_arquivo:'',cert_tipo:'',cert_titular:'',cert_cnpj_cpf:'',cert_emissora:'',cert_validade:'',cert_serial:''}})
+    salvarClientes(lista); logLGPD('exclusao_certificado',{cliente_id:cId}); setModalExcluir(null); reload()
   }
 
   const salvarEdicao=()=>{
     if(!modalEditar) return
     const lista=getClientes().map(c=>c.id!==modalEditar.id?c:{...c,credenciais:{...(c.credenciais||{}),cert_arquivo:modalEditar.cert_arquivo,cert_tipo:modalEditar.cert_tipo,cert_titular:modalEditar.cert_titular,cert_cnpj_cpf:modalEditar.cert_cnpj_cpf,cert_emissora:modalEditar.cert_emissora,cert_validade:modalEditar.cert_validade,proc_ativa:modalEditar.proc_ativa,proc_validade:modalEditar.proc_validade,proc_orgaos:modalEditar.proc_orgaos||[],proc_data:modalEditar.proc_data}})
-    salvarClientes(lista); log('edicao_certificado',{cliente_id:modalEditar.id}); setModalEditar(null); reload()
+    salvarClientes(lista); logLGPD('edicao_certificado',{cliente_id:modalEditar.id}); setModalEditar(null); reload()
   }
 
   const baixarResumo=(c)=>{
     const cert=c.credenciais||{}
-    const dados={aviso_lgpd:'LGPD Lei 13.709/2018 - Uso restrito ao controlador autorizado.',cliente:c.nome,cnpj:c.cnpj,regime:c.tributacao||c.regime,certificado:{tipo:cert.cert_tipo||'—',titular:cert.cert_titular||'—',cpf_cnpj:cert.cert_cnpj_cpf||'—',emissora:cert.cert_emissora||'—',validade:cert.cert_validade?new Date(cert.cert_validade+'T12:00:00').toLocaleDateString('pt-BR'):'—',status:statusCert(diasParaVencer(cert.cert_validade)).label},procuracao:cert.proc_ativa?{ativa:true,data:cert.proc_data||'—',validade:cert.proc_validade?new Date(cert.proc_validade+'T12:00:00').toLocaleDateString('pt-BR'):'—',orgaos:cert.proc_orgaos||[]}:{ativa:false},gerado_em:new Date().toLocaleString('pt-BR')}
+    const dados={aviso_lgpd:'LGPD Lei 13.709/2018',cliente:c.nome,cnpj:c.cnpj,certificado:{tipo:cert.cert_tipo||'—',titular:cert.cert_titular||'—',cpf_cnpj:cert.cert_cnpj_cpf||'—',emissora:cert.cert_emissora||'—',validade:cert.cert_validade?new Date(cert.cert_validade+'T12:00:00').toLocaleDateString('pt-BR'):'—',status:statusCert(diasParaVencer(cert.cert_validade)).label,serial:cert.cert_serial||'—'},procuracao:cert.proc_ativa?{ativa:true,data:cert.proc_data||'—',validade:cert.proc_validade?new Date(cert.proc_validade+'T12:00:00').toLocaleDateString('pt-BR'):'—',orgaos:cert.proc_orgaos||[]}:{ativa:false},gerado_em:new Date().toLocaleString('pt-BR')}
     const blob=new Blob([JSON.stringify(dados,null,2)],{type:'application/json'})
     const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`cert_${c.cnpj?.replace(/\D/g,'')}.json`; a.click(); URL.revokeObjectURL(url)
-    log('download_resumo',{cliente:c.nome})
+    logLGPD('download_resumo',{cliente:c.nome})
+  }
+
+  const ativarAlerteIA=async()=>{
+    setAnalisandoIA(true); setResultadoIA(''); setModalIA(true)
+    const res=await gerarRelatorioIA(certClientes,'alerta')
+    setResultadoIA(res); setAnalisandoIA(false)
   }
 
   const certClientes=clientes.filter(c=>c.credenciais||c.obrigacoes_vinculadas?.length).map(c=>({c,cert:c.credenciais||{},diasCert:diasParaVencer(c.credenciais?.cert_validade),diasProc:diasParaVencer(c.credenciais?.proc_validade),temProc:!!c.credenciais?.proc_ativa})).filter(x=>{
@@ -130,24 +352,28 @@ export default function Certificados() {
     if(filtroStatus==='ok'&&!(x.diasCert!==null&&x.diasCert>30)) return false
     if(filtroStatus==='sem'&&x.diasCert!==null) return false
     return true
-  }).sort((a,b)=>{ if(sortBy==='validade'){if(a.diasCert===null)return 1;if(b.diasCert===null)return -1;return a.diasCert-b.diasCert}; return(a.c.nome||'').localeCompare(b.c.nome||'') })
+  }).sort((a,b)=>{if(sortBy==='validade'){if(a.diasCert===null)return 1;if(b.diasCert===null)return -1;return a.diasCert-b.diasCert};return(a.c.nome||'').localeCompare(b.c.nome||'')})
 
   const tots={total:certClientes.length,vencidos:certClientes.filter(x=>x.diasCert!==null&&x.diasCert<0).length,alertas:certClientes.filter(x=>x.diasCert!==null&&x.diasCert>=0&&x.diasCert<=30).length,sem:certClientes.filter(x=>x.diasCert===null).length,proc:certClientes.filter(x=>x.temProc).length}
   const diasEsc=diasParaVencer(certEsc.validade); const stEsc=statusCert(diasEsc)
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif',background:'#F8F9FA',overflow:'hidden'}}>
+      {/* Header */}
       <div style={{background:NAVY,padding:'12px 22px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div style={{display:'flex',alignItems:'center',gap:12}}><Shield size={20} style={{color:GOLD}}/><span style={{color:'#fff',fontWeight:700,fontSize:16}}>Certificados</span><span style={{color:GOLD,fontWeight:700,fontSize:16}}> Digitais</span></div>
-        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <button onClick={ativarAlerteIA} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:7,background:'#6366f1',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>🤖 Alerta IA</button>
+          <button onClick={()=>exportarExcel(certClientes)} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:7,background:'#22c55e',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>📊 Excel</button>
+          <button onClick={()=>exportarPDF(certClientes,'')} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:7,background:'#e53935',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>📄 PDF</button>
           <button onClick={()=>setShowLgpd(true)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,background:'rgba(255,255,255,.08)',color:'#ccc',border:'1px solid rgba(255,255,255,.15)',cursor:'pointer',fontSize:12}}><Lock size={12}/> LGPD</button>
-          <button onClick={()=>{if(!lgpdConsent){setShowLgpd(true);return};fileRef.current?.click()}} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:7,background:GOLD,color:NAVY,fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>📥 Importar Certificado</button>
+          <button onClick={()=>{if(!lgpdConsent){setShowLgpd(true);return};fileRef.current?.click()}} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 14px',borderRadius:7,background:GOLD,color:NAVY,fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>📥 Importar</button>
           <input ref={fileRef} type="file" accept=".pfx,.p12" style={{display:'none'}} onChange={e=>{if(e.target.files[0])handleArquivoCert(e.target.files[0])}}/>
         </div>
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:20}}>
-        {!lgpdConsent&&<div style={{marginBottom:16,padding:'14px 18px',borderRadius:10,background:'#FFF3E0',border:'2px solid #FF9800',display:'flex',gap:12,alignItems:'flex-start'}}><Lock size={20} style={{color:'#E65100',flexShrink:0,marginTop:2}}/><div style={{flex:1}}><div style={{fontWeight:700,color:'#E65100',fontSize:13,marginBottom:4}}>⚖️ LGPD (Lei 13.709/2018)</div><div style={{fontSize:12,color:'#555',lineHeight:1.6}}>Este módulo armazena <b>dados pessoais sensíveis</b>. Uso autorizado como <b>obrigação legal</b> contábil/fiscal. Dados armazenados <b>localmente no navegador</b> e acessíveis apenas ao contador autorizado.</div></div><button onClick={()=>{localStorage.setItem('ep_lgpd_cert_consent',new Date().toISOString());setLgpdConsent(true)}} style={{padding:'8px 18px',borderRadius:8,background:'#E65100',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer',flexShrink:0}}>✅ Confirmar</button></div>}
+        {!lgpdConsent&&<div style={{marginBottom:16,padding:'12px 16px',borderRadius:10,background:'#FFF3E0',border:'2px solid #FF9800',display:'flex',gap:12,alignItems:'center'}}><Lock size={18} style={{color:'#E65100',flexShrink:0}}/><div style={{flex:1,fontSize:12,color:'#555'}}><b style={{color:'#E65100'}}>⚖️ LGPD:</b> Este módulo armazena dados pessoais sensíveis. Uso autorizado como obrigação legal contábil/fiscal.</div><button onClick={()=>{localStorage.setItem('ep_lgpd_cert_consent',new Date().toISOString());setLgpdConsent(true)}} style={{padding:'7px 16px',borderRadius:8,background:'#E65100',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer',flexShrink:0}}>✅ Confirmar</button></div>}
 
         {/* Certificado do Escritório */}
         <div style={{marginBottom:20,background:'#fff',borderRadius:12,border:`2px solid ${GOLD}40`,overflow:'hidden'}}>
@@ -160,20 +386,28 @@ export default function Certificados() {
           </div>
           {!editEsc?(
             <div style={{padding:'12px 18px',display:'flex',gap:24,flexWrap:'wrap',alignItems:'center'}}>
-              {[['Tipo',certEsc.tipo||'e-CNPJ'],['CNPJ',certEsc.cnpj],['Emissora',certEsc.emissora||'—'],['Arquivo',certEsc.arquivo||'—'],['Validade',certEsc.validade?new Date(certEsc.validade+'T12:00:00').toLocaleDateString('pt-BR'):'Não informado']].map(([k,v])=>(
+              {[['Tipo',certEsc.tipo||'e-CNPJ'],['CNPJ',certEsc.cnpj||'22.939.803/0001-49'],['Emissora',certEsc.emissora||'—'],['Arquivo',certEsc.arquivo||'—'],['Validade',certEsc.validade?new Date(certEsc.validade+'T12:00:00').toLocaleDateString('pt-BR'):'Não informado']].map(([k,v])=>(
                 <div key={k}><div style={{fontSize:10,color:'#aaa',fontWeight:600,textTransform:'uppercase'}}>{k}</div><div style={{fontWeight:600,color:NAVY,fontSize:13}}>{v}</div></div>
               ))}
             </div>
           ):(
             <div style={{padding:'14px 18px'}}>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:12,marginBottom:12}}>
-                {[['Tipo','tipo','select',['e-CNPJ','e-CPF']],['CNPJ','cnpj','text'],['Emissora','emissora','select',CERT_EMISSORAS],['Arquivo .pfx','arquivo','file'],['Validade','validade','date']].map(([l,k,t,opts])=>(
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:12,marginBottom:12}}>
+                {[['Tipo','tipo','select',['e-CNPJ','e-CPF']],['CNPJ','cnpj','text'],['Emissora','emissora','select',CERT_EMISSORAS],['Validade','validade','date']].map(([l,k,t,opts])=>(
                   <div key={k}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>{l}</label>
                   {t==='select'?<select value={certEsc[k]||''} onChange={e=>setCertEsc(c=>({...c,[k]:e.target.value}))} style={sel}>{(opts||[]).map(o=><option key={o}>{o}</option>)}</select>
-                  :t==='file'?<div style={{display:'flex',gap:6}}><input type="text" value={certEsc[k]||''} readOnly style={{...inp,flex:1,background:'#f9f9f9',cursor:'default'}}/><label style={{padding:'7px 10px',borderRadius:6,background:'#555',color:'#fff',fontSize:12,cursor:'pointer'}}>Browse<input type="file" accept=".pfx,.p12" style={{display:'none'}} onChange={async e=>{if(e.target.files[0]){const d=await parseCertificado(e.target.files[0]);setCertEsc(c=>({...c,arquivo:d.arquivo,emissora:d.emissora||c.emissora,validade:d.validade||c.validade}))}}}/></label></div>
                   :<input type={t} value={certEsc[k]||''} onChange={e=>setCertEsc(c=>({...c,[k]:e.target.value}))} style={inp}/>}
                   </div>
                 ))}
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Arquivo .pfx (para reconhecimento automático)</label>
+                <div style={{display:'flex',gap:8}}>
+                  <input type="text" value={certEsc.arquivo||''} readOnly style={{...inp,flex:1,background:'#f9f9f9',cursor:'default'}}/>
+                  <label style={{padding:'7px 14px',borderRadius:7,background:'#555',color:'#fff',fontSize:12,cursor:'pointer',whiteSpace:'nowrap'}}>Browse
+                    <input type="file" accept=".pfx,.p12" style={{display:'none'}} onChange={async e=>{if(e.target.files[0]){const d=await parsePfxComSenha(e.target.files[0],certEsc.senha||'');if(!d.erro)setCertEsc(c=>({...c,arquivo:d.arquivo,emissora:d.emissora||c.emissora,validade:d.validade||c.validade,cert_titular:d.titular||c.cert_titular}));}}}/>
+                  </label>
+                </div>
               </div>
               <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
                 <button onClick={()=>setEditEsc(false)} style={{padding:'7px 14px',borderRadius:7,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:12}}>Cancelar</button>
@@ -193,11 +427,9 @@ export default function Certificados() {
         {/* Filtros */}
         <div style={{background:'#fff',borderRadius:10,padding:'10px 16px',marginBottom:16,display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',border:'1px solid #eee'}}>
           <div style={{position:'relative',flex:1,minWidth:200}}><Search size={12} style={{position:'absolute',left:8,top:8,color:'#bbb'}}/><input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar cliente ou CNPJ..." style={{...inp,paddingLeft:26}}/></div>
-          <div style={{display:'flex',gap:5}}>
-            {[[''  ,'Todos'],['vencido','⛔ Vencidos'],['alerta','⚠️ 30d'],['ok','✅ OK'],['sem','— Sem']].map(([v,l])=>(
-              <button key={v} onClick={()=>setFiltroStatus(v)} style={{padding:'5px 10px',borderRadius:20,fontSize:11,cursor:'pointer',border:`1px solid ${filtroStatus===v?NAVY:'#ddd'}`,background:filtroStatus===v?NAVY:'#fff',color:filtroStatus===v?'#fff':'#666',fontWeight:filtroStatus===v?700:400}}>{l}</button>
-            ))}
-          </div>
+          <div style={{display:'flex',gap:5}}>{[['','Todos'],['vencido','⛔ Vencidos'],['alerta','⚠️ 30d'],['ok','✅ OK'],['sem','— Sem']].map(([v,l])=>(
+            <button key={v} onClick={()=>setFiltroStatus(v)} style={{padding:'5px 10px',borderRadius:20,fontSize:11,cursor:'pointer',border:`1px solid ${filtroStatus===v?NAVY:'#ddd'}`,background:filtroStatus===v?NAVY:'#fff',color:filtroStatus===v?'#fff':'#666',fontWeight:filtroStatus===v?700:400}}>{l}</button>
+          ))}</div>
           <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:12}}><input type="checkbox" checked={filtroProcuracao} onChange={e=>setFiltroProcuracao(e.target.checked)} style={{accentColor:NAVY,width:14,height:14}}/> 📜 Procuração</label>
           <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{...sel,width:160,fontSize:12}}><option value="validade">Ordenar: Vencimento</option><option value="nome">Ordenar: Nome</option></select>
           <button onClick={reload} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,background:'#f5f5f5',color:'#555',border:'1px solid #ddd',cursor:'pointer',fontSize:12}}><RefreshCw size={12}/> Atualizar</button>
@@ -209,7 +441,7 @@ export default function Certificados() {
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
             <thead><tr style={{background:NAVY}}>{['Cliente','CNPJ','Regime','Tipo','Titular / CPF-CNPJ','Emissora','Validade','Procuração','Ações'].map(h=><th key={h} style={{padding:'10px 12px',textAlign:'left',color:'#fff',fontSize:11,fontWeight:700,whiteSpace:'nowrap'}}>{h}</th>)}</tr></thead>
             <tbody>
-              {certClientes.length===0&&<tr><td colSpan={9} style={{padding:40,textAlign:'center',color:'#ccc'}}>Nenhum cliente. Use <b>📥 Importar Certificado</b> ou preencha as credenciais em <b>Clientes → Credenciais</b>.</td></tr>}
+              {certClientes.length===0&&<tr><td colSpan={9} style={{padding:40,textAlign:'center',color:'#ccc'}}>Nenhum cliente. Use <b>📥 Importar</b> ou preencha em <b>Clientes → Credenciais</b>.</td></tr>}
               {certClientes.map(({c,cert,diasCert,diasProc,temProc},i)=>{
                 const stC=statusCert(diasCert); const stP=statusCert(diasProc)
                 return <tr key={c.id} style={{background:i%2===0?'#fff':'#FAFAFA',borderBottom:'1px solid #f0f0f0'}}>
@@ -224,7 +456,7 @@ export default function Certificados() {
                   <td style={{padding:'9px 12px'}}><div style={{display:'flex',gap:5}}>
                     <button onClick={()=>setModalDetalhe(c)} title="Ver" style={{padding:'4px 8px',borderRadius:6,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer'}}><Eye size={12}/></button>
                     <button onClick={()=>setModalEditar({id:c.id,nome:c.nome,...cert})} title="Editar" style={{padding:'4px 8px',borderRadius:6,background:'#F0F4FF',color:NAVY,border:'none',cursor:'pointer'}}><Edit2 size={12}/></button>
-                    <button onClick={()=>baixarResumo(c)} title="Baixar (LGPD)" style={{padding:'4px 8px',borderRadius:6,background:'#EDFBF1',color:'#1A7A3C',border:'none',cursor:'pointer'}}><Download size={12}/></button>
+                    <button onClick={()=>baixarResumo(c)} title="Baixar JSON" style={{padding:'4px 8px',borderRadius:6,background:'#EDFBF1',color:'#1A7A3C',border:'none',cursor:'pointer'}}><Download size={12}/></button>
                     <button onClick={()=>setModalExcluir(c)} title="Excluir" style={{padding:'4px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer'}}><Trash2 size={12}/></button>
                   </div></td>
                 </tr>
@@ -235,35 +467,47 @@ export default function Certificados() {
       </div>
 
       {/* Modal Analisando */}
-      {analisando&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:400}}><div style={{background:'#fff',borderRadius:14,padding:36,textAlign:'center'}}><div style={{fontSize:48,marginBottom:12}}>🔍</div><div style={{fontWeight:700,color:NAVY,fontSize:15}}>Analisando certificado...</div><div style={{fontSize:12,color:'#888',marginTop:6}}>Extraindo dados e cruzando com clientes cadastrados</div></div></div>}
+      {analisando&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:400}}><div style={{background:'#fff',borderRadius:14,padding:36,textAlign:'center'}}><div style={{fontSize:48,marginBottom:12}}>🔍</div><div style={{fontWeight:700,color:NAVY,fontSize:15}}>Lendo certificado...</div><div style={{fontSize:12,color:'#888',marginTop:6}}>Extraindo dados com node-forge</div></div></div>}
 
       {/* Modal Importar */}
       {modalImportar&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
-        <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:620,maxHeight:'90vh',overflow:'auto',boxShadow:'0 8px 40px rgba(0,0,0,.2)'}}>
-          <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{fontWeight:700,color:NAVY,fontSize:15}}>📥 Importar Certificado</div><button onClick={()=>setModalImportar(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button></div>
+        <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:640,maxHeight:'92vh',overflow:'auto',boxShadow:'0 8px 40px rgba(0,0,0,.2)'}}>
+          <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'#fff',zIndex:1}}><div style={{fontWeight:700,color:NAVY,fontSize:15}}>📥 Importar Certificado — {modalImportar.arquivo}</div><button onClick={()=>{setModalImportar(null);setArquivoImport(null);setSenhaImport('')}} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button></div>
           <div style={{padding:22}}>
-            <div style={{marginBottom:14,padding:'12px 14px',borderRadius:9,background:'#F0FDF4',border:'1px solid #bbf7d0'}}>
-              <div style={{fontWeight:700,color:'#166534',fontSize:12,marginBottom:8}}>🤖 Dados detectados — confirme ou corrija:</div>
-              <div style={{display:'flex',gap:8,flexWrap:'wrap',fontSize:12,color:'#555'}}>
-                <span>📄 <b>{modalImportar.arquivo}</b></span>
-                {modalImportar.tamanho&&<span>({(modalImportar.tamanho/1024).toFixed(1)} KB)</span>}
-                {modalImportar.cliente&&<span style={{color:'#22c55e',fontWeight:700}}>✅ Cliente: {modalImportar.cliente.nome}</span>}
-                {!modalImportar.cliente&&<span style={{color:'#f59e0b',fontWeight:700}}>⚠️ Selecione o cliente abaixo</span>}
-                {modalImportar.eh_socio&&<span style={{color:'#6B3EC9',fontWeight:700}}>👤 e-CPF de sócio/PF</span>}
+            {/* Senha para decriptografar */}
+            <div style={{marginBottom:14,padding:'14px 16px',borderRadius:10,background:modalImportar.senha_ok?'#F0FDF4':'#FFF3E0',border:`1px solid ${modalImportar.senha_ok?'#bbf7d0':'#FFB74D'}`}}>
+              <div style={{fontWeight:700,color:modalImportar.senha_ok?'#166534':'#E65100',fontSize:13,marginBottom:8}}>{modalImportar.senha_ok?'🔓 Certificado lido com sucesso!':'🔑 Informe a senha para leitura automática'}</div>
+              <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                <div style={{flex:1}}><SenhaInput value={senhaImport} onChange={e=>setSenhaImport(e.target.value)} placeholder="Senha do certificado .pfx"/></div>
+                <button onClick={tentarComSenha} disabled={!senhaImport||analisando} style={{padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer',whiteSpace:'nowrap',opacity:!senhaImport?0.5:1}}>🔓 Decriptografar</button>
               </div>
+              {erroParse&&<div style={{marginTop:8,fontSize:12,color:'#dc2626',fontWeight:600}}>{erroParse}</div>}
+              {modalImportar.aviso&&<div style={{marginTop:8,fontSize:12,color:'#f59e0b'}}>{modalImportar.aviso}</div>}
+              {modalImportar.senha_ok&&<div style={{marginTop:8,fontSize:11,color:'#555'}}>Titular: <b>{modalImportar.titular}</b> | Issuer: {modalImportar.issuer} | Serial: {modalImportar.serial?.substring(0,16)}...</div>}
             </div>
+
+            {/* Dados extraídos/confirmação */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
               <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Tipo</label><div style={{display:'flex',gap:6}}>{['e-CNPJ','e-CPF'].map(t=><button key={t} onClick={()=>setModalImportar(m=>({...m,tipo:t}))} style={{flex:1,padding:'7px 0',borderRadius:7,cursor:'pointer',border:`2px solid ${modalImportar.tipo===t?NAVY:'#ddd'}`,background:modalImportar.tipo===t?NAVY+'15':'#fff',color:modalImportar.tipo===t?NAVY:'#888',fontWeight:modalImportar.tipo===t?700:400,fontSize:12}}>{t==='e-CPF'?'👤 ':'🏢 '}{t}</button>)}</div></div>
-              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>CPF/CNPJ</label><input value={modalImportar.cnpj_cpf||''} onChange={e=>setModalImportar(m=>({...m,cnpj_cpf:e.target.value}))} placeholder="Detectado auto..." style={inp}/></div>
+              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>CPF/CNPJ detectado</label><input value={modalImportar.cnpj_cpf||''} onChange={e=>setModalImportar(m=>({...m,cnpj_cpf:e.target.value}))} style={inp}/></div>
               <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Titular</label><input value={modalImportar.titular||''} onChange={e=>setModalImportar(m=>({...m,titular:e.target.value}))} style={inp}/></div>
-              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Emissora</label><select value={modalImportar.emissora||''} onChange={e=>setModalImportar(m=>({...m,emissora:e.target.value}))} style={sel}><option value="">Selecione...</option>{CERT_EMISSORAS.map(e=><option key={e}>{e}</option>)}</select></div>
-              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Validade</label><input type="date" value={modalImportar.validade||''} onChange={e=>setModalImportar(m=>({...m,validade:e.target.value}))} style={inp}/></div>
-              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Senha</label><SenhaInput value={modalImportar.senha||''} onChange={e=>setModalImportar(m=>({...m,senha:e.target.value}))}/></div>
+              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Emissora</label><select value={modalImportar.emissora||''} onChange={e=>setModalImportar(m=>({...m,emissora:e.target.value}))} style={sel}><option value="">—</option>{CERT_EMISSORAS.map(e=><option key={e}>{e}</option>)}</select></div>
+              <div>
+                <label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Validade {modalImportar.senha_ok&&<span style={{color:'#22c55e',fontSize:10}}>✅ extraída automaticamente</span>}</label>
+                <input type="date" value={modalImportar.validade||''} onChange={e=>setModalImportar(m=>({...m,validade:e.target.value}))} style={{...inp,borderColor:modalImportar.validade&&new Date(modalImportar.validade+'T12:00:00')<new Date()?'#e53935':'#ddd'}}/>
+                {modalImportar.validade&&<div style={{fontSize:11,marginTop:3,...statusCert(diasParaVencer(modalImportar.validade))}}>
+                  {statusCert(diasParaVencer(modalImportar.validade)).icon} {statusCert(diasParaVencer(modalImportar.validade)).label}
+                </div>}
+              </div>
+              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Senha (armazenar)</label><SenhaInput value={modalImportar.senha||''} onChange={e=>setModalImportar(m=>({...m,senha:e.target.value}))}/></div>
             </div>
-            <div style={{marginBottom:14}}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Vincular ao Cliente *</label><select value={modalImportar.cliente?.id||''} onChange={e=>{const cli=clientes.find(c=>String(c.id)===e.target.value);setModalImportar(m=>({...m,cliente:cli||null}))}} style={sel}><option value="">Selecione...</option>{clientes.map(c=><option key={c.id} value={c.id}>{c.nome} — {c.cnpj}</option>)}</select></div>
-            <div style={{marginBottom:16,padding:'10px 14px',borderRadius:8,background:'#FFF3E0',border:'1px solid #FFB74D',fontSize:11,color:'#E65100'}}><Lock size={11} style={{marginRight:5}}/> <b>LGPD:</b> Dados armazenados com base no Art. 7º, II (obrigação legal). Finalidade: obrigações tributárias.</div>
+            <div style={{marginBottom:14}}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Vincular ao Cliente *</label>
+              {modalImportar.cliente&&<div style={{marginBottom:6,padding:'8px 12px',borderRadius:7,background:'#F0FDF4',border:'1px solid #bbf7d0',fontSize:12,color:'#166534',fontWeight:700}}>✅ Cliente identificado: {modalImportar.cliente.nome} {modalImportar.eh_socio&&'(e-CPF de sócio)'}</div>}
+              <select value={modalImportar.cliente?.id||''} onChange={e=>{const cli=clientes.find(c=>String(c.id)===e.target.value);setModalImportar(m=>({...m,cliente:cli||null}))}} style={sel}><option value="">Selecione...</option>{clientes.map(c=><option key={c.id} value={c.id}>{c.nome} — {c.cnpj}</option>)}</select>
+            </div>
+            <div style={{marginBottom:16,padding:'10px 14px',borderRadius:8,background:'#FFF3E0',border:'1px solid #FFB74D',fontSize:11,color:'#E65100'}}><Lock size={11} style={{marginRight:5}}/> <b>LGPD Art. 7º II:</b> Dados armazenados para cumprimento de obrigação legal tributária.</div>
             <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
-              <button onClick={()=>setModalImportar(null)} style={{padding:'8px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:13}}>Cancelar</button>
+              <button onClick={()=>{setModalImportar(null);setArquivoImport(null);setSenhaImport('')}} style={{padding:'8px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:13}}>Cancelar</button>
               <button onClick={confirmarImportacao} disabled={!modalImportar.cliente} style={{padding:'8px 20px',borderRadius:8,background:modalImportar.cliente?NAVY:'#ccc',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:modalImportar.cliente?'pointer':'default'}}>✅ Confirmar</button>
             </div>
           </div>
@@ -273,13 +517,14 @@ export default function Certificados() {
       {/* Modal Editar */}
       {modalEditar&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
         <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:580,maxHeight:'90vh',overflow:'auto',boxShadow:'0 8px 40px rgba(0,0,0,.2)'}}>
-          <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{fontWeight:700,color:NAVY,fontSize:15}}>✏️ Editar — {modalEditar.nome}</div><button onClick={()=>setModalEditar(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button></div>
+          <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{fontWeight:700,color:NAVY,fontSize:15}}>✏️ {modalEditar.nome}</div><button onClick={()=>setModalEditar(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button></div>
           <div style={{padding:22}}>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
               {[['Tipo','cert_tipo','select',['e-CNPJ','e-CPF']],['Titular','cert_titular','text'],['CPF/CNPJ','cert_cnpj_cpf','text'],['Emissora','cert_emissora','select',CERT_EMISSORAS],['Validade','cert_validade','date'],['Arquivo','cert_arquivo','text']].map(([l,k,t,opts])=>(
                 <div key={k}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>{l}</label>
                 {t==='select'?<select value={modalEditar[k]||''} onChange={e=>setModalEditar(m=>({...m,[k]:e.target.value}))} style={sel}><option value="">—</option>{(opts||[]).map(o=><option key={o}>{o}</option>)}</select>
                 :<input type={t} value={modalEditar[k]||''} onChange={e=>setModalEditar(m=>({...m,[k]:e.target.value}))} style={inp}/>}
+                {k==='cert_validade'&&modalEditar.cert_validade&&<div style={{fontSize:11,marginTop:2,color:statusCert(diasParaVencer(modalEditar.cert_validade)).cor}}>{statusCert(diasParaVencer(modalEditar.cert_validade)).icon} {statusCert(diasParaVencer(modalEditar.cert_validade)).label}</div>}
                 </div>
               ))}
             </div>
@@ -289,8 +534,8 @@ export default function Certificados() {
                 <span style={{fontSize:13,fontWeight:700,color:modalEditar.proc_ativa?'#22c55e':'#888'}}>📜 Acesso via Procuração</span>
               </div>
               {modalEditar.proc_ativa&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-                <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>Data Proc.</label><input type="date" value={modalEditar.proc_data||''} onChange={e=>setModalEditar(m=>({...m,proc_data:e.target.value}))} style={inp}/></div>
-                <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>Validade Proc.</label><input type="date" value={modalEditar.proc_validade||''} onChange={e=>setModalEditar(m=>({...m,proc_validade:e.target.value}))} style={inp}/></div>
+                <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>Data</label><input type="date" value={modalEditar.proc_data||''} onChange={e=>setModalEditar(m=>({...m,proc_data:e.target.value}))} style={inp}/></div>
+                <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>Validade</label><input type="date" value={modalEditar.proc_validade||''} onChange={e=>setModalEditar(m=>({...m,proc_validade:e.target.value}))} style={inp}/></div>
                 <div style={{gridColumn:'span 2'}}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:6}}>Órgãos autorizados</label><div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{ORGAOS_PROC.map(o=>{const s2=(modalEditar.proc_orgaos||[]).includes(o);return<button key={o} onClick={()=>{const l2=modalEditar.proc_orgaos||[];setModalEditar(m=>({...m,proc_orgaos:s2?l2.filter(x=>x!==o):[...l2,o]}))}} style={{padding:'4px 10px',borderRadius:20,fontSize:11,cursor:'pointer',border:`1px solid ${s2?NAVY:'#ddd'}`,background:s2?NAVY:'#fff',color:s2?'#fff':'#666',fontWeight:s2?700:400}}>{s2?'✓ ':''}{o}</button>})}</div></div>
               </div>}
             </div>
@@ -301,26 +546,50 @@ export default function Certificados() {
 
       {/* Modal Excluir */}
       {modalExcluir&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
-        <div style={{background:'#fff',borderRadius:14,padding:28,maxWidth:420,width:'90%',textAlign:'center'}}>
+        <div style={{background:'#fff',borderRadius:14,padding:28,maxWidth:400,width:'90%',textAlign:'center'}}>
           <Trash2 size={40} style={{color:'#dc2626',marginBottom:12}}/>
-          <div style={{fontSize:15,fontWeight:700,color:NAVY,marginBottom:8}}>Excluir dados do certificado</div>
-          <div style={{fontSize:13,color:'#666',marginBottom:12}}>"{modalExcluir.nome}"</div>
-          <div style={{padding:'10px 14px',borderRadius:8,background:'#FFF3E0',border:'1px solid #FFB74D',fontSize:12,color:'#E65100',marginBottom:16,textAlign:'left'}}><Lock size={12} style={{marginRight:4}}/> <b>LGPD:</b> A exclusão será registrada no log de auditoria (Art. 18, IV da Lei 13.709/2018).</div>
+          <div style={{fontSize:15,fontWeight:700,color:NAVY,marginBottom:8}}>Excluir certificado</div>
+          <div style={{fontSize:14,fontWeight:700,color:NAVY,marginBottom:12}}>"{modalExcluir.nome}"</div>
+          <div style={{padding:'10px 14px',borderRadius:8,background:'#FFF3E0',border:'1px solid #FFB74D',fontSize:12,color:'#E65100',marginBottom:16,textAlign:'left'}}><Lock size={12} style={{marginRight:4}}/> <b>LGPD Art. 18, IV:</b> Exclusão registrada no log de auditoria.</div>
           <div style={{display:'flex',gap:10,justifyContent:'center'}}><button onClick={()=>setModalExcluir(null)} style={{padding:'9px 20px',borderRadius:8,border:'1px solid #ddd',background:'#fff',cursor:'pointer',fontSize:13}}>Cancelar</button><button onClick={()=>excluirCert(modalExcluir.id)} style={{padding:'9px 22px',borderRadius:8,background:'#dc2626',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,border:'none'}}>Excluir</button></div>
+        </div>
+      </div>}
+
+      {/* Modal IA Alerta */}
+      {modalIA&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
+        <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:720,maxHeight:'90vh',overflow:'auto',boxShadow:'0 8px 40px rgba(0,0,0,.2)'}}>
+          <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#EDE9FF'}}>
+            <div style={{fontWeight:700,color:'#6366f1',fontSize:15}}>🤖 Alerta Inteligente — Claude IA</div>
+            <button onClick={()=>setModalIA(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button>
+          </div>
+          <div style={{padding:22}}>
+            {analisandoIA?(
+              <div style={{textAlign:'center',padding:40}}><div style={{fontSize:48,marginBottom:12}}>🤖</div><div style={{fontWeight:700,color:'#6366f1',fontSize:15}}>Claude analisando certificados...</div><div style={{fontSize:12,color:'#888',marginTop:6}}>Verificando vencimentos e gerando alertas</div></div>
+            ):(
+              <>
+                <pre style={{fontSize:13,lineHeight:1.7,color:'#333',whiteSpace:'pre-wrap',fontFamily:'inherit',background:'#F8F9FA',borderRadius:10,padding:16,marginBottom:16,border:'1px solid #eee'}}>{resultadoIA}</pre>
+                <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                  <button onClick={()=>{exportarPDF(certClientes,resultadoIA);setModalIA(false)}} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,background:'#e53935',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>📄 PDF com Análise IA</button>
+                  <button onClick={()=>{const blob=new Blob([resultadoIA],{type:'text/plain'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='alerta_certificados_ia.txt';a.click()}} style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>⬇️ Baixar</button>
+                  <button onClick={()=>setModalIA(false)} style={{padding:'8px 18px',borderRadius:8,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:13}}>Fechar</button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>}
 
       {/* Modal LGPD */}
       {showLgpd&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:400}}>
-        <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:560,maxHeight:'90vh',overflow:'auto',boxShadow:'0 8px 40px rgba(0,0,0,.2)'}}>
+        <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:520,maxHeight:'85vh',overflow:'auto'}}>
           <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#FFF3E0'}}><div style={{fontWeight:700,color:'#E65100',fontSize:15}}>⚖️ LGPD — Lei 13.709/2018</div><button onClick={()=>setShowLgpd(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button></div>
           <div style={{padding:22}}>
-            {[['Base Legal','Art. 7º, II — Cumprimento de obrigação legal tributária/contábil.'],['Finalidade','Gestão de acessos a sistemas governamentais para obrigações acessórias.'],['Dados Tratados','Certificados digitais (e-CNPJ/e-CPF), credenciais de acesso, procurações.'],['Armazenamento','localStorage do navegador do controlador. Não transmitido a terceiros.'],['Controlador','EPimentel Auditoria & Contabilidade Ltda — CNPJ 22.939.803/0001-49'],['Direitos do Titular','Acesso, correção, portabilidade, eliminação (Art. 18 LGPD).'],['Retenção','5 anos (prazo prescricional fiscal). Exclusão disponível pelo controlador.'],['Auditoria','Todas as operações registradas em log (ep_lgpd_log) — accountability.']].map(([t,v])=>(
-              <div key={t} style={{marginBottom:10,padding:'10px 14px',borderRadius:8,background:'#F8F9FA',border:'1px solid #E0E0E0'}}><div style={{fontWeight:700,color:NAVY,fontSize:12,marginBottom:3}}>{t}</div><div style={{fontSize:12,color:'#555'}}>{v}</div></div>
+            {[['Base Legal','Art. 7º, II — Cumprimento de obrigação legal tributária.'],['Finalidade','Gestão de acessos a sistemas gov. para obrigações acessórias.'],['Controlador','EPimentel Auditoria & Contabilidade Ltda — CNPJ 22.939.803/0001-49'],['Direitos','Acesso, correção, portabilidade, eliminação (Art. 18 LGPD).'],['Retenção','5 anos (prazo prescricional fiscal).'],['Auditoria','Log completo em ep_lgpd_log — accountability.']].map(([t,v])=>(
+              <div key={t} style={{marginBottom:10,padding:'10px 14px',borderRadius:8,background:'#F8F9FA',border:'1px solid #E0E0E0'}}><div style={{fontWeight:700,color:NAVY,fontSize:12,marginBottom:2}}>{t}</div><div style={{fontSize:12,color:'#555'}}>{v}</div></div>
             ))}
             <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}>
               <button onClick={()=>setShowLgpd(false)} style={{padding:'8px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:13}}>Fechar</button>
-              {!lgpdConsent&&<button onClick={()=>{localStorage.setItem('ep_lgpd_cert_consent',new Date().toISOString());setLgpdConsent(true);setShowLgpd(false)}} style={{padding:'8px 20px',borderRadius:8,background:'#E65100',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>✅ Confirmar como Controlador de Dados</button>}
+              {!lgpdConsent&&<button onClick={()=>{localStorage.setItem('ep_lgpd_cert_consent',new Date().toISOString());setLgpdConsent(true);setShowLgpd(false)}} style={{padding:'8px 20px',borderRadius:8,background:'#E65100',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>✅ Confirmar</button>}
             </div>
           </div>
         </div>
