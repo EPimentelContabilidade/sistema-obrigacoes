@@ -232,9 +232,12 @@ export default function Admin() {
     !buscaCliente || c.nome?.toLowerCase().includes(buscaCliente.toLowerCase()) || c.cnpj?.includes(buscaCliente)
   )
 
-  const qtdClientesPermitidos = form.clientes_permitidos === null
+  const qtdClientesPermitidos = (form.clientes_permitidos === null || form.clientes_permitidos === undefined)
     ? 'Todos'
-    : `${form.clientes_permitidos.length}`
+    : `${form.clientes_permitidos?.length || 0}`
+
+
+
 
   return (
     <div>
@@ -300,7 +303,7 @@ export default function Admin() {
                   <button onClick={() => toggleAtivo(u.id)} style={{ padding:'7px 10px', border:'1px solid #e2e8f0', borderRadius:7, background:'#fff', cursor:'pointer', color:u.ativo?'#f59e0b':'#22c55e', display:'flex', alignItems:'center', gap:4, fontSize:11 }}>
                     {u.ativo?<Lock size={13}/>:<Unlock size={13}/>} {u.ativo?'Desativar':'Ativar'}
                   </button>
-                  <button onClick={() => { setForm({...u}); setAbaModal('dados'); setModal(u.id) }} style={{ padding:'7px 12px', border:`1px solid ${NAVY}`, borderRadius:7, background:'#fff', cursor:'pointer', color:NAVY, fontSize:11, fontWeight:500 }}>✏️ Editar</button>
+                  <button onClick={() => { setForm({...u, clientes_permitidos: u.clientes_permitidos !== undefined ? u.clientes_permitidos : null, abas: u.abas||[], perms: u.perms||[]}); setAbaModal('dados'); setModal(u.id) }} style={{ padding:'7px 12px', border:`1px solid ${NAVY}`, borderRadius:7, background:'#fff', cursor:'pointer', color:NAVY, fontSize:11, fontWeight:500 }}>✏️ Editar</button>
                   {u.id!==1 && <button onClick={() => excluir(u.id)} style={{ padding:'7px 10px', border:'1px solid #fecaca', borderRadius:7, background:'#fef2f2', cursor:'pointer', color:'#dc2626', display:'flex', alignItems:'center' }}><Trash2 size={13}/></button>}
                 </div>
               </div>
