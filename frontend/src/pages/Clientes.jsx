@@ -44,23 +44,29 @@ const REGIME_OBRIG_AUTO = {
 }
 
 const CREDS_VAZIO = {
-  // Certificado Digital
-  cert_arquivo:'', cert_senha:'',
+  // Certificado Digital do cliente
+  cert_arquivo:'', cert_senha:'', cert_tipo:'e-CNPJ', cert_titular:'', cert_cnpj_cpf:'',
+  cert_validade:'', cert_emissora:'', cert_serie:'',
+  // Acesso via procuração (usa cert. do escritório)
+  proc_ativa:false,
+  proc_arquivo:'', proc_data:'', proc_validade:'',
+  proc_orgaos:[], // e-CAC, SEFAZ, Prefeitura, Simples Nacional, etc.
+  proc_obs:'',
   // Prefeitura
   pref_login:'', pref_senha:'', pref_url:'',
   // Emissor Nacional
   en_cpfcnpj:'', en_senha:'',
   // Simples Nacional
   sn_codigo:'', sn_cpf_resp:'',
-  // Receita Federal
-  rf_cpfcnpj:'', rf_senha:'', rf_codigo_acesso:'',
+  // e-CAC / Receita Federal
+  ecac_cpfcnpj:'', ecac_codigo_acesso:'', ecac_cert:false,
   // Domínio
   dominio_empresa:'', dominio_usuario:'', dominio_senha:'',
-  // e-CAC
-  ecac_cpfcnpj:'', ecac_codigo_acesso:'', ecac_cert:false,
-  // Outros portais
   outros:[]
 }
+
+const ORGAOS_PROC = ['e-CAC (Receita Federal)','SEFAZ Estadual','Prefeitura / NFS-e','Portal Simples Nacional','Junta Comercial','INSS / eSocial','FGTS / Caixa','Outro']
+const CERT_EMISSORAS = ['Serasa','Certisign','Soluti','Valid','Safeweb','ICP-Brasil','Outro']
 
 const ABA_TABS = [
   { id:'dados',        label:'📋 Dados',        icon:User },
@@ -583,13 +589,38 @@ export default function Clientes() {
 
                   {/* Certificado Digital */}
                   <CredSection titulo="Certificado Digital (e-CNPJ / e-CPF A1)" icone="🔏">
-                    <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:8 }}>
-                      <CampoLabel label="Arquivo .pfx">
+                    {/* Tipo e titular */}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
+                      <CampoLabel label="Tipo de Certificado">
+                        <div style={{ display:'flex', gap:6 }}>
+                          {['e-CNPJ','e-CPF'].map(t=>(
+                            <button key={t} onClick={()=>setC('cert_tipo',t)} style={{ flex:1, padding:'6px 0', borderRadius:7, cursor:'pointer', border:`2px solid ${(creds.cert_tipo||'e-CNPJ')===t?NAVY:'#ddd'}`, background:(creds.cert_tipo||'e-CNPJ')===t?NAVY+'15':'#fff', color:(creds.cert_tipo||'e-CNPJ')===t?NAVY:'#888', fontWeight:(creds.cert_tipo||'e-CNPJ')===t?700:400, fontSize:12 }}>{t}</button>
+                          ))}
+                        </div>
+                      </CampoLabel>
+                      <CampoLabel label="Titular (nome no certificado)">
+                        <input value={creds.cert_titular||''} onChange={e=>setC('cert_titular',e.target.value)} placeholder="Nome como no certificado" style={inp}/>
+                      </CampoLabel>
+                      <CampoLabel label="CPF/CNPJ do certificado">
+                        <input value={creds.cert_cnpj_cpf||form.cnpj||''} onChange={e=>setC('cert_cnpj_cpf',e.target.value)} placeholder={form.cnpj||'00.000.000/0001-00'} style={inp}/>
+                      </CampoLabel>
+                    </div>
+                    {/* Arquivo e senha */}
+                    <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12 }}>
+                      <CampoLabel label="Arquivo .pfx (.p12)">
                         <div style={{ display:'flex', gap:8 }}>
                           <input type="text" value={creds.cert_arquivo||''} readOnly placeholder="Nenhum arquivo selecionado..." style={{ ...inp, cursor:'default', background:'#f9f9f9', flex:1 }}/>
                           <label style={{ padding:'7px 14px', borderRadius:7, background:'#555', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', display:'inline-flex', alignItems:'center' }}>
                             Browse
-                            <input type="file" accept=".pfx,.p12" style={{ display:'none' }} onChange={e=>{ if(e.target.files[0]) setC('cert_arquivo',e.target.files[0].name) }}/>
+                            <input type="file" accept=".pfx,.p12" style={{ display:'none' }} onChange={e=>{
+                              if(!e.target.files[0]) return
+                              const f2=e.target.files[0]
+                              setC('cert_arquivo',f2.name)
+                              // Auto-detectar tipo pelo nome do arquivo
+                              const nome=f2.name.toLowerCase()
+                              if(nome.includes('cpf')||nome.includes('ecpf')) setC('cert_tipo','e-CPF')
+                              else if(nome.includes('cnpj')||nome.includes('ecnpj')) setC('cert_tipo','e-CNPJ')
+                            }}/>
                           </label>
                         </div>
                         <a href="https://www.sped.fazenda.gov.br/spedweb/" target="_blank" rel="noreferrer" style={{ fontSize:11, color:'#3b82f6', marginTop:4, display:'inline-flex', alignItems:'center', gap:4 }}>
@@ -600,9 +631,95 @@ export default function Clientes() {
                         <SenhaInput value={creds.cert_senha||''} onChange={e=>setC('cert_senha',e.target.value)}/>
                       </CampoLabel>
                     </div>
-                    <div style={{ display:'flex', justifyContent:'flex-end' }}>
-                      <button style={{ padding:'7px 16px', borderRadius:8, background:'#00BCD4', color:'#fff', fontSize:12, fontWeight:700, border:'none', cursor:'pointer' }}>Comprar Certificado Digital</button>
+                    {/* Validade e emissora */}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
+                      <CampoLabel label="Data de Validade">
+                        <input type="date" value={creds.cert_validade||''} onChange={e=>setC('cert_validade',e.target.value)} style={{ ...inp, borderColor:creds.cert_validade&&new Date(creds.cert_validade)<new Date()?'#e53935':creds.cert_validade&&new Date(creds.cert_validade)<new Date(Date.now()+30*864e5)?'#FF9800':'#ddd' }}/>
+                        {creds.cert_validade&&new Date(creds.cert_validade)<new Date()&&<div style={{ fontSize:10, color:'#e53935', marginTop:2, fontWeight:700 }}>⚠ Certificado VENCIDO</div>}
+                        {creds.cert_validade&&new Date(creds.cert_validade)>=new Date()&&new Date(creds.cert_validade)<new Date(Date.now()+30*864e5)&&<div style={{ fontSize:10, color:'#FF9800', marginTop:2, fontWeight:700 }}>⚠ Vence em menos de 30 dias</div>}
+                      </CampoLabel>
+                      <CampoLabel label="Emissora AC">
+                        <select value={creds.cert_emissora||''} onChange={e=>setC('cert_emissora',e.target.value)} style={sel}>
+                          <option value="">Selecione...</option>
+                          {CERT_EMISSORAS.map(e=><option key={e} value={e}>{e}</option>)}
+                        </select>
+                      </CampoLabel>
+                      <CampoLabel label="Número de Série">
+                        <input value={creds.cert_serie||''} onChange={e=>setC('cert_serie',e.target.value)} placeholder="Ex: 1234567890ABCDEF" style={inp}/>
+                      </CampoLabel>
                     </div>
+                    <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                      <button style={{ padding:'7px 16px', borderRadius:8, background:'#00BCD4', color:'#fff', fontSize:12, fontWeight:700, border:'none', cursor:'pointer' }}>🛒 Comprar / Renovar Certificado</button>
+                    </div>
+                  </CredSection>
+
+                  {/* ── PROCURAÇÃO ── */}
+                  <CredSection titulo="Acesso via Procuração (Certificado do Escritório)" icone="📜">
+                    <div style={{ marginBottom:12, padding:'10px 14px', borderRadius:8, background:creds.proc_ativa?'#E8F5E9':'#F8F9FA', border:`1px solid ${creds.proc_ativa?'#A5D6A7':'#e8e8e8'}` }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <div>
+                          <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>
+                            {creds.proc_ativa?'✅ Procuração ativa':'○ Sem procuração'}
+                          </div>
+                          <div style={{ fontSize:11, color:'#666', marginTop:2 }}>
+                            Quando ativado, os dados deste cliente podem ser acessados usando o <b>certificado digital do escritório EPimentel</b>, dispensando o certificado próprio do cliente.
+                          </div>
+                        </div>
+                        <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', marginLeft:16 }}>
+                          <div style={{ position:'relative', width:42, height:24 }}>
+                            <input type="checkbox" checked={!!creds.proc_ativa} onChange={e=>setC('proc_ativa',e.target.checked)} style={{ opacity:0, width:0, height:0 }}/>
+                            <div onClick={()=>setC('proc_ativa',!creds.proc_ativa)} style={{ position:'absolute', inset:0, borderRadius:24, background:creds.proc_ativa?'#22c55e':'#ccc', cursor:'pointer', transition:'background .2s' }}>
+                              <div style={{ position:'absolute', top:2, left:creds.proc_ativa?18:2, width:20, height:20, borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 3px rgba(0,0,0,.2)' }}/>
+                            </div>
+                          </div>
+                          <span style={{ fontSize:12, fontWeight:700, color:creds.proc_ativa?'#22c55e':'#aaa' }}>{creds.proc_ativa?'Ativo':'Inativo'}</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {creds.proc_ativa && (
+                      <>
+                        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:12, marginBottom:12 }}>
+                          <CampoLabel label="Arquivo da Procuração (PDF)">
+                            <div style={{ display:'flex', gap:8 }}>
+                              <input type="text" value={creds.proc_arquivo||''} readOnly placeholder="Nenhum arquivo..." style={{ ...inp, cursor:'default', background:'#f9f9f9', flex:1 }}/>
+                              <label style={{ padding:'7px 12px', borderRadius:7, background:'#555', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', display:'inline-flex', alignItems:'center' }}>
+                                📎 Anexar
+                                <input type="file" accept=".pdf,.jpg,.png" style={{ display:'none' }} onChange={e=>{if(e.target.files[0]) setC('proc_arquivo',e.target.files[0].name)}}/>
+                              </label>
+                            </div>
+                          </CampoLabel>
+                          <CampoLabel label="Data da Procuração">
+                            <input type="date" value={creds.proc_data||''} onChange={e=>setC('proc_data',e.target.value)} style={inp}/>
+                          </CampoLabel>
+                          <CampoLabel label="Validade da Procuração">
+                            <input type="date" value={creds.proc_validade||''} onChange={e=>setC('proc_validade',e.target.value)} style={{ ...inp, borderColor:creds.proc_validade&&new Date(creds.proc_validade)<new Date()?'#e53935':'#ddd' }}/>
+                            {creds.proc_validade&&new Date(creds.proc_validade)<new Date()&&<div style={{ fontSize:10, color:'#e53935', marginTop:2, fontWeight:700 }}>⚠ Procuração VENCIDA</div>}
+                          </CampoLabel>
+                        </div>
+
+                        <CampoLabel label="Órgãos autorizados pela procuração">
+                          <div style={{ display:'flex', gap:6, flexWrap:'wrap', padding:'10px 12px', borderRadius:8, border:'1px solid #e8e8e8', background:'#fafafa', marginBottom:8 }}>
+                            {ORGAOS_PROC.map(o=>{
+                              const isSel=(creds.proc_orgaos||[]).includes(o)
+                              return (
+                                <button key={o} onClick={()=>{ const lista=creds.proc_orgaos||[]; setC('proc_orgaos',isSel?lista.filter(x=>x!==o):[...lista,o]) }} style={{ padding:'5px 12px', borderRadius:20, fontSize:11, cursor:'pointer', border:`1px solid ${isSel?NAVY:'#ddd'}`, background:isSel?NAVY:'#fff', color:isSel?'#fff':'#666', fontWeight:isSel?700:400 }}>
+                                  {isSel?'✓ ':''}{o}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </CampoLabel>
+
+                        <CampoLabel label="Observações / Restrições da Procuração">
+                          <textarea value={creds.proc_obs||''} onChange={e=>setC('proc_obs',e.target.value)} placeholder="Ex: Procuração com poderes para retificação de declarações, parcelamentos e emissão de certidões..." style={{ ...inp, height:60, resize:'none', fontFamily:'inherit' }}/>
+                        </CampoLabel>
+
+                        <div style={{ marginTop:10, padding:'10px 14px', borderRadius:8, background:'#F0F4FF', border:'1px solid #c7d7fd', fontSize:12, color:NAVY }}>
+                          🔐 <b>Certificado do Escritório será usado:</b> EPimentel Auditoria & Contabilidade Ltda — e-CNPJ 22.939.803/0001-49. Para que o acesso funcione, a procuração deve estar registrada no portal do órgão correspondente.
+                        </div>
+                      </>
+                    )}
                   </CredSection>
 
                   {/* Prefeitura */}
