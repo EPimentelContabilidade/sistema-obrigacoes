@@ -9,10 +9,13 @@ from .admin import router as admin_router
 from .notas import router as notas_router
 from .parcelamentos import router as parcelamentos_router
 from .financeiro import router as financeiro_router
-from .consulta_fiscal import router as consulta_fiscal_router
-from .receita_balanco import router as receita_balanco_router
-from .extras import contratos_router, comunicacao_router
-from .certidoes_real import certidoes_router
-from .goiania_robo import goiania_router, robo_obrig_router
 from .certificados import router as certificados_router
+from .receita_balanco import router as receita_balanco_router
+from .certidoes import router as certidoes_router
+from .contratos import router as contratos_router
+from .comunicacao import router as comunicacao_router
+from .goiania import router as goiania_router
+from .robo_obrig import router as robo_obrig_router
+from .consulta_fiscal import router as consulta_fiscal_router
 from .ecac_download import router as ecac_download_router
+from .whatsapp_evolution import router as whatsapp_evolution_router
