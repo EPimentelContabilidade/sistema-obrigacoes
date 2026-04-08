@@ -48,110 +48,83 @@ function semaforo(vencimento, passivelMulta, status) {
 // ── Exportar Excel/CSV ────────────────────────────────────────────────────────
 function exportarExcel(cliente, mes, tarefas) {
   const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(mm)-1]+'/'+a }
-  const cabecalho = ['Obrigação','Código','Departamento','Responsável','Status','Vencimento','Competência','Passível Multa','Protocolo','Entregue Em','Entregue Por']
+  const cabecalho = ['Obrigacao','Codigo','Departamento','Responsavel','Status','Vencimento','Competencia','Passivel Multa','Protocolo','Entregue Em','Entregue Por']
   const linhas = tarefas.map(t => [
     t.nome, t.codigo||'', t.departamento||'', t.responsavel||'Eduardo Pimentel',
     t.status==='entregue'?'Entregue':'Pendente',
-    t.vencimento?new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'—',
+    t.vencimento?new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'---',
     t.competencia||mpe2(mes),
-    t.passivel_multa?'Sim':'Não',
+    t.passivel_multa?'Sim':'Nao',
     t.protocolo||'',
     t.data_entrega||'', t.entregue_por||''
   ])
   const bom = '\uFEFF'
-  const csv = [cabecalho,...linhas].map(l=>l.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n')
+  const csv = [cabecalho,...linhas].map(l=>l.map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n')
   const blob = new Blob([bom+csv],{type:'text/csv;charset=utf-8'})
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href=url; a.download=`entregas_${(cliente?.cnpj||'').replace(/\D/g,'')}_${mes||'geral'}.csv`
+  a.href=url; a.download='entregas_'+(cliente?.cnpj||'').replace(/\D/g,'')+'_'+(mes||'geral')+'.csv'
   a.click(); URL.revokeObjectURL(url)
 }
 
-// ── Exportar PDF (janela de impressão) ────────────────────────────────────────
 function exportarPDF(cliente, mes, tarefas) {
-  const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(mm)-1]+'/'+a }
+  const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(mm)-1]+'/'+a }
   const ent = tarefas.filter(t=>t.status==='entregue').length
   const pend = tarefas.filter(t=>t.status!=='entregue').length
   const multas = tarefas.filter(t=>t.passivel_multa&&t.status!=='entregue').length
-  const linhas = tarefas.map((t,i) => {
+  const linhasTabela = tarefas.map((t,i) => {
     const sm = semaforo(t.vencimento, t.passivel_multa, t.status)
-    return `<tr>
-      <td>${i+1}</td>
-      <td><b>${t.nome}</b>${t.passivel_multa?'<br><span style="color:#dc2626;font-size:10px">⚠ multa</span>':''}</td>
-      <td><span style="color:${sm.cor};font-size:16px">${sm.emoji}</span> ${sm.label}</td>
-      <td>${t.departamento||'—'}</td>
-      <td>${t.responsavel||'Eduardo Pimentel'}</td>
-      <td style="font-weight:700;color:${sm.cor}">${t.vencimento?new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</td>
-      <td style="color:${t.status==='entregue'?'#22c55e':'#f59e0b'};font-weight:700">${t.status==='entregue'?'✓ Entregue':'⏳ Pendente'}</td>
-      <td>${t.data_entrega||'—'}</td>
-    </tr>`
+    const venc = t.vencimento ? new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR') : '---'
+    const status = t.status==='entregue' ? 'Entregue' : 'Pendente'
+    return '<tr><td>'+(i+1)+'</td><td>'+t.nome+(t.passivel_multa?' (MULTA)':'')+'</td><td>'+sm.label+'</td><td>'+(t.departamento||'---')+'</td><td>'+(t.responsavel||'Eduardo Pimentel')+'</td><td>'+venc+'</td><td>'+status+'</td><td>'+(t.data_entrega||'---')+'</td></tr>'
   }).join('')
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>Relatório Entregas — ${cliente?.nome||''} — ${mpe2(mes)}</title>
-  <style>body{font-family:Arial,sans-serif;margin:24px;font-size:12px;color:#333}
-  h1{color:#1B2A4A;border-bottom:3px solid #C5A55A;padding-bottom:6px}
-  .cards{display:flex;gap:16px;margin:12px 0}
-  .card{border:1px solid #ddd;border-radius:8px;padding:10px 16px;text-align:center;min-width:100px}
-  .card .n{font-size:24px;font-weight:800} .card .l{font-size:10px;color:#666}
-  table{width:100%;border-collapse:collapse;margin-top:10px}
-  th{background:#1B2A4A;color:#fff;padding:8px 6px;text-align:left;font-size:10px}
-  td{padding:6px;border-bottom:1px solid #f0f0f0;font-size:11px}
-  tr:nth-child(even){background:#FAFAFA}
-  .footer{margin-top:18px;padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#aaa;text-align:center}
-  </style></head><body>
-  <h1>📋 Relatório de Entregas / Tarefas</h1>
-  <div><b>Cliente:</b> ${cliente?.nome||'—'} | <b>CNPJ:</b> ${cliente?.cnpj||'—'} | <b>Competência:</b> ${mpe2(mes)} | <b>Regime:</b> ${cliente?.tributacao||cliente?.regime||'—'}</div>
-  <div><b>Gerado em:</b> ${new Date().toLocaleString('pt-BR')} | EPimentel Auditoria & Contabilidade — CRC/GO 026.994/O-8</div>
-  <div class="cards">
-    <div class="card"><div class="n" style="color:#1B2A4A">${tarefas.length}</div><div class="l">Total</div></div>
-    <div class="card"><div class="n" style="color:#22c55e">${ent}</div><div class="l">Entregues</div></div>
-    <div class="card"><div class="n" style="color:#f59e0b">${pend}</div><div class="l">Pendentes</div></div>
-    <div class="card"><div class="n" style="color:#dc2626">${multas}</div><div class="l">Risco Multa</div></div>
-    <div class="card"><div class="n" style="color:#C5A55A">${tarefas.length?Math.round(ent/tarefas.length*100):0}%</div><div class="l">Concluído</div></div>
-  </div>
-  <table><thead><tr><th>#</th><th>Obrigação</th><th>Semáforo</th><th>Dpto</th><th>Responsável</th><th>Vencimento</th><th>Status</th><th>Entregue Em</th></tr></thead>
-  <tbody>${linhas}</tbody></table>
-  <div class="footer">Legenda: 🟢 No prazo &nbsp; 🟡 Vencendo em breve &nbsp; 🔴 Atrasado / Risco multa &nbsp;|&nbsp; LGPD Lei 13.709/2018</div>
-  </body></html>`
+  const nomeCliente = cliente ? cliente.nome : '---'
+  const cnpjCliente = cliente ? cliente.cnpj : '---'
+  const regimeCliente = cliente ? (cliente.tributacao||cliente.regime||'---') : '---'
+  const dataGeracao = new Date().toLocaleString('pt-BR')
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatorio Entregas</title>'
+    + '<style>body{font-family:Arial,sans-serif;margin:24px;font-size:12px}'
+    + 'h1{color:#1B2A4A;border-bottom:3px solid #C5A55A;padding-bottom:6px}'
+    + 'table{width:100%;border-collapse:collapse;margin-top:10px}'
+    + 'th{background:#1B2A4A;color:#fff;padding:8px 6px;text-align:left;font-size:10px}'
+    + 'td{padding:6px;border-bottom:1px solid #f0f0f0;font-size:11px}'
+    + '</style></head><body>'
+    + '<h1>Relatorio de Entregas / Tarefas</h1>'
+    + '<div><b>Cliente:</b> '+nomeCliente+' | <b>CNPJ:</b> '+cnpjCliente+' | <b>Competencia:</b> '+mpe2(mes)+' | <b>Regime:</b> '+regimeCliente+'</div>'
+    + '<div><b>Gerado em:</b> '+dataGeracao+' | EPimentel Auditoria - CRC/GO 026.994/O-8</div>'
+    + '<div style="display:flex;gap:16px;margin:12px 0">'
+    + '<div style="border:1px solid #ddd;border-radius:8px;padding:10px 16px;text-align:center"><div style="font-size:24px;font-weight:800">'+tarefas.length+'</div><div>Total</div></div>'
+    + '<div style="border:1px solid #ddd;border-radius:8px;padding:10px 16px;text-align:center"><div style="font-size:24px;font-weight:800;color:#22c55e">'+ent+'</div><div>Entregues</div></div>'
+    + '<div style="border:1px solid #ddd;border-radius:8px;padding:10px 16px;text-align:center"><div style="font-size:24px;font-weight:800;color:#f59e0b">'+pend+'</div><div>Pendentes</div></div>'
+    + '<div style="border:1px solid #ddd;border-radius:8px;padding:10px 16px;text-align:center"><div style="font-size:24px;font-weight:800;color:#dc2626">'+multas+'</div><div>Risco Multa</div></div>'
+    + '</div>'
+    + '<table><thead><tr><th>#</th><th>Obrigacao</th><th>Semaforo</th><th>Dpto</th><th>Responsavel</th><th>Vencimento</th><th>Status</th><th>Entregue Em</th></tr></thead>'
+    + '<tbody>'+linhasTabela+'</tbody></table>'
+    + '<div style="margin-top:18px;font-size:10px;color:#aaa;text-align:center">LGPD Lei 13.709/2018 | EPimentel Auditoria & Contabilidade</div>'
+    + '</body></html>'
   const win = window.open('','_blank'); win.document.write(html); win.document.close(); setTimeout(()=>win.print(),500)
 }
 
-// ── Enviar alertas WhatsApp (Evolution API) ───────────────────────────────────
-const EVOL_URL = 'https://evolution-api-production-1e92.up.railway.app'
-const EVOL_KEY = 'epimentel-secret'
-const EVOL_INST = 'epimentel'
-
-async function enviarAlertaWhatsApp(telefone, mensagem) {
-  try {
-    const num = '55' + telefone.replace(/\D/g,'')
-    await fetch(`${EVOL_URL}/message/sendText/${EVOL_INST}`, {
-      method:'POST', headers:{'Content-Type':'application/json', apikey:EVOL_KEY},
-      body: JSON.stringify({ number: num, text: mensagem })
-    })
-    return true
-  } catch { return false }
-}
-
 function gerarMensagemAlerta(cliente, tarefas, mes) {
-  const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(mm)-1]+'/'+a }
+  const mpe2 = (m) => { if(!m) return ''; const [a,mm]=m.split('-'); return ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][parseInt(mm)-1]+'/'+a }
   const pendentes = tarefas.filter(t=>t.status!=='entregue')
   const multas = pendentes.filter(t=>t.passivel_multa)
   const hoje = new Date(); hoje.setHours(0,0,0,0)
   const urgentes = pendentes.filter(t=>{ if(!t.vencimento) return false; const d=Math.ceil((new Date(t.vencimento+'T12:00:00')-hoje)/864e5); return d<=5 })
-  return `🏢 *EPimentel Auditoria & Contabilidade*
-📋 *Resumo de Obrigações — ${mpe2(mes)}*
-👤 ${cliente?.nome}
-
-📊 Situação atual:
-✅ Entregues: ${tarefas.filter(t=>t.status==='entregue').length}/${tarefas.length}
-⏳ Pendentes: ${pendentes.length}
-🟡 Vencem em 5 dias: ${urgentes.length}
-🔴 Risco de multa: ${multas.length}
-
-${urgentes.length>0?'⚠️ *Obrigações urgentes:*
-'+urgentes.map(t=>`• ${t.nome} — vence ${new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}${t.passivel_multa?' ⚠️ MULTA':''}`).join('\n')+'\n':''}
-📞 Dúvidas: (62) 9xxxx-xxxx
-_EPimentel Auditoria & Contabilidade — CRC/GO 026.994/O-8_`
+  const linhasUrgentes = urgentes.length > 0
+    ? 'Obrigacoes urgentes:\n' + urgentes.map(t=>'- '+t.nome+' vence '+new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')+(t.passivel_multa?' MULTA':'')).join('\n') + '\n'
+    : ''
+  return 'EPimentel Auditoria & Contabilidade\n'
+    + 'Resumo de Obrigacoes - ' + mpe2(mes) + '\n'
+    + 'Cliente: ' + (cliente?.nome||'') + '\n\n'
+    + 'Situacao atual:\n'
+    + 'Entregues: ' + tarefas.filter(t=>t.status==='entregue').length + '/' + tarefas.length + '\n'
+    + 'Pendentes: ' + pendentes.length + '\n'
+    + 'Vencem em 5 dias: ' + urgentes.length + '\n'
+    + 'Risco de multa: ' + multas.length + '\n\n'
+    + linhasUrgentes
+    + 'Duvidas: (62) 9xxxx-xxxx\n'
+    + 'EPimentel Auditoria & Contabilidade - CRC/GO 026.994/O-8'
 }
 
 const DEPT_MAP = {
