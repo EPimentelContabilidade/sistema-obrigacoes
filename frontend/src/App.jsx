@@ -3,77 +3,83 @@ import {
   LayoutDashboard, Users, FileText, Send, Receipt,
   CreditCard, DollarSign, BarChart2, Award, MessageSquare,
   Bot, Shield, CheckSquare, LogOut, Menu, Building2,
-  ScrollText, Smartphone, BarChart, Repeat
+  ScrollText, Smartphone, BarChart, Repeat, Briefcase, Settings
 } from 'lucide-react'
 
-import Dashboard          from './pages/Dashboard'
-import Clientes           from './pages/Clientes'
-import Obrigacoes         from './pages/Obrigacoes'
-import Entregas           from './pages/Entregas'
-import NotasFiscais       from './pages/NotasFiscais'
-import Parcelamentos      from './pages/Parcelamentos'
-import Financeiro         from './pages/Financeiro'
-import AnaliseBalanco     from './pages/AnaliseBalanco'
-import Certificados       from './pages/Certificados'
-import Certidoes          from './pages/Certidoes'
-import Conversas          from './pages/Conversas'
-import Robo               from './pages/Robo'
-import Admin              from './pages/Admin'
-import EntregasTarefas    from './pages/EntregasTarefas'
-import ComunicacaoInterna from './pages/ComunicacaoInterna'
-import Contratos          from './pages/Contratos'
-import GoianiaNFSe        from './pages/GoianiaNFSe'
-import MinhasEmpresas     from './pages/MinhasEmpresas'
-import PortalCliente      from './pages/PortalCliente'
-import RelatorioFiscal    from './pages/RelatorioFiscal'
-import RoboObrigacoes     from './pages/RoboObrigacoes'
+import Dashboard             from './pages/Dashboard'
+import Clientes              from './pages/Clientes'
+import Obrigacoes            from './pages/Obrigacoes'
+import Entregas              from './pages/Entregas'
+import NotasFiscais          from './pages/NotasFiscais'
+import Parcelamentos         from './pages/Parcelamentos'
+import Financeiro            from './pages/Financeiro'
+import AnaliseBalanco        from './pages/AnaliseBalanco'
+import Certificados          from './pages/Certificados'
+import Certidoes             from './pages/Certidoes'
+import Conversas             from './pages/Conversas'
+import Robo                  from './pages/Robo'
+import Admin                 from './pages/Admin'
+import EntregasTarefas       from './pages/EntregasTarefas'
+import ComunicacaoInterna    from './pages/ComunicacaoInterna'
+import Contratos             from './pages/Contratos'
+import GoianiaNFSe           from './pages/GoianiaNFSe'
+import MinhasEmpresas        from './pages/MinhasEmpresas'
+import PortalCliente         from './pages/PortalCliente'
+import RelatorioFiscal       from './pages/RelatorioFiscal'
+import RoboObrigacoes        from './pages/RoboObrigacoes'
+import ConfiguracoesTarefas  from './pages/ConfiguracoesTarefas'
+import Processos             from './pages/Processos'
 
 const NAV = [
-  { id: 'dashboard',    label: 'Dashboard',           icon: LayoutDashboard },
-  { id: 'clientes',     label: 'Clientes',             icon: Users },
-  { id: 'obrigacoes',   label: 'Obrigações',           icon: FileText },
-  { id: 'tarefas',      label: 'Entregas/Tarefas',     icon: CheckSquare },
-  { id: 'entregas',     label: 'Histórico Entregas',   icon: Send },
-  { id: 'notas',        label: 'Notas Fiscais',        icon: Receipt },
-  { id: 'parcelamentos',label: 'Parcelamentos',        icon: CreditCard },
-  { id: 'financeiro',   label: 'Financeiro',           icon: DollarSign },
-  { id: 'balanco',      label: 'Análise Balanço',      icon: BarChart2 },
-  { id: 'certidoes',    label: 'Certidões',            icon: Award },
-  { id: 'certificados', label: 'Certificados Digitais',icon: Award },
-  { id: 'conversas',    label: 'WhatsApp',             icon: MessageSquare },
-  { id: 'robo',         label: 'Robô IA',              icon: Bot },
-  { id: 'comunicacao',  label: 'Comunicação Interna',  icon: MessageSquare },
-  { id: 'contratos',    label: 'Contratos',            icon: ScrollText },
-  { id: 'goiania_nfse', label: 'Goiânia NFS-e',        icon: Smartphone },
-  { id: 'empresas',     label: 'Minhas Empresas',      icon: Building2 },
-  { id: 'portal',       label: 'Portal Cliente',       icon: Users },
-  { id: 'relatorio',    label: 'Relatório Fiscal',     icon: BarChart },
-  { id: 'robo_obrig',   label: 'Robô Obrigações',      icon: Repeat },
-  { id: 'admin',        label: 'Administração',        icon: Shield },
+  { id: 'dashboard',             label: 'Dashboard',             icon: LayoutDashboard },
+  { id: 'clientes',              label: 'Clientes',              icon: Users },
+  { id: 'obrigacoes',            label: 'Obrigações',            icon: FileText },
+  { id: 'tarefas',               label: 'Entregas/Tarefas',      icon: CheckSquare },
+  { id: 'processos',             label: 'Processos',             icon: Briefcase },
+  { id: 'entregas',              label: 'Histórico Entregas',    icon: Send },
+  { id: 'notas',                 label: 'Notas Fiscais',         icon: Receipt },
+  { id: 'parcelamentos',         label: 'Parcelamentos',         icon: CreditCard },
+  { id: 'financeiro',            label: 'Financeiro',            icon: DollarSign },
+  { id: 'balanco',               label: 'Análise Balanço',       icon: BarChart2 },
+  { id: 'certidoes',             label: 'Certidões',             icon: Award },
+  { id: 'certificados',          label: 'Certificados Digitais', icon: Award },
+  { id: 'conversas',             label: 'WhatsApp',              icon: MessageSquare },
+  { id: 'robo',                  label: 'Robô IA',               icon: Bot },
+  { id: 'comunicacao',           label: 'Comunicação Interna',   icon: MessageSquare },
+  { id: 'contratos',             label: 'Contratos',             icon: ScrollText },
+  { id: 'goiania_nfse',          label: 'Goiânia NFS-e',         icon: Smartphone },
+  { id: 'empresas',              label: 'Minhas Empresas',       icon: Building2 },
+  { id: 'portal',                label: 'Portal Cliente',        icon: Users },
+  { id: 'relatorio',             label: 'Relatório Fiscal',      icon: BarChart },
+  { id: 'robo_obrig',            label: 'Robô Obrigações',       icon: Repeat },
+  { id: 'configuracoes_tarefas', label: 'Config. Tarefas',       icon: Settings },
+  { id: 'admin',                 label: 'Administração',         icon: Shield },
 ]
 
 const PAGES = {
-  dashboard:    Dashboard,
-  clientes:     Clientes,
-  obrigacoes:   Obrigacoes,
-  tarefas:      EntregasTarefas,
-  entregas:     Entregas,
-  notas:        NotasFiscais,
-  parcelamentos:Parcelamentos,
-  financeiro:   Financeiro,
-  balanco:      AnaliseBalanco,
-  certidoes:    Certidoes,
-  certificados: Certificados,
-  conversas:    Conversas,
-  robo:         Robo,
-  comunicacao:  ComunicacaoInterna,
-  contratos:    Contratos,
-  goiania_nfse: GoianiaNFSe,
-  empresas:     MinhasEmpresas,
-  portal:       PortalCliente,
-  relatorio:    RelatorioFiscal,
-  robo_obrig:   RoboObrigacoes,
-  admin:        Admin,
+  dashboard:             Dashboard,
+  clientes:              Clientes,
+  obrigacoes:            Obrigacoes,
+  tarefas:               EntregasTarefas,
+  processos:             Processos,
+  entregas:              Entregas,
+  notas:                 NotasFiscais,
+  parcelamentos:         Parcelamentos,
+  financeiro:            Financeiro,
+  balanco:               AnaliseBalanco,
+  certidoes:             Certidoes,
+  certificados:          Certificados,
+  conversas:             Conversas,
+  robo:                  Robo,
+  comunicacao:           ComunicacaoInterna,
+  contratos:             Contratos,
+  goiania_nfse:          GoianiaNFSe,
+  empresas:              MinhasEmpresas,
+  portal:                PortalCliente,
+  relatorio:             RelatorioFiscal,
+  robo_obrig:            RoboObrigacoes,
+  configuracoes_tarefas: ConfiguracoesTarefas,
+  admin:                 Admin,
 }
 
 const NAVY = '#1B2A4A'
