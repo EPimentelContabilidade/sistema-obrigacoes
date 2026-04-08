@@ -8,7 +8,6 @@ import {
 
 import Dashboard             from './pages/Dashboard'
 import Clientes              from './pages/Clientes'
-import Obrigacoes            from './pages/Obrigacoes'
 import NotasFiscais          from './pages/NotasFiscais'
 import Parcelamentos         from './pages/Parcelamentos'
 import Financeiro            from './pages/Financeiro'
@@ -30,7 +29,6 @@ import Processos             from './pages/Processos'
 const NAV = [
   { id: 'dashboard',             label: 'Dashboard',             icon: LayoutDashboard },
   { id: 'clientes',              label: 'Clientes',              icon: Users },
-  { id: 'obrigacoes',            label: 'Obrigações',            icon: FileText },
   { id: 'tarefas',               label: 'Entregas / Tarefas',    icon: CheckSquare },
   { id: 'processos',             label: 'Processos',             icon: Briefcase },
   { id: 'notas',                 label: 'Notas Fiscais',         icon: Receipt },
@@ -53,7 +51,6 @@ const NAV = [
 const PAGES = {
   dashboard:             Dashboard,
   clientes:              Clientes,
-  obrigacoes:            Obrigacoes,
   tarefas:               EntregasTarefas,
   processos:             Processos,
   notas:                 NotasFiscais,
