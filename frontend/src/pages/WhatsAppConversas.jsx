@@ -4,6 +4,17 @@ const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 const WPP_GREEN = '#25D366'
 const EVOLUTION_URL = 'https://evolution-api-production-1e92.up.railway.app'
+
+// ── Helper: busca cliente pelo número ────────────────────────────────────────
+function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch { return [] } }
+function clientePorTel(jid) {
+  const num = (jid||'').split('@')[0].replace(/\D/g,'').replace(/^55/,'')
+  return getClientes().find(c => {
+    const ws = (c.whatsapp||c.telefone||'').replace(/\D/g,'').replace(/^55/,'')
+    return ws && ws === num
+  }) || null
+}
+
 const EVOLUTION_KEY = 'epimentel-secret'
 const INSTANCE = 'epimentel'
 
@@ -118,9 +129,15 @@ function TabConversas() {
           <>
             <div style={{background:'#075E54',padding:'10px 16px',display:'flex',alignItems:'center',gap:12}}>
               <Avatar nome={convSel.pushName||convSel.id} cor={WPP_GREEN}/>
-              <div>
+              <div style={{flex:1}}>
                 <div style={{color:'#fff',fontWeight:700}}>{convSel.pushName||convSel.id?.split('@')[0]}</div>
-                <div style={{color:'#88c8a8',fontSize:11}}>{convSel.id?.split('@')[0]}</div>
+                {(()=>{ const cli=clientePorTel(convSel.id); return cli?(
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginTop:2}}>
+                    <span style={{color:'#88c8a8',fontSize:11}}>📋 {cli.nome_razao||cli.nome}</span>
+                    <span style={{color:GOLD,fontSize:10,background:'rgba(197,165,90,.2)',padding:'1px 6px',borderRadius:6}}>{cli.tributacao||cli.regime}</span>
+                    {cli.cnpj&&<span style={{color:'rgba(255,255,255,.5)',fontSize:10}}>{cli.cnpj}</span>}
+                  </div>
+                ):<div style={{color:'#88c8a8',fontSize:11}}>{convSel.id?.split('@')[0]}</div>})()}
               </div>
             </div>
             <div ref={chatRef} style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:4}}>
