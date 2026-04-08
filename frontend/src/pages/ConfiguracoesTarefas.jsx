@@ -43,6 +43,16 @@ function obrigacaoPadrao(overrides = {}) {
   };
 }
 
+
+// ── Clientes por regime ──────────────────────────────────────────────────────
+function getClientesRegime(regime) {
+  try {
+    const mapa = {'Simples Nacional':'Simples Nacional','MEI':'MEI','Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real','RET/Imobiliário':'RET','Produtor Rural':'Produtor Rural'}
+    const chave = Object.entries(mapa).find(([k])=>k===regime)?.[1] || regime
+    return JSON.parse(localStorage.getItem('ep_clientes')||'[]').filter(c=>(c.tributacao||c.regime)===regime||(c.tributacao||c.regime)===chave)
+  } catch { return [] }
+}
+
 const OBRIGACOES_CATALOGO_INICIAL = {
   "MEI": [
     obrigacaoPadrao({ codigo:"DASN-SIMEI", nome:"DASN-SIMEI (Declaração Anual)", periodicidade:"Anual", regimes_vinculados:["MEI"] }),
