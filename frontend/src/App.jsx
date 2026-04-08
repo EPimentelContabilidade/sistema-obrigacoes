@@ -13,7 +13,6 @@ import NotasFiscais          from './pages/NotasFiscais'
 import Parcelamentos         from './pages/Parcelamentos'
 import Financeiro            from './pages/Financeiro'
 import AnaliseBalanco        from './pages/AnaliseBalanco'
-import Certificados          from './pages/Certificados'
 import Certidoes             from './pages/Certidoes'
 import Conversas             from './pages/Conversas'
 import Robo                  from './pages/Robo'
@@ -38,7 +37,6 @@ const NAV = [
   { id: 'financeiro',            label: 'Financeiro',            icon: DollarSign },
   { id: 'balanco',               label: 'Análise Balanço',       icon: BarChart2 },
   { id: 'certidoes',             label: 'Certidões',             icon: Award },
-  { id: 'certificados',          label: 'Certificados Digitais', icon: Award },
   { id: 'conversas',             label: 'WhatsApp',              icon: MessageSquare },
   { id: 'robo',                  label: 'Robô IA',               icon: Bot },
   { id: 'comunicacao',           label: 'Comunicação Interna',   icon: MessageSquare },
@@ -61,7 +59,6 @@ const PAGES = {
   financeiro:            Financeiro,
   balanco:               AnaliseBalanco,
   certidoes:             Certidoes,
-  certificados:          Certificados,
   conversas:             Conversas,
   robo:                  Robo,
   comunicacao:           ComunicacaoInterna,
