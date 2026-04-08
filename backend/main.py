@@ -10,7 +10,7 @@ from routers import (
     financeiro_router, certificados_router, receita_balanco_router,
     certidoes_router, contratos_router, comunicacao_router,
     goiania_router, robo_obrig_router, consulta_fiscal_router,
-    ecac_download_router,
+    ecac_download_router, whatsapp_evolution_router,
 )
 
 @asynccontextmanager
@@ -22,13 +22,8 @@ app = FastAPI(title="EPimentel Sistema", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
- allow_origins=[
-    settings.FRONTEND_URL,
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://adventurous-generosity-production-f892.up.railway.app",
-],
-allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -53,6 +48,7 @@ app.include_router(goiania_router)
 app.include_router(robo_obrig_router)
 app.include_router(consulta_fiscal_router)
 app.include_router(ecac_download_router, prefix="/api/v1")
+app.include_router(whatsapp_evolution_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
