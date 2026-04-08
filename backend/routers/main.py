@@ -8,8 +8,10 @@ from routers import (
     webhook_router, dashboard_router, conversas_router,
     robo_router, admin_router, notas_router, parcelamentos_router,
     financeiro_router, certificados_router, receita_balanco_router,
-    certidoes_real_router, goiania_robo_router, extras_router,
-    consulta_fiscal_router, ecac_download_router, whatsapp_evolution_router,
+    certidoes_real_router, extras_router,
+    goiania_router, robo_obrig_router,
+    consulta_fiscal_router, ecac_download_router,
+    whatsapp_evolution_router,
 )
 
 @asynccontextmanager
@@ -41,8 +43,9 @@ app.include_router(financeiro_router)
 app.include_router(certificados_router)
 app.include_router(receita_balanco_router)
 app.include_router(certidoes_real_router)
-app.include_router(goiania_robo_router)
 app.include_router(extras_router)
+app.include_router(goiania_router)
+app.include_router(robo_obrig_router)
 app.include_router(consulta_fiscal_router)
 app.include_router(ecac_download_router, prefix="/api/v1")
 app.include_router(whatsapp_evolution_router, prefix="/api/v1")
