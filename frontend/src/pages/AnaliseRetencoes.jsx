@@ -38,7 +38,7 @@ async function analisarIA(f) {
   return {erro:txt,retencoes:[]}
 }
 
-export default function AnaliseRetencoes() {
+ AnaliseRetencoes() {
   const [aba, setAba] = useState('analise')
   const [form, setForm] = useState(Object.assign({},F0))
   const [analisando, setAnalisando] = useState(false)
@@ -46,6 +46,9 @@ export default function AnaliseRetencoes() {
   const [historico, setHistorico] = useState(getHist())
   const [busca, setBusca] = useState('')
   const [obrigG, setObrigG] = useState({})
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [previewNome, setPreviewNome] = useState('')
+  const fileRef = useRef()
   const clientes = getClientes()
   const sf = function(k,v) { setForm(function(f) { var n=Object.assign({},f); n[k]=v; return n }) }
 
@@ -121,6 +124,26 @@ export default function AnaliseRetencoes() {
               React.createElement('div',{style:{gridColumn:'1/-1'}},React.createElement('label',{style:lbl},'REGIME TRIBUTARIO'),React.createElement('select',{value:form.regime,onChange:function(e){sf('regime',e.target.value)},style:sel},React.createElement('option',{value:''},'Nao informado'),React.createElement('option',{value:'Simples Nacional'},'Simples Nacional'),React.createElement('option',{value:'Lucro Presumido'},'Lucro Presumido'),React.createElement('option',{value:'Lucro Real'},'Lucro Real')))
             ),
 
+            React.createElement('div',{style:{marginBottom:12}},
+              React.createElement('div',{style:{display:'flex',gap:8,marginBottom:8}},
+                React.createElement('button',{
+                  type:'button',
+                  onClick:function(){fileRef.current&&fileRef.current.click()},
+                  style:{padding:'7px 14px',borderRadius:6,border:'1px solid #ddd',background:'#f9f9f9',color:'#555',fontSize:12,cursor:'pointer',display:'flex',alignItems:'center',gap:6}
+                },React.createElement(Upload,{size:13}),' Anexar NF (PDF/XML)'),
+                previewNome&&React.createElement('span',{style:{fontSize:11,color:'#555',display:'flex',alignItems:'center',gap:4}},'📎 ',previewNome,
+                  React.createElement('button',{onClick:function(){setPreviewUrl('');setPreviewNome('')},style:{background:'none',border:'none',color:'#d63031',cursor:'pointer',fontWeight:700,fontSize:12}},' ×')
+                )
+              ),
+              React.createElement('input',{ref:fileRef,type:'file',accept:'.pdf,.xml,.jpg,.png',style:{display:'none'},onChange:handleArquivo}),
+              previewUrl&&React.createElement('div',{style:{border:'1px solid #ddd',borderRadius:8,overflow:'hidden',marginBottom:8}},
+                (previewNome.toLowerCase().endsWith('.pdf'))
+                  ?React.createElement('iframe',{src:previewUrl+'#toolbar=0&navpanes=0',style:{width:'100%',height:380,border:'none',display:'block'},title:previewNome})
+                  :(previewNome.match(/\.(jpg|jpeg|png|gif)$/i))
+                    ?React.createElement('img',{src:previewUrl,alt:previewNome,style:{width:'100%',maxHeight:380,objectFit:'contain',display:'block'}})
+                    :null
+              )
+            ),
             React.createElement('button',{onClick:executar,disabled:analisando,style:{marginTop:14,width:'100%',padding:'11px 0',borderRadius:8,background:analisando?'#ccc':NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:analisando?'not-allowed':'pointer'}},
               analisando?'\uD83E\uDD16 Analisando...':'\uD83E\uDD16 Analisar Retencoes com IA Claude'
             )
