@@ -218,7 +218,7 @@ export default function EntregasTarefas() {
       // 1. Buscar tarefas geradas via catálogo (principal)
       const todas = JSON.parse(localStorage.getItem('ep_tarefas_entregas') || '[]')
       const tarefasGeradas = todas
-        .filter(t => String(t.cliente_id) === String(cli?.id) && t.competencia === mesComp)
+        .filter(t => (empresasFiltro.length===0 || empresasFiltro.includes(t.cliente_id)) && String(t.cliente_id) === String(cli?.id) && t.competencia === mesComp)
         .map(t => ({
           id: t.id,
           _origem: 'catalogo',
