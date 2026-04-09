@@ -111,3 +111,25 @@ async def deletar_analise(analise_id: str):
     if len(_historico) == antes:
         raise HTTPException(status_code=404, detail="Analise nao encontrada")
     return {"ok": True}
+
+
+class ProxyRequest(BaseModel):
+    model: str
+    max_tokens: int = 2000
+    messages: list
+
+
+@router.post("/proxy")
+async def anthropic_proxy(req: ProxyRequest):
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY nao configurada")
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": req.model, "max_tokens": req.max_tokens, "messages": req.messages},
+            )
+        return r.json()
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=str(e))
