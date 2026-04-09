@@ -556,7 +556,7 @@ function TabProcessos({ templates }) {
   const progresso = p=>!p.etapas?.length?0:Math.round(p.etapas.filter(e=>e.concluida).length/p.etapas.length*100);
   const clientesFiltrados = clientes.filter(c=>(c.nome_razao||c.nome||"").toLowerCase().includes(buscaCliente.toLowerCase())).slice(0,8);
 
-  const filtrados = processos.filter(p=>{
+  const filtrados = processos.filter(p=>(empresaFiltro===''||p.cliente_id===empresaFiltro)&&p=>{
     if(filtroTexto&&!(p.titulo+p.cliente).toLowerCase().includes(filtroTexto.toLowerCase())) return false;
     if(filtroStatus&&p.status!==filtroStatus) return false;
     if(filtroCategoria&&p.categoria!==filtroCategoria) return false;
@@ -569,6 +569,10 @@ function TabProcessos({ templates }) {
       <div style={{ width:selecionado?360:"100%",borderRight:"1px solid #E0E0E0",display:"flex",flexDirection:"column",background:"#fff" }}>
         <div style={{ padding:"12px 14px",borderBottom:"1px solid #eee" }}>
           <div style={{ display:"flex",gap:8,marginBottom:10 }}>
+            <select value={empresaFiltro} onChange={e=>setEmpresaFiltro(e.target.value)} style={{padding:'7px 10px',borderRadius:6,border:'1px solid #ddd',fontSize:12,color:'#333',background:'#fff',cursor:'pointer',minWidth:170}}>
+              <option value="">🏢 Todas as empresas</option>
+              {clientes.map(c=><option key={c.id} value={c.id}>{c.nome||c.razao_social||c.id}</option>)}
+            </select>
             <input value={filtroTexto} onChange={e=>setFiltroTexto(e.target.value)} placeholder="Buscar..." style={{ ...inputStyle,flex:1 }} />
             <button onClick={()=>setModalIA(true)} style={{ background:GOLD,color:NAVY,border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",fontWeight:700,fontSize:12 }}>🤖 IA</button>
             <button onClick={()=>abrirNovo()} style={{ background:NAVY,color:"#fff",border:"none",borderRadius:8,padding:"0 14px",cursor:"pointer",fontWeight:700,fontSize:13 }}>+ Novo</button>
@@ -813,16 +817,6 @@ function TabTemplates() {
         ))}
       </div>
 
-      <div style={{display:'flex',alignItems:'center',gap:8,position:'relative',flexShrink:0}}>
-        <select
-          value={empresasFiltro[0] || ''}
-          onChange={e => setEmpresasFiltro(e.target.value ? [e.target.value] : [])}
-          style={{padding:'6px 10px',borderRadius:6,border:'1px solid #ddd',fontSize:12,color:'#333',background:'#fff',cursor:'pointer',minWidth:160}}
-        >
-          <option value="">Todas as empresas</option>
-          {getClientes().map(c => <option key={c.id} value={c.id}>{c.nome||c.razao_social||c.id}</option>)}
-        </select>
-      </div>
             <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar template..." style={{ ...inputStyle,maxWidth:300,marginBottom:14 }} />
       <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:14 }}>
         {filtrados.map(t=>{
