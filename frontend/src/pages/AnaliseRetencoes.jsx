@@ -20,6 +20,27 @@ const RETENCOES_TIPO = [
   { codigo:'COFINS',  label:'COFINS',            aliquota_padrao:3,   cor:'#C2410C', bg:'#FFF7ED' },
   { codigo:'CSLL',    label:'CSLL',              aliquota_padrao:1,   cor:'#7C3AED', bg:'#EDE9FF' },
 ]
+import { useState, useEffect, useRef } from 'react'
+import { Search, Plus, FileText, Upload, Trash2, CheckCircle, Clock, Download } from 'lucide-react'
+
+const NAVY = '#1B2A4A'
+const GOLD = '#C5A55A'
+const inp = { padding:'8px 11px', borderRadius:7, border:'1px solid #ddd', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', color:'#333' }
+const sel = { ...inp, cursor:'pointer', background:'#fff' }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch { return [] } }
+function fmtMoeda(v) { return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) }
+function fmtData(iso) { try { return new Date(iso).toLocaleDateString('pt-BR') } catch { return '—' } }
+
+const RETENCOES_TIPO = [
+  { codigo:'INSS',    label:'INSS',              aliquota_padrao:11,  cor:'#1D6FA4', bg:'#EBF5FF' },
+  { codigo:'ISS',     label:'ISS',               aliquota_padrao:5,   cor:'#1A7A3C', bg:'#EDFBF1' },
+  { codigo:'IRRF',    label:'IRRF',              aliquota_padrao:1.5, cor:'#6B3EC9', bg:'#F3EEFF' },
+  { codigo:'PIS',     label:'PIS',               aliquota_padrao:0.65,cor:'#854D0E', bg:'#FEF9C3' },
+  { codigo:'COFINS',  label:'COFINS',            aliquota_padrao:3,   cor:'#C2410C', bg:'#FFF7ED' },
+  { codigo:'CSLL',    label:'CSLL',              aliquota_padrao:1,   cor:'#7C3AED', bg:'#EDE9FF' },
+]
 
 const FORM_VAZIO = {
   cliente_id:'', cliente_nome:'', fornecedor:'', numero_nf:'', data_emissao:'',
@@ -76,7 +97,7 @@ Responda em JSON com esta estrutura exata:
   }
 }`
 
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
+  const r = await fetch((import.meta.env.VITE_API_URL || '') + '/api/v1/retencoes/proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -131,7 +152,7 @@ export default function AnaliseRetencoes() {
           const content = isPDF
             ? [{ type:'document', source:{ type:'base64', media_type:'application/pdf', data:base64 } }, { type:'text', text:'Extraia todos os dados desta Nota Fiscal: número, fornecedor, tomador, descrição do serviço, valor bruto, data, e quaisquer tributos mencionados. Retorne em texto estruturado.' }]
             : [{ type:'image', source:{ type:'base64', media_type:file.type, data:base64 } }, { type:'text', text:'Extraia todos os dados desta Nota Fiscal: número, fornecedor, tomador, descrição do serviço, valor bruto, data, e quaisquer tributos mencionados.' }]
-          const r = await fetch('https://api.anthropic.com/v1/messages', {
+          const r = await fetch((import.meta.env.VITE_API_URL || '') + '/api/v1/retencoes/proxy', {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1500, messages:[{ role:'user', content }] })
           })
