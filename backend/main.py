@@ -13,20 +13,21 @@ from routers import (
     consulta_fiscal_router, ecac_download_router,
     whatsapp_evolution_router,
 )
+from routers import retencoes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
-    yield
+        await init_db()
+        yield
 
 app = FastAPI(title="EPimentel Sistema", lifespan=lifespan)
 
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
 )
 
 app.include_router(clientes_router)
@@ -47,13 +48,14 @@ app.include_router(extras_router)
 app.include_router(goiania_router)
 app.include_router(robo_obrig_router)
 app.include_router(consulta_fiscal_router)
-app.include_router(ecac_download_router, prefix="/api/v1")
-app.include_router(whatsapp_evolution_router, prefix="/api/v1")
+app.include_router(ecac_download_router)
+app.include_router(whatsapp_evolution_router)
+app.include_router(retencoes.router)
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "sistema": "EPimentel Auditoria & Contabilidade"}
+        return {"status": "ok", "sistema": "EPimentel"}
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+        return {"status": "healthy"}
