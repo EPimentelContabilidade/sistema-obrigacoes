@@ -812,7 +812,18 @@ function TabTemplates() {
           </button>
         ))}
       </div>
-      <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar template..." style={{ ...inputStyle,maxWidth:300,marginBottom:14 }} />
+
+      <div style={{display:'flex',alignItems:'center',gap:8,position:'relative',flexShrink:0}}>
+        <select
+          value={empresasFiltro[0] || ''}
+          onChange={e => setEmpresasFiltro(e.target.value ? [e.target.value] : [])}
+          style={{padding:'6px 10px',borderRadius:6,border:'1px solid #ddd',fontSize:12,color:'#333',background:'#fff',cursor:'pointer',minWidth:160}}
+        >
+          <option value="">Todas as empresas</option>
+          {getClientes().map(c => <option key={c.id} value={c.id}>{c.nome||c.razao_social||c.id}</option>)}
+        </select>
+      </div>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar template..." style={{ ...inputStyle,maxWidth:300,marginBottom:14 }} />
       <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:14 }}>
         {filtrados.map(t=>{
           const docsTotal=(t.etapas||[]).reduce((acc,e)=>acc+(typeof e==="string"?0:(e.docs_necessarios||[]).length),0);
