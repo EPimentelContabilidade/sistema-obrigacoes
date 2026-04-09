@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, Send, Receipt, Shield,
   CreditCard, DollarSign, BarChart2, Award, MessageSquare,
-  Bot, Shield, CheckSquare, LogOut, Menu, Building2,
+  Bot, CheckSquare, LogOut, Menu, Building2,
   ScrollText, Smartphone, BarChart, Repeat, Briefcase, Settings
 } from 'lucide-react'
 
