@@ -4,11 +4,11 @@ import { FileText, Upload, Download, X } from 'lucide-react'
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 
-function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch { return [] } }
-function getAnalises() { try { return JSON.parse(localStorage.getItem('ep_analises_ret')||'[]') } catch { return [] } }
+function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch(e) { return [] } }
+function getAnalises() { try { return JSON.parse(localStorage.getItem('ep_analises_ret')||'[]') } catch(e) { return [] } }
 function saveAnalises(l) { localStorage.setItem('ep_analises_ret', JSON.stringify(l)) }
 function fmtMoeda(v) { return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) }
-function fmtData(iso) { try { return new Date(iso).toLocaleDateString('pt-BR') } catch { return '-' } }
+function fmtData(iso) { try { return new Date(iso).toLocaleDateString('pt-BR') } catch(e) { return '-' } }
 
 const FORM0 = { tipo_operacao:'Servicos Tomados', numero_nota:'', prestador:'', cnpj_prestador:'', valor_total:'', data_emissao:'', descricao:'', cnae:'', codigo_lc116:'', municipio_prestador:'', aliquota_iss:'', regime_prestador:'' }
 const API = import.meta.env.VITE_API_URL || ''
@@ -49,7 +49,7 @@ Responda APENAS JSON valido:
   })
   const d = await r.json()
   const txt = d.content?.[0]?.text || ''
-  try { const m = txt.match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]) } catch{}
+  try { const m = txt.match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]) } catch(e) {}
   return { erro: txt, retencoes: [] }
 }
 
@@ -89,7 +89,7 @@ export default function AnaliseRetencoes() {
       try {
         await fetch(API+'/api/v1/entregas', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ titulo: r.codigo+' - NF '+h.nota+' - '+h.empresa, descricao: r.label+' | Base: '+fmtMoeda(r.base_calculo)+' | Valor: '+fmtMoeda(r.valor), vencimento: r.vencimento, valor: r.valor, tipo:'retencao', status:'pendente', cliente_id:'', origem:'analise_retencoes' }) })
         n++
-      } catch {}
+      } catch(e) {}
     }
     const novo = historico.map(x => x.id===h.id ? {...x, obrig_geradas: n} : x)
     setHistorico(novo); saveAnalises(novo)
@@ -266,11 +266,11 @@ import { FileText, Upload, Download, X } from 'lucide-react'
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 
-function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch { return [] } }
-function getAnalises() { try { return JSON.parse(localStorage.getItem('ep_analises_ret')||'[]') } catch { return [] } }
+function getClientes() { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch(e) { return [] } }
+function getAnalises() { try { return JSON.parse(localStorage.getItem('ep_analises_ret')||'[]') } catch(e) { return [] } }
 function saveAnalises(l) { localStorage.setItem('ep_analises_ret', JSON.stringify(l)) }
 function fmtMoeda(v) { return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) }
-function fmtData(iso) { try { return new Date(iso).toLocaleDateString('pt-BR') } catch { return '-' } }
+function fmtData(iso) { try { return new Date(iso).toLocaleDateString('pt-BR') } catch(e) { return '-' } }
 
 const FORM0 = { tipo_operacao:'Servicos Tomados', numero_nota:'', prestador:'', cnpj_prestador:'', valor_total:'', data_emissao:'', descricao:'', cnae:'', codigo_lc116:'', municipio_prestador:'', aliquota_iss:'', regime_prestador:'' }
 const API = import.meta.env.VITE_API_URL || ''
@@ -311,6 +311,6 @@ Responda APENAS JSON valido:
   })
   const d = await r.json()
   const txt = d.content?.[0]?.text || ''
-  try { const m = txt.match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]) } catch{}
+  try { const m = txt.match(/\{[\s\S]*\}/); if(m) return JSON.parse(m[0]) } catch(e) {}
   return { erro: txt, retencoes: [] }
                       }
