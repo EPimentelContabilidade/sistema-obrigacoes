@@ -1,3 +1,4 @@
+import React, { useState, useRef } from 'react'
 
 import { FileText, Upload, Download, X } from 'lucide-react'
 
