@@ -178,40 +178,36 @@ export default function App() {
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', fontFamily:"'Sora','Inter',system-ui,sans-serif" }}>
 
       {/* Sidebar */}
-      <aside style={{ display:'flex', flexDirection:'column', flexShrink:0, width:sideW, minWidth:sideW, background:'linear-gradient(180deg,#0d1929 0%,#1B2A4A 45%,#172338 100%)', overflow:'hidden', transition:'width .28s ease,min-width .28s ease', boxShadow:'4px 0 20px rgba(0,0,0,.25)', zIndex:20 }}>
+      <aside style={{ display:'flex', flexDirection:'column', flexShrink:0, width:sideW, minWidth:sideW, background:'linear-gradient(180deg,#0d1929 0%,#1B2A4A 45%,#172338 100%)', overflow:'hidden', transition:'width .3s cubic-bezier(.4,0,.2,1),min-width .3s cubic-bezier(.4,0,.2,1)', boxShadow:'4px 0 20px rgba(0,0,0,.25)', zIndex:20 }}>
 
         {/* Logo */}
-        <div style={{ padding:'14px 12px 12px', borderBottom:'1px solid rgba(255,255,255,.07)', display:'flex', alignItems:'center', gap:9, minHeight:62, flexShrink:0 }}>
+        <div style={{ padding:'14px 12px 12px', borderBottom:'1px solid rgba(255,255,255,.07)', display:'flex', alignItems:'center', gap:9, minHeight:62, flexShrink:0, overflow:'hidden' }}>
           {tema.logo
             ? <img src={tema.logo} alt="" style={{ width:32, height:32, borderRadius:8, objectFit:'contain', background:'#fff', padding:2, flexShrink:0 }}/>
             : <div style={{ width:32, height:32, borderRadius:8, background:`linear-gradient(135deg,${tema.gold},#d4a84b)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:900, flexShrink:0, boxShadow:`0 3px 10px ${tema.gold}50` }}>
                 <span style={{ color:tema.navy }}>E</span><span style={{ color:'#fff' }}>P</span>
               </div>
           }
-          {!collapsed && (
-            <div style={{ minWidth:0, overflow:'hidden' }}>
-              <div style={{ fontWeight:800, color:'#fff', fontSize:13, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', letterSpacing:-.3 }}>{tema.nomeEmpresa}</div>
-              <div style={{ fontSize:8, color:tema.gold, whiteSpace:'nowrap', letterSpacing:1.2, textTransform:'uppercase', marginTop:1 }}>{tema.slogan}</div>
-            </div>
-          )}
+          <div style={{ minWidth:0, overflow:'hidden', opacity:collapsed?0:1, transition:'opacity .2s ease', whiteSpace:'nowrap' }}>
+            <div style={{ fontWeight:800, color:'#fff', fontSize:13, overflow:'hidden', textOverflow:'ellipsis', letterSpacing:-.3 }}>{tema.nomeEmpresa}</div>
+            <div style={{ fontSize:8, color:tema.gold, letterSpacing:1.2, textTransform:'uppercase', marginTop:1 }}>{tema.slogan}</div>
+          </div>
         </div>
 
         {/* Perfil */}
-        {!collapsed && (
-          <div style={{ padding:'9px 12px 8px', borderBottom:'1px solid rgba(255,255,255,.07)', display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:28, height:28, borderRadius:7, background:`${tema.gold}25`, border:`1px solid ${tema.gold}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color:tema.gold, flexShrink:0 }}>
-              {(usuario.nome||'U').split(' ').map(n=>n[0]).slice(0,2).join('')}
-            </div>
-            <div style={{ minWidth:0, flex:1 }}>
-              <div style={{ fontSize:11, color:'#fff', fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{(usuario.nome||'').split(' ').slice(0,2).join(' ')}</div>
-              <div style={{ fontSize:9, color:tema.gold, textTransform:'uppercase', letterSpacing:.6 }}>{usuario.perfil}</div>
-            </div>
+        <div style={{ padding:'9px 12px 8px', borderBottom:'1px solid rgba(255,255,255,.07)', display:'flex', alignItems:'center', gap:8, overflow:'hidden', minHeight:46, flexShrink:0 }}>
+          <div style={{ width:28, height:28, borderRadius:7, background:`${tema.gold}25`, border:`1px solid ${tema.gold}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color:tema.gold, flexShrink:0 }}>
+            {(usuario.nome||'U').split(' ').map(n=>n[0]).slice(0,2).join('')}
           </div>
-        )}
+          <div style={{ minWidth:0, flex:1, overflow:'hidden', opacity:collapsed?0:1, transition:'opacity .2s ease', whiteSpace:'nowrap' }}>
+            <div style={{ fontSize:11, color:'#fff', fontWeight:700, overflow:'hidden', textOverflow:'ellipsis' }}>{(usuario.nome||'').split(' ').slice(0,2).join(' ')}</div>
+            <div style={{ fontSize:9, color:tema.gold, textTransform:'uppercase', letterSpacing:.6 }}>{usuario.perfil}</div>
+          </div>
+        </div>
 
         {/* Busca */}
-        {!collapsed && (
-          <div style={{ padding:'7px 10px', borderBottom:'1px solid rgba(255,255,255,.07)' }}>
+        <div style={{ overflow:'hidden', maxHeight:collapsed?0:80, opacity:collapsed?0:1, transition:'max-height .3s cubic-bezier(.4,0,.2,1), opacity .2s ease', borderBottom:'1px solid rgba(255,255,255,.07)', flexShrink:0 }}>
+          <div style={{ padding:'7px 10px' }}>
             <div style={{ position:'relative' }}>
               <Search size={10} style={{ position:'absolute', left:8, top:8, color:'rgba(255,255,255,.3)' }}/>
               <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar módulo..."
@@ -228,32 +224,40 @@ export default function App() {
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {/* Nav grupos */}
         <nav style={{ flex:1, overflowY:'auto', padding:'4px 0', scrollbarWidth:'thin', scrollbarColor:'rgba(255,255,255,.1) transparent' }}>
           {NAV_GROUPS.map(g => (
             <div key={g.id} style={{ marginBottom:1 }}>
-              {!collapsed && (
+              {/* Header do grupo — fade ao colapsar */}
+              <div style={{ overflow:'hidden', maxHeight:collapsed?0:28, opacity:collapsed?0:1, transition:'max-height .25s ease, opacity .18s ease' }}>
                 <button onClick={()=>setGroups(p=>({...p,[g.id]:!p[g.id]}))}
                   style={{ display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', padding:'6px 12px 4px', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.3)', fontSize:9, fontWeight:700, textTransform:'uppercase', letterSpacing:1.2, textAlign:'left' }}>
                   <span>{g.label}</span>
                   {groups[g.id] ? <ChevronDown size={9}/> : <ChevronRight size={9}/>}
                 </button>
-              )}
+              </div>
+
+              {/* Itens */}
               {(collapsed || groups[g.id]) && g.items.map(item => {
                 const I = item.icon; const act = page === item.id
                 return (
                   <button key={item.id} onClick={()=>navTo(item.id)} title={collapsed ? item.label : undefined}
-                    style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:collapsed?'9px 0':'7px 12px', justifyContent:collapsed?'center':'flex-start', textAlign:'left', fontSize:11.5, cursor:'pointer', border:'none', borderLeft:!collapsed?(act?`3px solid ${tema.gold}`:'3px solid transparent'):'none', background:act?`linear-gradient(90deg,${tema.gold}22,transparent)`:'transparent', color:act?tema.gold:'rgba(255,255,255,.7)', whiteSpace:'nowrap', overflow:'hidden', transition:'all .12s', position:'relative' }}
+                    style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:collapsed?'9px 0':'7px 12px', justifyContent:collapsed?'center':'flex-start', textAlign:'left', fontSize:11.5, cursor:'pointer', border:'none', borderLeft:!collapsed?(act?`3px solid ${tema.gold}`:'3px solid transparent'):'none', background:act?`linear-gradient(90deg,${tema.gold}22,transparent)`:'transparent', color:act?tema.gold:'rgba(255,255,255,.7)', whiteSpace:'nowrap', overflow:'hidden', transition:'background .15s, color .15s, padding .3s, justify-content .3s', position:'relative' }}
                     onMouseEnter={e=>{ if(!act){e.currentTarget.style.background='rgba(255,255,255,.07)';e.currentTarget.style.color='rgba(255,255,255,.95)'} }}
                     onMouseLeave={e=>{ if(!act){e.currentTarget.style.background='transparent';e.currentTarget.style.color='rgba(255,255,255,.7)'} }}>
-                    <I size={13} style={{ flexShrink:0 }}/>
-                    {!collapsed && <>
-                      <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', fontWeight:act?700:400 }}>{item.label}</span>
-                      {item.badge && <span style={{ fontSize:8, padding:'1px 5px', borderRadius:7, background:item.badge==='NOVO'?tema.gold:'#dc2626', color:item.badge==='NOVO'?tema.navy:'#fff', fontWeight:800, flexShrink:0 }}>{item.badge}</span>}
-                    </>}
-                    {act && !collapsed && <div style={{ position:'absolute', right:0, top:'15%', height:'70%', width:3, background:tema.gold, borderRadius:'3px 0 0 3px' }}/>}
+                    <I size={13} style={{ flexShrink:0, transition:'transform .2s' }}/>
+                    {/* Label e badge com fade */}
+                    <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', fontWeight:act?700:400, opacity:collapsed?0:1, maxWidth:collapsed?0:160, transition:'opacity .2s ease, max-width .3s ease' }}>
+                      {item.label}
+                    </span>
+                    {item.badge && (
+                      <span style={{ fontSize:8, padding:'1px 5px', borderRadius:7, background:item.badge==='NOVO'?tema.gold:'#dc2626', color:item.badge==='NOVO'?tema.navy:'#fff', fontWeight:800, flexShrink:0, opacity:collapsed?0:1, transition:'opacity .2s ease' }}>
+                        {item.badge}
+                      </span>
+                    )}
+                    {act && <div style={{ position:'absolute', right:0, top:'15%', height:'70%', width:3, background:tema.gold, borderRadius:'3px 0 0 3px', opacity:collapsed?0:1, transition:'opacity .2s' }}/>}
                   </button>
                 )
               })}
@@ -267,12 +271,14 @@ export default function App() {
           <button onClick={()=>setCollapsed(c=>!c)}
             style={{ display:'flex', alignItems:'center', justifyContent:collapsed?'center':'flex-start', gap:8, width:'100%', padding:'9px 12px', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.35)', fontSize:11, transition:'color .15s' }}
             onMouseEnter={e=>e.currentTarget.style.color='rgba(255,255,255,.8)'} onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.35)'}>
-            <Menu size={13}/>{!collapsed && <span>Recolher</span>}
+            <Menu size={13} style={{ transition:'transform .3s', transform:collapsed?'rotate(180deg)':'rotate(0deg)' }}/>
+            <span style={{ opacity:collapsed?0:1, maxWidth:collapsed?0:100, overflow:'hidden', whiteSpace:'nowrap', transition:'opacity .2s ease, max-width .3s ease' }}>Recolher</span>
           </button>
           <button onClick={logout}
             style={{ display:'flex', alignItems:'center', justifyContent:collapsed?'center':'flex-start', gap:8, width:'100%', padding:'9px 12px', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,.35)', fontSize:11, transition:'color .15s' }}
             onMouseEnter={e=>e.currentTarget.style.color='#f87171'} onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,.35)'}>
-            <LogOut size={13}/>{!collapsed && <span>Sair</span>}
+            <LogOut size={13}/>
+            <span style={{ opacity:collapsed?0:1, maxWidth:collapsed?0:100, overflow:'hidden', whiteSpace:'nowrap', transition:'opacity .2s ease, max-width .3s ease' }}>Sair</span>
           </button>
         </div>
       </aside>
