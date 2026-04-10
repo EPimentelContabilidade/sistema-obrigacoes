@@ -1,2 +1,5 @@
 [phases.build]
 cmds = ["npm ci", "./node_modules/.bin/vite build"]
+
+[start]
+cmd = "npx vite preview --port 8080 --host"
