@@ -40,7 +40,8 @@ async function analisarIA(f) {
 
 
 export default function AnaliseRetencoes() {
-  const [form, setForm] = useState(Object.assign({},F0))
+  const [aba, setAba] = useState('analise')
+    const [form, setForm] = useState(Object.assign({},F0))
   const [analisando, setAnalisando] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [historico, setHistorico] = useState(getHist())
