@@ -39,7 +39,7 @@ async function analisarIA(f) {
 }
 
 
-  const [aba, setAba] = useState('analise')
+  export default function AnaliseRetencoes() {
   const [form, setForm] = useState(Object.assign({},F0))
   const [analisando, setAnalisando] = useState(false)
   const [resultado, setResultado] = useState(null)
@@ -248,4 +248,4 @@ async function analisarIA(f) {
       )
     )
   )
-    }
+export default function AnaliseRetencoes() {   const [aba, setAba] = useState('analise')
