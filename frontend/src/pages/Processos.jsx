@@ -496,9 +496,15 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
 function TabProcessos({ templates }) {
   const [processos, setProcessos] = useState(()=>{ try{return JSON.parse(localStorage.getItem("ep_processos")||"[]");}catch{return [];} });
   const [filtroStatus, setFiltroStatus] = useState("");
-    const [empresaFiltro, setEmpresaFiltro] = useState('');
+  const [empresaFiltro, setEmpresaFiltro] = useState('');
   const [filtroTexto, setFiltroTexto] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
+  // Novos filtros multi-select
+  const [filtroCNPJs, setFiltroCNPJs] = useState([]);
+  const [filtroGrupo, setFiltroGrupo] = useState('');
+  const [dropCNPJ, setDropCNPJ] = useState(false);
+  const [buscaCNPJ, setBuscaCNPJ] = useState('');
+
   const [selecionado, setSelecionado] = useState(null);
   const [modal, setModal] = useState(false);
   const [modalIA, setModalIA] = useState(false);
@@ -557,10 +563,35 @@ function TabProcessos({ templates }) {
   const progresso = p=>!p.etapas?.length?0:Math.round(p.etapas.filter(e=>e.concluida).length/p.etapas.length*100);
   const clientesFiltrados = clientes.filter(c=>(c.nome_razao||c.nome||"").toLowerCase().includes(buscaCliente.toLowerCase())).slice(0,8);
 
-  const filtrados = processos.filter(p=>{if(!(empresaFiltro===''||p.cliente_id===empresaFiltro))return false;
-    if(filtroTexto&&!(p.titulo+p.cliente).toLowerCase().includes(filtroTexto.toLowerCase())) return false;
-    if(filtroStatus&&p.status!==filtroStatus) return false;
-    if(filtroCategoria&&p.categoria!==filtroCategoria) return false;
+  // Dados derivados para os novos filtros
+  const grupos = [...new Set(clientes.map(c=>c.grupo).filter(Boolean))].sort();
+  const clientesCNPJFiltro = clientes.filter(c=>{
+    const q = buscaCNPJ.toLowerCase();
+    return !q || (c.nome||c.razao_social||'').toLowerCase().includes(q) || (c.cnpj||'').replace(/\D/g,'').includes(q);
+  });
+  const idsDoGrupo = filtroGrupo
+    ? new Set(clientes.filter(c=>c.grupo===filtroGrupo).map(c=>String(c.id)))
+    : new Set();
+  const toggleCNPJ = cnpj => setFiltroCNPJs(p => p.includes(cnpj) ? p.filter(x=>x!==cnpj) : [...p, cnpj]);
+  const limparFiltros = () => {
+    setEmpresaFiltro(''); setFiltroTexto(''); setFiltroCategoria(''); setFiltroStatus('');
+    setFiltroCNPJs([]); setFiltroGrupo('');
+  };
+  const temFiltro = empresaFiltro||filtroTexto||filtroCategoria||filtroStatus||filtroCNPJs.length||filtroGrupo;
+
+  const filtrados = processos.filter(p => {
+    // Filtro empresa único (legado)
+    if(empresaFiltro !== '' && p.cliente_id !== empresaFiltro) return false;
+    // Filtro texto
+    if(filtroTexto && !(p.titulo+p.cliente).toLowerCase().includes(filtroTexto.toLowerCase())) return false;
+    // Filtro status
+    if(filtroStatus && p.status !== filtroStatus) return false;
+    // Filtro categoria
+    if(filtroCategoria && p.categoria !== filtroCategoria) return false;
+    // Filtro multi CNPJ
+    if(filtroCNPJs.length > 0 && !filtroCNPJs.includes(String(p.clienteId||p.cliente_id||''))) return false;
+    // Filtro grupo
+    if(filtroGrupo && idsDoGrupo.size > 0 && !idsDoGrupo.has(String(p.clienteId||p.cliente_id||''))) return false;
     return true;
   });
 
@@ -569,16 +600,15 @@ function TabProcessos({ templates }) {
       {/* Lista */}
       <div style={{ width:selecionado?360:"100%",borderRight:"1px solid #E0E0E0",display:"flex",flexDirection:"column",background:"#fff" }}>
         <div style={{ padding:"12px 14px",borderBottom:"1px solid #eee" }}>
-          <div style={{ display:"flex",gap:8,marginBottom:10 }}>
-            <select value={empresaFiltro} onChange={e=>setEmpresaFiltro(e.target.value)} style={{padding:'7px 10px',borderRadius:6,border:'1px solid #ddd',fontSize:12,color:'#333',background:'#fff',cursor:'pointer',minWidth:170}}>
-              <option value="">🏢 Todas as empresas</option>
-              {clientes.map(c=><option key={c.id} value={c.id}>{c.nome||c.razao_social||c.id}</option>)}
-            </select>
-            <input value={filtroTexto} onChange={e=>setFiltroTexto(e.target.value)} placeholder="Buscar..." style={{ ...inputStyle,flex:1 }} />
+          {/* Linha 1: busca + IA + Novo */}
+          <div style={{ display:"flex",gap:8,marginBottom:8 }}>
+            <input value={filtroTexto} onChange={e=>setFiltroTexto(e.target.value)} placeholder="🔍 Buscar processo..." style={{ ...inputStyle,flex:1,fontSize:12 }} />
             <button onClick={()=>setModalIA(true)} style={{ background:GOLD,color:NAVY,border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",fontWeight:700,fontSize:12 }}>🤖 IA</button>
             <button onClick={()=>abrirNovo()} style={{ background:NAVY,color:"#fff",border:"none",borderRadius:8,padding:"0 14px",cursor:"pointer",fontWeight:700,fontSize:13 }}>+ Novo</button>
           </div>
-          <div style={{ display:"flex",gap:5,flexWrap:"wrap",marginBottom:6 }}>
+
+          {/* Linha 2: status pills */}
+          <div style={{ display:"flex",gap:5,flexWrap:"wrap",marginBottom:8 }}>
             <button onClick={()=>setFiltroStatus("")} style={{ padding:"3px 10px",borderRadius:10,border:"1px solid #ddd",background:!filtroStatus?NAVY:"#fff",color:!filtroStatus?"#fff":"#555",cursor:"pointer",fontSize:11 }}>Todos ({processos.length})</button>
             {Object.entries(STATUS_CORES).map(([s,c])=>(
               <button key={s} onClick={()=>setFiltroStatus(s===filtroStatus?"":s)} style={{ padding:"3px 8px",borderRadius:10,border:`1px solid ${c}44`,background:filtroStatus===s?c:c+"11",color:filtroStatus===s?"#fff":c,cursor:"pointer",fontSize:10,fontWeight:600 }}>
@@ -586,10 +616,67 @@ function TabProcessos({ templates }) {
               </button>
             ))}
           </div>
-          <select style={{ ...inputStyle,fontSize:12 }} value={filtroCategoria} onChange={e=>setFiltroCategoria(e.target.value)}>
-            <option value="">Todas as categorias</option>
-            {CATEGORIAS.map(c=><option key={c}>{c}</option>)}
-          </select>
+
+          {/* Linha 3: filtros avançados */}
+          <div style={{ display:"flex",gap:6,flexWrap:"wrap",alignItems:"center" }}>
+            {/* Categoria */}
+            <select style={{ padding:'5px 8px',borderRadius:6,border:'1px solid #ddd',fontSize:11,color:'#333',background:'#fff',cursor:'pointer' }} value={filtroCategoria} onChange={e=>setFiltroCategoria(e.target.value)}>
+              <option value="">Todas categorias</option>
+              {CATEGORIAS.map(c=><option key={c}>{c}</option>)}
+            </select>
+
+            {/* Grupo */}
+            {grupos.length > 0 && (
+              <select value={filtroGrupo} onChange={e=>setFiltroGrupo(e.target.value)} style={{ padding:'5px 8px',borderRadius:6,border:`1px solid ${filtroGrupo?NAVY:'#ddd'}`,fontSize:11,background:filtroGrupo?'#EBF5FF':'#fff',color:filtroGrupo?NAVY:'#333',cursor:'pointer',fontWeight:filtroGrupo?700:400 }}>
+                <option value="">🏷️ Grupo</option>
+                {grupos.map(g=><option key={g} value={g}>{g}</option>)}
+              </select>
+            )}
+
+            {/* Multi-CNPJ dropdown */}
+            <div style={{ position:'relative' }}>
+              <button type="button" onClick={()=>setDropCNPJ(v=>!v)}
+                style={{ padding:'5px 10px',borderRadius:6,border:`1px solid ${filtroCNPJs.length?NAVY:'#ddd'}`,fontSize:11,background:filtroCNPJs.length?'#EBF5FF':'#fff',color:filtroCNPJs.length?NAVY:'#333',cursor:'pointer',fontWeight:filtroCNPJs.length?700:400,display:'flex',gap:5,alignItems:'center' }}>
+                🏢 {filtroCNPJs.length ? `${filtroCNPJs.length} empresa(s)` : 'CNPJ / Empresa'}
+                <span style={{fontSize:9}}>▼</span>
+              </button>
+              {dropCNPJ && (
+                <div style={{ position:'absolute',top:'100%',left:0,zIndex:50,background:'#fff',border:'1px solid #ddd',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,.12)',padding:8,minWidth:260,maxHeight:260,overflowY:'auto' }}>
+                  <input value={buscaCNPJ} onChange={e=>setBuscaCNPJ(e.target.value)} placeholder="Buscar empresa ou CNPJ..." style={{ width:'100%',padding:'5px 8px',borderRadius:6,border:'1px solid #ddd',fontSize:11,marginBottom:6,boxSizing:'border-box',outline:'none' }} autoFocus/>
+                  {filtroCNPJs.length > 0 && (
+                    <button onClick={()=>setFiltroCNPJs([])} style={{width:'100%',marginBottom:6,padding:'4px',borderRadius:6,background:'#fee2e2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>
+                      ✕ Limpar ({filtroCNPJs.length})
+                    </button>
+                  )}
+                  {clientesCNPJFiltro.length === 0
+                    ? <div style={{padding:'8px',color:'#aaa',fontSize:11,textAlign:'center'}}>Sem resultados</div>
+                    : clientesCNPJFiltro.map(c => {
+                      const idStr = String(c.id);
+                      const isS = filtroCNPJs.includes(idStr);
+                      return (
+                        <label key={c.id} style={{display:'flex',alignItems:'center',gap:7,padding:'5px 4px',cursor:'pointer',borderRadius:5,background:isS?'#EBF5FF':'transparent',marginBottom:2}}>
+                          <input type="checkbox" checked={isS} onChange={()=>toggleCNPJ(idStr)} style={{accentColor:NAVY}}/>
+                          <div>
+                            <div style={{fontSize:12,fontWeight:isS?700:400,color:NAVY}}>{c.nome||c.razao_social}</div>
+                            <div style={{fontSize:10,color:'#888'}}>{c.cnpj}{c.grupo?` · ${c.grupo}`:''}</div>
+                          </div>
+                        </label>
+                      );
+                    })
+                  }
+                </div>
+              )}
+              {dropCNPJ && <div style={{position:'fixed',inset:0,zIndex:49}} onClick={()=>setDropCNPJ(false)}/>}
+            </div>
+
+            {/* Limpar */}
+            {temFiltro && (
+              <button onClick={limparFiltros} style={{ padding:'4px 10px',borderRadius:6,background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:4 }}>
+                ✕ Limpar
+              </button>
+            )}
+            <span style={{fontSize:11,color:'#aaa',marginLeft:'auto'}}>{filtrados.length}/{processos.length}</span>
+          </div>
         </div>
         <div style={{ flex:1,overflowY:"auto" }}>
           {filtrados.length===0&&<div style={{ padding:32,textAlign:"center",color:"#999",fontSize:13 }}>Nenhum processo.</div>}

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, X, Save, ChevronLeft, ChevronRight, User, MapPin, Phone, CheckCircle, Zap, Trash2, Eye, EyeOff, ExternalLink, Shield, FileText } from 'lucide-react'
 import GerarObrigacoes from './GerarObrigacoes'
 import AbaDocumentos from '../components/AbaDocumentos'
+import { OBRIGACOES_SISTEMA } from './obrigacoes_data'
 
 const NAVY = '#1B2A4A'
 const GOLD  = '#C5A55A'
@@ -10,20 +11,37 @@ const API   = '/api/v1'
 const inp = { padding:'7px 10px', borderRadius:6, border:'1px solid #ddd', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', color:'#333' }
 const sel = { ...inp, cursor:'pointer', background:'#fff' }
 
-export const TRIBUTACOES = ['Simples Nacional','MEI','Lucro Real','Lucro Presumido','RET','Imune/Isento','Produtor Rural','Condomínio','Autônomo']
+export const TRIBUTACOES = ['Simples Nacional','MEI','Lucro Real','Lucro Presumido','RET','Imune/Isento','Produtor Rural','Condomínio','Autônomo','Social/IRH']
 
+// Obrigações obrigatórias por regime (IDs corretos do obrigacoes_data.js)
+const REGIME_OBRIG_AUTO = {
+  'Simples Nacional': [29, 35, 37, 57, 87, 47, 51, 32, 42, 60, 56, 68, 84, 86],
+  'MEI':              [30, 31],
+  'Lucro Real':       [18, 19, 20, 22, 23, 27, 48, 51, 97, 96, 42, 43, 47, 32, 60, 56, 68, 84, 86],
+  'Lucro Presumido':  [18, 19, 20, 22, 23, 27, 48, 51, 42, 43, 47, 32, 60, 56, 68, 84, 86],
+  'RET':              [28, 42, 40, 96],
+  'Imune/Isento':     [47, 51, 32, 42, 60, 56, 68, 84, 86],
+  'Produtor Rural':   [61, 47, 51, 42, 60, 56, 68, 84, 86],
+  'Condomínio':       [46, 47, 51, 32, 42, 60, 56, 68, 84, 86],
+  'Autônomo':         [9,  42, 68],
+  // Social/IRH: todas as obrigações do Departamento Pessoal
+  'Social/IRH':       [2, 4, 5, 8, 13, 14, 15, 17, 32, 36, 42, 43, 47, 51, 53, 54, 55, 56, 59, 60, 63, 67, 68, 71, 72, 83, 84, 85, 86, 88, 89, 90, 91, 92, 93, 94, 100],
+}
+
+// Retorna lista de objetos de obrigação filtrada pelo regime
 export function obrigacoesPorTributacao(regime) {
   try {
+    // 1. Tentar catálogo customizado no localStorage
     const mapa = {'Simples Nacional':'Simples Nacional','MEI':'MEI','Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real','RET':'RET/Imobiliário','Imune/Isento':'Simples Nacional'}
     const chave = mapa[regime] || regime
     const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2') || 'null')
-    if (cat?.[chave]) return cat[chave].filter(o=>o.ativo)
-    // Fallback: obrigacoes_data
-    try {
-      const { OBRIGACOES_SISTEMA } = require('./obrigacoes_data')
-      return OBRIGACOES_SISTEMA.filter(o=>o.ativa&&(!o.tributacoes?.length||o.tributacoes.includes(regime)))
-    } catch { return [] }
-  } catch { return [] }
+    if (cat?.[chave]?.length > 0) return cat[chave].filter(o => o.ativo !== false)
+  } catch {}
+  // 2. Fallback: usar OBRIGACOES_SISTEMA filtrado pelo regime
+  const ids = REGIME_OBRIG_AUTO[regime] || []
+  if (ids.length > 0) return OBRIGACOES_SISTEMA.filter(o => ids.includes(o.id) && o.ativa !== false)
+  // 3. Sem mapeamento: retornar todas as obrigações ativas
+  return OBRIGACOES_SISTEMA.filter(o => o.ativa !== false)
 }
 
 function obrigsCatalogo(regime) {
@@ -31,17 +49,11 @@ function obrigsCatalogo(regime) {
     const mapa = {'Simples Nacional':'Simples Nacional','MEI':'MEI','Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real','RET':'RET/Imobiliário','Imune/Isento':'Simples Nacional'}
     const chave = mapa[regime] || regime
     const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2') || 'null')
-    return cat?.[chave]?.filter(o=>o.ativo) || []
-  } catch { return [] }
-}
-
-const REGIME_OBRIG_AUTO = {
-  'Simples Nacional':[27,33,50,68,75,78,86],
-  'MEI':[28,29,33],
-  'Lucro Real':[18,19,20,21,22,23,43,44,45,47,48,86,87,88],
-  'Lucro Presumido':[18,19,20,21,22,23,43,44,45,86,87],
-  'RET':[26,41,42,73,96],
-  'Imune/Isento':[30,31,38],
+    if (cat?.[chave]?.length > 0) return cat[chave].filter(o => o.ativo !== false)
+  } catch {}
+  // Retornar objetos do OBRIGACOES_SISTEMA para o regime
+  const ids = REGIME_OBRIG_AUTO[regime] || []
+  return OBRIGACOES_SISTEMA.filter(o => ids.includes(o.id) && o.ativa !== false)
 }
 
 const CREDS_VAZIO = {
@@ -97,7 +109,14 @@ function SenhaInput({ value, onChange, placeholder='••••••••', .
   const [show, setShow] = useState(false)
   return (
     <div style={{ position:'relative' }}>
-      <input type={show?'text':'password'} value={value} onChange={onChange} placeholder={placeholder} style={{ ...inp, paddingRight:36, ...props.style }} />
+      <input
+        type={show?'text':'password'}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoComplete="new-password"
+        style={{ ...inp, paddingRight:36, ...props.style }}
+      />
       <button type="button" onClick={()=>setShow(s=>!s)} style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'#aaa' }}>
         {show?<EyeOff size={15}/>:<Eye size={15}/>}
       </button>
@@ -108,6 +127,7 @@ function SenhaInput({ value, onChange, placeholder='••••••••', .
 export default function Clientes() {
   const [clientes, setClientes]     = useState([])
   const [form, setForm]             = useState({...FORM_VAZIO, responsaveis:[], contatos:[], credenciais:{...CREDS_VAZIO}})
+  const certFileRef = useRef(null)
   const [editId, setEditId]         = useState(null)
   const [aba, setAba]               = useState('lista')
   const [abaForm, setAbaForm]       = useState('dados')
@@ -124,6 +144,10 @@ export default function Clientes() {
   const [buscaObrig,   setBuscaObrig]   = useState('')
   const [deptSel,      setDeptSel]      = useState('Todos')
   const [mostrarSenhas, setMostrarSenhas] = useState({})
+  // Obrigação avulsa
+  const [modalAvulsa, setModalAvulsa] = useState(false)
+  const AVULSA0 = { nome:'', descricao:'', data_vencimento:'', data_competencia:'', departamento:'Fiscal', responsavel:'Eduardo Pimentel', obs:'' }
+  const [formAvulsa, setFormAvulsa] = useState(AVULSA0)
 
   useEffect(() => { carregarClientes() }, [])
 
@@ -151,10 +175,23 @@ export default function Clientes() {
   const setC = (k,v) => setForm(f=>({...f, credenciais:{...(f.credenciais||{}), [k]:v}}))
 
   const onTributacaoChange = (novoRegime) => {
-    setF('tributacao',novoRegime); setF('regime',novoRegime)
-    const obrigEsp = REGIME_OBRIG_AUTO[novoRegime]||[]
-    const todas = [...new Set([...obrigEsp])]
-    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(novoRegime))}
+    setF('tributacao', novoRegime); setF('regime', novoRegime)
+    if (!editId) {
+      // Cliente NOVO: auto-preencher com obrigações padrão do regime
+      const obrigObjs = obrigsCatalogo(novoRegime)
+      const obrigIds  = obrigObjs.map(o => o.id)
+      if (obrigIds.length > 0) {
+        setF('obrigacoes_vinculadas', obrigIds)
+        setF('obrigacoes_catalogo', obrigObjs)
+      } else {
+        // Fallback: usar IDs hardcoded se catálogo não estiver configurado
+        const ids = REGIME_OBRIG_AUTO[novoRegime] || []
+        setF('obrigacoes_vinculadas', ids)
+      }
+    }
+    // Cliente EXISTENTE: apenas muda o regime tributário.
+    // As obrigações vinculadas NÃO são alteradas — use "Editar Vínculos" para ajustar.
+  }
 
   const gerarObrigacoes = () => {
     if (!form.tributacao) return
@@ -272,7 +309,10 @@ export default function Clientes() {
       {/* Abas header */}
       <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', display:'flex', alignItems:'center', padding:'0 16px' }}>
         <button onClick={()=>setAba('lista')} style={{ padding:'11px 16px', fontSize:13, fontWeight:aba==='lista'?700:400, color:aba==='lista'?NAVY:'#999', background:'none', border:'none', borderBottom:aba==='lista'?`2px solid ${GOLD}`:'2px solid transparent', cursor:'pointer' }}>Clientes</button>
-        {aba==='cadastro'&&<button style={{ padding:'11px 16px', fontSize:13, fontWeight:700, color:NAVY, background:'none', border:'none', borderBottom:`2px solid ${GOLD}`, cursor:'default' }}>{editId?'Editar Cliente':'Novo Cliente'}</button>}
+        {aba==='cadastro'&&<button style={{ padding:'11px 16px', fontSize:13, fontWeight:700, color:NAVY, background:'none', border:'none', borderBottom:`2px solid ${GOLD}`, cursor:'default' }}>
+          {editId?'Editar Cliente':'Novo Cliente'}
+          {editId && <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'#aaa', fontFamily:'monospace' }}>#{editId}</span>}
+        </button>}
         <div style={{ marginLeft:'auto' }}>
           <button onClick={nova} style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', borderRadius:8, background:NAVY, color:'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer' }}>
             <Plus size={13}/> Novo Cliente
@@ -620,35 +660,57 @@ export default function Clientes() {
                       <CampoLabel label="Arquivo .pfx (.p12)">
                         <div style={{ display:'flex', gap:8 }}>
                           <input type="text" value={creds.cert_arquivo||''} readOnly placeholder="Nenhum arquivo selecionado..." style={{ ...inp, cursor:'default', background:'#f9f9f9', flex:1 }}/>
-                          <label style={{ padding:'7px 14px', borderRadius:7, background:'#555', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', display:'inline-flex', alignItems:'center' }}>
-                            Browse
-                            <input type="file" accept=".pfx,.p12,.cer,.crt,.pem" style={{ display:'none' }} onChange={e=>{
-                              if(!e.target.files[0]) return
-                              const f2=e.target.files[0]
-                              setC('cert_arquivo',f2.name)
-                              setC('cert_senha_pendente',true)
-                              const nome=f2.name.toLowerCase()
+                          <input
+                            ref={certFileRef}
+                            type="file"
+                            accept=".pfx,.p12,.cer,.crt,.pem"
+                            style={{ display:'none' }}
+                            onChange={e=>{
+                              const f2 = e.target.files[0]
+                              if(!f2) return
+                              setC('cert_arquivo', f2.name)
+                              setC('cert_senha_pendente', true)
+                              const nome = f2.name.toLowerCase()
                               if(nome.includes('cpf')||nome.includes('ecpf')) setC('cert_tipo','e-CPF')
                               else if(nome.includes('cnpj')||nome.includes('ecnpj')) setC('cert_tipo','e-CNPJ')
-                              // Ler bytes para reconhecimento posterior
-                              const reader=new FileReader()
-                              reader.onload=ev=>{
-                                const bytes=new Uint8Array(ev.target.result)
-                                const b64=btoa(Array.from(bytes).map(b=>String.fromCharCode(b)).join(''))
-                                setC('cert_b64',b64)
+                              const reader = new FileReader()
+                              reader.onload = ev => {
+                                const bytes = new Uint8Array(ev.target.result)
+                                // Converter para base64 em chunks para evitar stack overflow em arquivos grandes
+                                let b64 = ''
+                                const chunk = 8192
+                                for(let i=0; i<bytes.length; i+=chunk) {
+                                  b64 += String.fromCharCode(...bytes.subarray(i, i+chunk))
+                                }
+                                setC('cert_b64', btoa(b64))
                               }
                               reader.readAsArrayBuffer(f2)
-                            }}/>
-                          </label>
+                              // Reset input para permitir reselecionar o mesmo arquivo
+                              e.target.value = ''
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={()=>certFileRef.current?.click()}
+                            style={{ padding:'7px 14px', borderRadius:7, background:'#555', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', border:'none' }}
+                          >
+                            📂 Browse
+                          </button>
                         </div>
                         <a href="https://www.sped.fazenda.gov.br/spedweb/" target="_blank" rel="noreferrer" style={{ fontSize:11, color:'#3b82f6', marginTop:4, display:'inline-flex', alignItems:'center', gap:4 }}>
                           ℹ Veja como converter de p12 para pfx <ExternalLink size={10}/>
                         </a>
                       </CampoLabel>
                       <CampoLabel label="Senha do certificado">
-                        <SenhaInput value={creds.cert_senha||''} onChange={e=>setC('cert_senha',e.target.value)}/>
-                        {creds.cert_b64 && creds.cert_senha && (
-                          <button onClick={async()=>{
+                        <SenhaInput
+                          value={creds.cert_senha||''}
+                          onChange={e=>setC('cert_senha',e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={async()=>{
+                            if(!creds.cert_b64) { alert('Selecione o arquivo .pfx primeiro'); return }
+                            if(!creds.cert_senha) { alert('Digite a senha do certificado'); return }
                             try {
                               const r=await fetch(`${API}/clientes/certificado/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cert_base64:creds.cert_b64,senha:creds.cert_senha})})
                               const info=await r.json()
@@ -659,10 +721,11 @@ export default function Clientes() {
                               if(info.emitente) setC('cert_emissora',info.emitente.substring(0,40))
                               alert('✅ Certificado reconhecido!\nTitular: '+info.titular+'\nValidade: '+info.validade)
                             } catch(e){ alert('Erro ao ler certificado: '+e.message) }
-                          }} style={{ marginTop:6,width:'100%',padding:'6px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer' }}>
-                            🔍 Reconhecer automaticamente
-                          </button>
-                        )}
+                          }}
+                          style={{ marginTop:6,width:'100%',padding:'7px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer' }}
+                        >
+                          🔍 Reconhecer automaticamente
+                        </button>
                       </CampoLabel>
                     </div>
                     {/* Validade e emissora */}

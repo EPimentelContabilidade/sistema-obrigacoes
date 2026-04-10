@@ -17,3 +17,6 @@ from .goiania_robo import goiania_router, robo_obrig_router
 from .consulta_fiscal import router as consulta_fiscal_router
 from .ecac_download import router as ecac_download_router
 from .whatsapp_evolution import router as whatsapp_evolution_router
+from .disparos import router as disparos_router
+from .automacao import router as automacao_router
+from .entrega_auto import router as entrega_auto_router

@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Plus, X, Edit2, Save, Trash2, LayoutDashboard, Users, Shield, FileText, AlertTriangle, CheckCircle, Clock, TrendingUp, Building2, User, RefreshCw, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
+import { Plus, X, Edit2, Save, Trash2, LayoutDashboard, Users, Shield, FileText, AlertTriangle, CheckCircle, Clock, TrendingUp, Building2, User, RefreshCw, ChevronDown, ChevronUp, GripVertical, TrendingDown, Zap, Activity } from 'lucide-react'
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadialBarChart, RadialBar
+} from 'recharts'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -13,23 +17,25 @@ const fmtData = (d) => { try { return new Date(d).toLocaleDateString('pt-BR') } 
 
 // ── Tipos de widgets disponíveis ─────────────────────────────────────────────
 const WIDGETS_DISPONIVEIS = [
-  { tipo:'kpi_clientes',     label:'KPIs — Clientes',             icon:Users,          desc:'Total, ativos, inativos' },
-  { tipo:'kpi_certificados', label:'KPIs — Certificados',         icon:Shield,         desc:'Válidos, vencidos, alertas' },
-  { tipo:'kpi_obrigacoes',   label:'KPIs — Obrigações',           icon:FileText,       desc:'Vinculadas por regime' },
-  { tipo:'grafico_regime',   label:'Gráfico — Clientes por Regime',icon:TrendingUp,    desc:'Barras por tributação' },
-  { tipo:'grafico_certs',    label:'Gráfico — Certificados PJ/PF', icon:Shield,        desc:'Distribuição por tipo' },
-  { tipo:'top_obrigacoes',   label:'Ranking — Top Obrigações',    icon:FileText,       desc:'Clientes com mais obrigações' },
-  { tipo:'alertas_cert',     label:'Alertas — Certificados',      icon:AlertTriangle,  desc:'Próximos vencimentos' },
-  { tipo:'sem_obrigacoes',   label:'Lista — Sem Obrigações',      icon:AlertTriangle,  desc:'Clientes sem vínculo' },
-  { tipo:'clientes_inativos',label:'Lista — Clientes Inativos',   icon:Users,          desc:'Clientes com status inativo' },
-  { tipo:'resumo_geral',     label:'Resumo Geral',                icon:LayoutDashboard,desc:'Visão consolidada do escritório' },
+  { tipo:'kpi_clientes',      label:'KPIs — Clientes',              icon:Users,           desc:'Total, ativos, inativos' },
+  { tipo:'kpi_certificados',  label:'KPIs — Certificados',          icon:Shield,          desc:'Válidos, vencidos, alertas' },
+  { tipo:'kpi_obrigacoes',    label:'KPIs — Obrigações',            icon:FileText,        desc:'Vinculadas por regime' },
+  { tipo:'grafico_regime',    label:'Gráfico — Clientes por Regime',icon:TrendingUp,      desc:'Barras por tributação' },
+  { tipo:'grafico_certs',     label:'Gráfico — Certificados PJ/PF', icon:Shield,          desc:'Distribuição por tipo' },
+  { tipo:'grafico_obrig_dept',label:'Gráfico — Obrigações/Depto',   icon:Activity,        desc:'Fiscal vs Pessoal vs Contábil' },
+  { tipo:'grafico_tendencia',  label:'Gráfico — Tendência mensal',  icon:TrendingUp,      desc:'Clientes por mês de cadastro' },
+  { tipo:'top_obrigacoes',    label:'Ranking — Top Obrigações',     icon:FileText,        desc:'Clientes com mais obrigações' },
+  { tipo:'alertas_cert',      label:'Alertas — Certificados',       icon:AlertTriangle,   desc:'Próximos vencimentos' },
+  { tipo:'sem_obrigacoes',    label:'Lista — Sem Obrigações',       icon:AlertTriangle,   desc:'Clientes sem vínculo' },
+  { tipo:'clientes_inativos', label:'Lista — Clientes Inativos',    icon:Users,           desc:'Clientes com status inativo' },
+  { tipo:'resumo_geral',      label:'Resumo Geral',                 icon:LayoutDashboard, desc:'Visão consolidada do escritório' },
 ]
 
 const DASHBOARD_PADRAO = {
   id: 1,
   nome: 'Visão Geral',
   cor: NAVY,
-  widgets: ['kpi_clientes','kpi_certificados','alertas_cert','grafico_regime','top_obrigacoes','sem_obrigacoes'],
+  widgets: ['kpi_clientes','kpi_certificados','kpi_obrigacoes','grafico_regime','grafico_certs','grafico_obrig_dept','alertas_cert','top_obrigacoes','grafico_tendencia','sem_obrigacoes'],
 }
 
 // ── Renderizar cada widget ────────────────────────────────────────────────────
@@ -109,46 +115,140 @@ function Widget({ tipo, clientes, certs, onRemover, editando }) {
   </>)
 
   if (tipo==='grafico_regime') return wrap(<>
-    <div style={{ padding:'12px 16px 8px', fontWeight:700, color:NAVY, fontSize:12, borderBottom:'1px solid #f5f5f5' }}>📊 Clientes por Regime</div>
-    <div style={{ padding:'12px 16px' }}>
-      {distReg.length===0
-        ? <div style={{ textAlign:'center', color:'#ccc', padding:16, fontSize:12 }}>Nenhum cliente</div>
-        : distReg.map(r=>{
-          const pct = Math.round(r.n/Math.max(totalCli,1)*100)
-          const cor = coresReg[r.label]||'#888'
-          return (
-            <div key={r.label} style={{ marginBottom:8 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                <span style={{ fontSize:11, fontWeight:600, color:NAVY }}>{r.label}</span>
-                <span style={{ fontSize:11, color:'#888' }}>{r.n} ({pct}%)</span>
-              </div>
-              <div style={{ height:7, background:'#f0f0f0', borderRadius:4, overflow:'hidden' }}>
-                <div style={{ height:'100%', width:`${pct}%`, background:cor, borderRadius:4 }}/>
-              </div>
-            </div>
-          )
-        })
+    <div style={{ padding:'12px 16px 8px', fontWeight:700, color:NAVY, fontSize:12, borderBottom:'1px solid #f5f5f5' }}>📊 Clientes por Regime Tributário</div>
+    <div style={{ padding:'12px 4px 8px' }}>
+      {distReg.length === 0
+        ? <div style={{ textAlign:'center', color:'#ccc', padding:24, fontSize:12 }}>Nenhum cliente cadastrado</div>
+        : <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={distReg} margin={{ top:4, right:16, left:-20, bottom:4 }} barSize={22}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+              <XAxis dataKey="label" tick={{ fontSize:9, fill:'#888' }} axisLine={false} tickLine={false}
+                tickFormatter={v => v.split(' ')[0]}/>
+              <YAxis tick={{ fontSize:9, fill:'#aaa' }} axisLine={false} tickLine={false}/>
+              <Tooltip
+                contentStyle={{ background:'#fff', border:'1px solid #e8e8e8', borderRadius:8, fontSize:11, boxShadow:'0 4px 16px rgba(0,0,0,.1)' }}
+                formatter={(v, n, p) => [v + ' clientes', p.payload.label]}
+                labelFormatter={() => ''}
+              />
+              <Bar dataKey="n" radius={[5,5,0,0]}>
+                {distReg.map((r,i) => <Cell key={i} fill={coresReg[r.label]||GOLD}/>)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
       }
     </div>
   </>)
 
   if (tipo==='grafico_certs') return wrap(<>
-    <div style={{ padding:'12px 16px 8px', fontWeight:700, color:NAVY, fontSize:12, borderBottom:'1px solid #f5f5f5' }}>🔐 Certificados PJ vs PF</div>
-    <div style={{ padding:'12px 16px' }}>
-      {[{label:'PJ — Empresa', n:certPJ, cor:NAVY, ic:Building2},{label:'PF — Pessoa Física', n:certPF, cor:'#854D0E', ic:User}].map(t=>{ const Ic=t.ic; const pct=Math.round(t.n/Math.max(certs.length,1)*100); return (
-        <div key={t.label} style={{ marginBottom:12 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
-            <Ic size={12} style={{ color:t.cor }}/><span style={{ fontSize:11, fontWeight:600, color:NAVY, flex:1 }}>{t.label}</span>
-            <span style={{ fontSize:13, fontWeight:800, color:t.cor }}>{t.n}</span>
+    <div style={{ padding:'12px 16px 8px', fontWeight:700, color:NAVY, fontSize:12, borderBottom:'1px solid #f5f5f5' }}>🔐 Distribuição de Certificados</div>
+    <div style={{ padding:'8px', display:'flex', alignItems:'center', gap:8 }}>
+      {certs.length === 0
+        ? <div style={{ textAlign:'center', color:'#ccc', padding:24, fontSize:12, width:'100%' }}>Nenhum certificado</div>
+        : <>
+          <ResponsiveContainer width="55%" height={160}>
+            <PieChart>
+              <Pie data={[
+                { name:'PJ', value:certPJ, fill:NAVY },
+                { name:'PF', value:certPF, fill:GOLD },
+                { name:'Vencidos', value:vencidos, fill:'#f87171' },
+                { name:'Alerta', value:alerta30, fill:'#f59e0b' },
+              ].filter(d=>d.value>0)} cx="50%" cy="50%" innerRadius={40} outerRadius={68} paddingAngle={3} dataKey="value"/>
+              <Tooltip contentStyle={{ fontSize:11, borderRadius:8 }}/>
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{ flex:1 }}>
+            {[
+              { l:'PJ', n:certPJ, cor:NAVY }, { l:'PF', n:certPF, cor:GOLD },
+              { l:'Vencidos', n:vencidos, cor:'#f87171' }, { l:'Alerta 30d', n:alerta30, cor:'#f59e0b' },
+            ].map(t => (
+              <div key={t.l} style={{ display:'flex', alignItems:'center', gap:6, marginBottom:7 }}>
+                <div style={{ width:10, height:10, borderRadius:3, background:t.cor, flexShrink:0 }}/>
+                <span style={{ fontSize:11, color:'#555', flex:1 }}>{t.l}</span>
+                <span style={{ fontSize:13, fontWeight:800, color:t.cor }}>{t.n}</span>
+              </div>
+            ))}
           </div>
-          <div style={{ height:8, background:'#f0f0f0', borderRadius:4, overflow:'hidden' }}>
-            <div style={{ height:'100%', width:`${pct}%`, background:t.cor, borderRadius:4 }}/>
-          </div>
-          <div style={{ fontSize:9, color:'#aaa', marginTop:1 }}>{pct}% do total</div>
-        </div>
-      )})}
+        </>
+      }
     </div>
   </>)
+  if (tipo==='grafico_obrig_dept') {
+    const depts = [
+      { nome:'Fiscal',   cor:'#1D6FA4', bg:'#EBF5FF' },
+      { nome:'Pessoal',  cor:'#1A7A3C', bg:'#EDFBF1' },
+      { nome:'Contábil', cor:'#6B3EC9', bg:'#F3EEFF' },
+      { nome:'Bancos',   cor:'#854D0E', bg:'#FEF9C3' },
+    ]
+    // Contar obrigações do catálogo no localStorage
+    let obrigCatalogo = []
+    try { obrigCatalogo = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_custom')||'[]') } catch {}
+    const data = depts.map(d => ({
+      name: d.nome,
+      total: obrigCatalogo.filter(o=>o.departamento===d.nome && o.ativa!==false).length || 0,
+      fill: d.cor,
+    })).filter(d => d.total > 0)
+    return wrap(<>
+      <div style={{ padding:'12px 16px 8px', fontWeight:700, color:NAVY, fontSize:12, borderBottom:'1px solid #f5f5f5' }}>📂 Obrigações por Departamento</div>
+      <div style={{ padding:'12px 4px 8px' }}>
+        {data.length === 0
+          ? <div style={{ textAlign:'center', color:'#ccc', padding:24, fontSize:12 }}>Catálogo não configurado</div>
+          : <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={data} layout="vertical" margin={{ top:4, right:24, left:8, bottom:4 }} barSize={16}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false}/>
+                <XAxis type="number" tick={{ fontSize:9, fill:'#aaa' }} axisLine={false} tickLine={false}/>
+                <YAxis type="category" dataKey="name" tick={{ fontSize:10, fill:'#555' }} axisLine={false} tickLine={false} width={55}/>
+                <Tooltip contentStyle={{ fontSize:11, borderRadius:8, border:'1px solid #e8e8e8' }} formatter={v=>[v+' obrigações','']}/>
+                <Bar dataKey="total" radius={[0,5,5,0]}>
+                  {data.map((d,i)=><Cell key={i} fill={d.fill}/>)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+        }
+      </div>
+    </>)
+  }
+
+  if (tipo==='grafico_tendencia') {
+    // Gerar tendência de cadastro de clientes por mês (últimos 6 meses)
+    const meses = []
+    for (let i=5; i>=0; i--) {
+      const d = new Date(); d.setMonth(d.getMonth()-i)
+      const label = d.toLocaleString('pt-BR',{month:'short',year:'2-digit'})
+      const mes = d.getMonth(); const ano = d.getFullYear()
+      const n = clientes.filter(c => {
+        if (!c.data_inicio && !c.created_at) return false
+        try {
+          const cd = new Date(c.data_inicio || c.created_at)
+          return cd.getMonth()===mes && cd.getFullYear()===ano
+        } catch { return false }
+      }).length
+      meses.push({ name:label, clientes:n })
+    }
+    const totalCadastros = meses.reduce((a,m)=>a+m.clientes,0)
+    return wrap(<>
+      <div style={{ padding:'12px 16px 8px', display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #f5f5f5' }}>
+        <span style={{ fontWeight:700, color:NAVY, fontSize:12 }}>📈 Novos Clientes — Últimos 6 meses</span>
+        <span style={{ fontSize:11, color:'#888' }}>{totalCadastros} cadastros</span>
+      </div>
+      <div style={{ padding:'8px 4px' }}>
+        <ResponsiveContainer width="100%" height={150}>
+          <AreaChart data={meses} margin={{ top:8, right:16, left:-24, bottom:0 }}>
+            <defs>
+              <linearGradient id="gradCli" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor={GOLD} stopOpacity={0.3}/>
+                <stop offset="95%" stopColor={GOLD} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false}/>
+            <XAxis dataKey="name" tick={{ fontSize:9, fill:'#aaa' }} axisLine={false} tickLine={false}/>
+            <YAxis tick={{ fontSize:9, fill:'#aaa' }} axisLine={false} tickLine={false} allowDecimals={false}/>
+            <Tooltip contentStyle={{ fontSize:11, borderRadius:8, border:'1px solid #e8e8e8' }} formatter={v=>[v+' clientes','']}/>
+            <Area type="monotone" dataKey="clientes" stroke={GOLD} strokeWidth={2.5} fill="url(#gradCli)" dot={{ fill:GOLD, r:3 }} activeDot={{ r:5 }}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </>)
+  }
 
   if (tipo==='top_obrigacoes') return wrap(<>
     <div style={{ padding:'12px 16px 8px', fontWeight:700, color:NAVY, fontSize:12, borderBottom:'1px solid #f5f5f5' }}>📋 Mais Obrigações</div>

@@ -11,7 +11,8 @@ from routers import (
     certidoes_real_router, extras_router,
     goiania_router, robo_obrig_router,
     consulta_fiscal_router, ecac_download_router,
-    whatsapp_evolution_router,
+    whatsapp_evolution_router, disparos_router, entrega_auto_router,
+    automacao_router,
 )
 from routers import retencoes
 
@@ -50,6 +51,9 @@ app.include_router(robo_obrig_router,      prefix="/api/v1")
 app.include_router(consulta_fiscal_router, prefix="/api/v1")
 app.include_router(ecac_download_router,   prefix="/api/v1")
 app.include_router(whatsapp_evolution_router, prefix="/api/v1")
+app.include_router(automacao_router,          prefix="/api/v1")
+app.include_router(disparos_router,           prefix="/api/v1")
+app.include_router(entrega_auto_router,       prefix="/api/v1")
 app.include_router(retencoes.router,       prefix="/api/v1")
 
 @app.get("/")

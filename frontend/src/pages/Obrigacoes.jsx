@@ -11,9 +11,19 @@ const TRIBUTACOES = ['Simples Nacional','Lucro Presumido','Lucro Real','MEI','Im
 const DEPT_CORES = { Fiscal:{bg:'#EBF5FF',color:'#1D6FA4'}, Pessoal:{bg:'#EDFBF1',color:'#1A7A3C'}, Contábil:{bg:'#F3EEFF',color:'#6B3EC9'}, Bancos:{bg:'#FEF9C3',color:'#854D0E'} }
 const FORM0 = { nome:'', mininome:'', departamento:'Fiscal', responsavel:'Eduardo Pimentel', tempo_previsto:0, meses:Array(12).fill('Todo dia 20'), lembrar_dias:'5', tipo_dias:'corridos', prazo_fixo:'antecipar', sabado_util:false, competencia:'mes_anterior', exigir_robo:false, passivel_multa:false, alerta_guia:true, ativa:true, comentario_padrao:'', tributacoes:[], whatsapp:false, empresas:[] }
 const API = '/api/v1'
+const LS_KEY = 'ep_obrigacoes_catalogo_custom'
 
 export default function Obrigacoes() {
-  const [obrigacoes, setObrigacoes] = useState(OBRIGACOES_SISTEMA)
+  const [obrigacoes, setObrigacoes] = useState(() => {
+    try {
+      const salvo = localStorage.getItem(LS_KEY)
+      if (salvo) {
+        const parsed = JSON.parse(salvo)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {}
+    return OBRIGACOES_SISTEMA
+  })
   const [clientes, setClientes]     = useState([])
   const [modalCadastro, setModalCadastro] = useState(false)
   const [editandoId, setEditandoId] = useState(null)
@@ -22,9 +32,24 @@ export default function Obrigacoes() {
   const [filtroDept, setFiltroDept] = useState('')
   const [filtroTrib, setFiltroTrib] = useState('')
   const [filtroAtiva, setFiltroAtiva] = useState('')
+  const [filtroDia, setFiltroDia]   = useState('')
+  // Novos filtros multi-select
+  const [filtroCNPJs, setFiltroCNPJs]   = useState([])   // CNPJs selecionados
+  const [filtroGrupo, setFiltroGrupo]   = useState('')
+  const [filtroObrig, setFiltroObrig]   = useState([])   // IDs de obrigações selecionadas
+  const [dropCNPJ, setDropCNPJ]         = useState(false)
+  const [dropObrig, setDropObrig]       = useState(false)
+  const [buscaCNPJ, setBuscaCNPJ]       = useState('')
+  const [buscaObrigFiltro, setBuscaObrigFiltro] = useState('')
+
   const [modalEmp, setModalEmp]     = useState(null)
   const [buscaEmp, setBuscaEmp]     = useState('')
   const [empSel, setEmpSel]         = useState([])
+
+  // Salvar no localStorage sempre que obrigacoes mudar
+  const salvarLS = (lista) => {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(lista)) } catch {}
+  }
 
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
   const setDia = (i,v) => setForm(f=>{ const m=[...f.meses]; m[i]=v; return {...f,meses:m} })
@@ -41,17 +66,41 @@ export default function Obrigacoes() {
     setEditandoId(o.id); setModalCadastro(true)
   }
   const salvar = () => {
-    if(editandoId) setObrigacoes(p=>p.map(o=>o.id===editandoId?{...o,...form}:o))
-    else setObrigacoes(p=>[...p,{...form,id:Date.now()}])
+    let nova
+    if(editandoId) {
+      nova = obrigacoes.map(o=>o.id===editandoId?{...o,...form}:o)
+    } else {
+      nova = [...obrigacoes, {...form, id:Date.now()}]
+    }
+    setObrigacoes(nova); salvarLS(nova)
     setForm(FORM0); setEditandoId(null); setModalCadastro(false)
   }
-  const excluir = (id) => { if(confirm('Excluir esta obrigação?')) setObrigacoes(p=>p.filter(o=>o.id!==id)) }
+  const excluir = (id) => {
+    if(confirm('Excluir esta obrigação? Esta ação não pode ser desfeita.')) {
+      const nova = obrigacoes.filter(o=>o.id!==id)
+      setObrigacoes(nova); salvarLS(nova)
+    }
+  }
   const abrirEmp = (o) => { setModalEmp(o); setEmpSel(o.empresas||[]); setBuscaEmp('') }
   const salvarEmp = () => {
-    setObrigacoes(p=>p.map(o=>o.id===modalEmp.id?{...o,empresas:empSel}:o))
+    const nova = obrigacoes.map(o=>o.id===modalEmp.id?{...o,empresas:empSel}:o)
+    setObrigacoes(nova); salvarLS(nova)
     if(editandoId===modalEmp.id) setF('empresas', empSel)
     setModalEmp(null)
   }
+
+  // ── Dados derivados de clientes ─────────────────────────────────────────
+  const grupos = [...new Set(clientes.map(c=>c.grupo).filter(Boolean))].sort()
+  const clientesFiltradosCNPJ = clientes.filter(c => {
+    const nome = (c.nome||c.razao_social||'').toLowerCase()
+    const cnpj = (c.cnpj||'').replace(/\D/g,'')
+    const q = buscaCNPJ.toLowerCase()
+    return !q || nome.includes(q) || cnpj.includes(q)
+  })
+  // CNPJs/empresas dos clientes do grupo selecionado
+  const empresasDoGrupo = filtroGrupo
+    ? clientes.filter(c=>c.grupo===filtroGrupo).map(c=>c.cnpj||c.nome||String(c.id))
+    : []
 
   const filtradas = obrigacoes.filter(o => {
     if(busca && !o.nome.toLowerCase().includes(busca.toLowerCase()) && !(o.mininome||'').toLowerCase().includes(busca.toLowerCase())) return false
@@ -59,8 +108,29 @@ export default function Obrigacoes() {
     if(filtroTrib && !(o.tributacoes||[]).includes(filtroTrib)) return false
     if(filtroAtiva==='ativa' && !o.ativa) return false
     if(filtroAtiva==='inativa' && o.ativa) return false
+    if(filtroDia && o.dia_vencimento !== Number(filtroDia)) return false
+    // Filtro multi CNPJ
+    if(filtroCNPJs.length > 0) {
+      const empresasObrig = o.empresas || []
+      if(!filtroCNPJs.some(cnpj => empresasObrig.includes(cnpj))) return false
+    }
+    // Filtro grupo
+    if(filtroGrupo && empresasDoGrupo.length > 0) {
+      const empresasObrig = o.empresas || []
+      if(!empresasDoGrupo.some(e => empresasObrig.includes(e))) return false
+    }
+    // Filtro multi obrigações
+    if(filtroObrig.length > 0 && !filtroObrig.includes(o.id)) return false
     return true
   })
+
+  const temFiltro = busca||filtroDept||filtroTrib||filtroAtiva||filtroDia||filtroCNPJs.length||filtroGrupo||filtroObrig.length
+  const limparTudo = () => {
+    setBusca(''); setFiltroDept(''); setFiltroTrib(''); setFiltroAtiva(''); setFiltroDia('')
+    setFiltroCNPJs([]); setFiltroGrupo(''); setFiltroObrig([])
+  }
+  const toggleCNPJ = (cnpj) => setFiltroCNPJs(p => p.includes(cnpj) ? p.filter(x=>x!==cnpj) : [...p, cnpj])
+  const toggleObrigFiltro = (id) => setFiltroObrig(p => p.includes(id) ? p.filter(x=>x!==id) : [...p, id])
 
   const L = ({children,tip}) => <label style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#777', marginBottom:4, fontWeight:600 }}>{children}{tip&&<Info size={11} style={{ color:'#ccc' }} title={tip} />}</label>
   const SO = (opts) => opts.map(([v,l])=><option key={v} value={v}>{l}</option>)
@@ -83,22 +153,126 @@ export default function Obrigacoes() {
       {/* Lista */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', padding:'8px 14px', display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-          <div style={{ position:'relative', flex:1, minWidth:180 }}>
+          {/* Busca texto */}
+          <div style={{ position:'relative', minWidth:200, flex:1 }}>
             <Search size={12} style={{ position:'absolute', left:8, top:8, color:'#bbb' }} />
             <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome ou mininome..." style={{ ...inp, paddingLeft:26, fontSize:12 }} />
           </div>
-          <select value={filtroDept} onChange={e=>setFiltroDept(e.target.value)} style={{ ...sel, width:140, fontSize:12 }}>
+
+          {/* Dept */}
+          <select value={filtroDept} onChange={e=>setFiltroDept(e.target.value)} style={{ ...sel, width:130, fontSize:12 }}>
             <option value="">Todos depts</option>
             <option>Fiscal</option><option>Pessoal</option><option>Contábil</option><option>Bancos</option>
           </select>
-          <select value={filtroTrib} onChange={e=>setFiltroTrib(e.target.value)} style={{ ...sel, width:160, fontSize:12 }}>
+
+          {/* Tributação */}
+          <select value={filtroTrib} onChange={e=>setFiltroTrib(e.target.value)} style={{ ...sel, width:155, fontSize:12 }}>
             <option value="">Todas tributações</option>
             {TRIBUTACOES.map(t=><option key={t} value={t}>{t}</option>)}
           </select>
-          <select value={filtroAtiva} onChange={e=>setFiltroAtiva(e.target.value)} style={{ ...sel, width:110, fontSize:12 }}>
+
+          {/* Ativo */}
+          <select value={filtroAtiva} onChange={e=>setFiltroAtiva(e.target.value)} style={{ ...sel, width:100, fontSize:12 }}>
             <option value="">Todas</option><option value="ativa">Ativas</option><option value="inativa">Inativas</option>
           </select>
-          <span style={{ fontSize:11, color:'#aaa' }}>{filtradas.length} resultado(s)</span>
+
+          {/* Dia Venc */}
+          <select value={filtroDia} onChange={e=>setFiltroDia(e.target.value)} style={{ ...sel, width:105, fontSize:12 }}>
+            <option value="">📅 Dia Venc.</option>
+            {[5,7,10,15,20,25,28,30,31].map(d=><option key={d} value={d}>Dia {d}</option>)}
+          </select>
+
+          {/* Grupo */}
+          {grupos.length > 0 && (
+            <select value={filtroGrupo} onChange={e=>setFiltroGrupo(e.target.value)} style={{ ...sel, width:130, fontSize:12 }}>
+              <option value="">🏷️ Grupo</option>
+              {grupos.map(g=><option key={g} value={g}>{g}</option>)}
+            </select>
+          )}
+
+          {/* Multi-CNPJ dropdown */}
+          <div style={{ position:'relative' }}>
+            <button type="button" onClick={()=>{setDropCNPJ(v=>!v);setDropObrig(false)}}
+              style={{ ...sel, width:140, fontSize:12, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', cursor:'pointer', background: filtroCNPJs.length?'#EBF5FF':'#fff', color:filtroCNPJs.length?NAVY:'#555', border:`1px solid ${filtroCNPJs.length?NAVY:'#e0e0e0'}`, fontWeight:filtroCNPJs.length?700:400 }}>
+              🏢 {filtroCNPJs.length ? `${filtroCNPJs.length} CNPJ(s)` : 'CNPJ / Empresa'}
+              <span style={{fontSize:9}}>▼</span>
+            </button>
+            {dropCNPJ && (
+              <div style={{ position:'absolute', top:'100%', left:0, zIndex:50, background:'#fff', border:'1px solid #ddd', borderRadius:8, boxShadow:'0 4px 16px rgba(0,0,0,.12)', padding:8, minWidth:260, maxHeight:280, overflowY:'auto' }}>
+                <input value={buscaCNPJ} onChange={e=>setBuscaCNPJ(e.target.value)} placeholder="Buscar empresa ou CNPJ..." style={{...inp, marginBottom:6, fontSize:11}} autoFocus/>
+                {filtroCNPJs.length > 0 && (
+                  <button onClick={()=>setFiltroCNPJs([])} style={{width:'100%',marginBottom:6,padding:'4px',borderRadius:6,background:'#fee2e2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>
+                    ✕ Limpar seleção ({filtroCNPJs.length})
+                  </button>
+                )}
+                {clientesFiltradosCNPJ.length === 0
+                  ? <div style={{padding:'8px',color:'#aaa',fontSize:11,textAlign:'center'}}>Nenhum cliente encontrado</div>
+                  : clientesFiltradosCNPJ.map(c => {
+                    const cnpjKey = c.cnpj || c.nome || String(c.id)
+                    const sel2 = filtroCNPJs.includes(cnpjKey)
+                    return (
+                      <label key={c.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 4px',cursor:'pointer',borderRadius:5,background:sel2?'#EBF5FF':'transparent',marginBottom:2}}>
+                        <input type="checkbox" checked={sel2} onChange={()=>toggleCNPJ(cnpjKey)} style={{accentColor:NAVY}}/>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:sel2?700:400,color:NAVY}}>{c.nome||c.razao_social}</div>
+                          <div style={{fontSize:10,color:'#888'}}>{c.cnpj}{c.grupo?` · ${c.grupo}`:''}</div>
+                        </div>
+                      </label>
+                    )
+                  })
+                }
+              </div>
+            )}
+          </div>
+
+          {/* Multi-Obrigações dropdown */}
+          <div style={{ position:'relative' }}>
+            <button type="button" onClick={()=>{setDropObrig(v=>!v);setDropCNPJ(false)}}
+              style={{ ...sel, width:150, fontSize:12, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', cursor:'pointer', background:filtroObrig.length?'#F3EEFF':'#fff', color:filtroObrig.length?'#6B3EC9':'#555', border:`1px solid ${filtroObrig.length?'#6B3EC9':'#e0e0e0'}`, fontWeight:filtroObrig.length?700:400 }}>
+              📋 {filtroObrig.length ? `${filtroObrig.length} Obrig.` : 'Obrigações'}
+              <span style={{fontSize:9}}>▼</span>
+            </button>
+            {dropObrig && (
+              <div style={{ position:'absolute', top:'100%', left:0, zIndex:50, background:'#fff', border:'1px solid #ddd', borderRadius:8, boxShadow:'0 4px 16px rgba(0,0,0,.12)', padding:8, minWidth:280, maxHeight:280, overflowY:'auto' }}>
+                <input value={buscaObrigFiltro} onChange={e=>setBuscaObrigFiltro(e.target.value)} placeholder="Buscar obrigação..." style={{...inp, marginBottom:6, fontSize:11}} autoFocus/>
+                {filtroObrig.length > 0 && (
+                  <button onClick={()=>setFiltroObrig([])} style={{width:'100%',marginBottom:6,padding:'4px',borderRadius:6,background:'#fee2e2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>
+                    ✕ Limpar seleção ({filtroObrig.length})
+                  </button>
+                )}
+                {obrigacoes
+                  .filter(o => !buscaObrigFiltro || o.nome.toLowerCase().includes(buscaObrigFiltro.toLowerCase()) || (o.mininome||'').toLowerCase().includes(buscaObrigFiltro.toLowerCase()))
+                  .map(o => {
+                    const isSel = filtroObrig.includes(o.id)
+                    const dc = DEPT_CORES[o.departamento]||{bg:'#f5f5f5',color:'#666'}
+                    return (
+                      <label key={o.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 4px',cursor:'pointer',borderRadius:5,background:isSel?'#F3EEFF':'transparent',marginBottom:2}}>
+                        <input type="checkbox" checked={isSel} onChange={()=>toggleObrigFiltro(o.id)} style={{accentColor:'#6B3EC9'}}/>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:isSel?700:400,color:NAVY}}>{o.nome}</div>
+                          <div style={{fontSize:10}}>
+                            <span style={{background:dc.bg,color:dc.color,borderRadius:4,padding:'1px 5px'}}>{o.departamento}</span>
+                            {' · '}{o.mininome}
+                          </div>
+                        </div>
+                      </label>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+
+          {/* Limpar */}
+          {temFiltro && (
+            <button onClick={limparTudo}
+              style={{ display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5',fontSize:11,fontWeight:600,cursor:'pointer' }}>
+              <X size={11}/> Limpar
+            </button>
+          )}
+          <span style={{ fontSize:11, color:'#aaa', whiteSpace:'nowrap' }}>{filtradas.length} resultado(s)</span>
+
+          {/* Fechar dropdowns ao clicar fora */}
+          {(dropCNPJ||dropObrig) && <div style={{position:'fixed',inset:0,zIndex:49}} onClick={()=>{setDropCNPJ(false);setDropObrig(false)}}/>}
         </div>
         <div style={{ flex:1, overflowY:'auto', background:'#f8f9fb' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>

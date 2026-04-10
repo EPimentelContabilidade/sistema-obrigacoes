@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { Bot, Upload, FileText, CheckCircle, Loader, Eye, Download, Settings, Plus, Trash2, X, Save, Zap, Tag, Calendar, DollarSign, User, Hash, Edit2 } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import { Bot, Upload, FileText, CheckCircle, Loader, Eye, Download, Settings, Plus, Trash2, X, Save, Zap, Tag, Calendar, DollarSign, User, Hash, Edit2, Library, BookOpen, ShieldCheck } from 'lucide-react'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -50,11 +50,96 @@ const HISTORICO_INICIAL = [
 
 const ICONES = ['📄','📋','🧾','📊','📁','📝','🏛️','🏦','👥','💼','🗂️','📑','🔖','📌','⚡','🔐','💰','🏢','📈','🗃️']
 
+// ── Helpers localStorage ────────────────────────────────────────────────────
+const LS = {
+  DOCS_BASE:  'ep_robo_docs_base',
+  CRITERIOS:  'ep_robo_criterios',
+  HISTORICO:  'ep_robo_historico',
+  TIPOS_DOC:  'ep_robo_tipos_doc',
+}
+const lsGet = (key, fallback) => { try { const v=localStorage.getItem(key); return v?JSON.parse(v):fallback } catch { return fallback } }
+const lsSet = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)) } catch {} }
+
 export default function RoboObrigacoes() {
   const [aba, setAba]               = useState('reconhecer')
-  const [tiposDoc, setTiposDoc]     = useState(TIPOS_DOC_PADRAO)
-  const [criterios, setCriterios]   = useState(CRITERIOS_INICIAIS)
-  const [historico, setHistorico]   = useState(HISTORICO_INICIAL)
+  const [tiposDoc, setTiposDoc]     = useState(() => lsGet(LS.TIPOS_DOC, TIPOS_DOC_PADRAO))
+  const [criterios, setCriterios]   = useState(() => lsGet(LS.CRITERIOS, CRITERIOS_INICIAIS))
+  const [historico, setHistorico]   = useState(() => lsGet(LS.HISTORICO, HISTORICO_INICIAL))
+
+  // ── Documentos Base: armazenados permanentemente ─────────────────────────
+  const [documentosBase, setDocumentosBase] = useState(() => lsGet(LS.DOCS_BASE, []))
+  const [abaDocs, setAbaDocs]       = useState('lista')  // lista | novo
+  const [formDoc, setFormDoc]       = useState({ obrigacao_id:'', obrigacao_nome:'', tipo_doc:'darf', palavras_chave:'', descricao:'' })
+  const [arquivoBase, setArquivoBase] = useState(null)
+  const [reconhecidoAuto, setReconhecidoAuto] = useState(null)
+  const [disparandoAuto, setDisparandoAuto] = useState(false)
+  const [resultadoDisparo, setResultadoDisparo] = useState(null)
+  const docBaseRef = useRef()
+
+  // ── Clientes disponíveis (para buscar pelo Docs Base) ─────────────────────
+  const clientesDisponiveis = (() => {
+    try { return JSON.parse(localStorage.getItem('ep_clientes') || '[]') } catch { return [] }
+  })()
+
+  // ── Disparo automático completo ────────────────────────────────────────────
+  const dispararCompleto = async (docBase, base64PDF, nomeArquivo) => {
+    if (!docBase.obrigacao_id && !docBase.obrigacao_nome) return
+    setDisparandoAuto(true); setResultadoDisparo(null)
+
+    // Tentar ler PDF para extrair CNPJ/vencimento/valor
+    let dadosPDF = {}
+    if (base64PDF) {
+      try {
+        const rPDF = await fetch('/api/v1/disparos/ler-pdf-base64', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64: base64PDF, nome_arquivo: nomeArquivo })
+        })
+        if (rPDF.ok) dadosPDF = await rPDF.json()
+      } catch {}
+    }
+
+    try {
+      const r = await fetch('/api/v1/entrega-auto/processar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cliente_id:      docBase.cliente_id || null,
+          cnpj:            dadosPDF.cnpj || docBase.cnpj || null,
+          obrigacao_nome:  docBase.obrigacao_nome,
+          nome_arquivo:    nomeArquivo,
+          base64_pdf:      base64PDF || null,
+          vencimento:      dadosPDF.vencimento || null,
+          competencia:     dadosPDF.competencia || null,
+          valor:           dadosPDF.valor || null,
+          tipo_obrigacao:  dadosPDF.tipo_obrigacao || null,
+          template_id:     'guia_mensal',
+        })
+      })
+      const data = await r.json()
+      if (r.ok) {
+        // Formatar resultado para exibição
+        setResultadoDisparo({
+          ok:              data.ok,
+          entrega_id:      data.entrega_id,
+          gdrive_url:      data.drive_url,
+          gdrive_path:     data.drive_url ? '📁 Salvo no Google Drive' : '📁 Salvo no sistema',
+          whatsapp_status: data.canal_usado?.includes('whatsapp') ? 'Enviado ✓' : data.canal_usado === 'email' ? '—' : 'Pendente',
+          email_status:    data.canal_usado?.includes('email') ? 'Enviado ✓' : data.canal_usado === 'whatsapp' ? '—' : 'Pendente',
+          cliente_nome:    data.cliente_nome,
+          erros:           data.erros || [],
+        })
+        // Incrementar contador no doc base
+        setDocsBaseLS(documentosBase.map(d => d.id === docBase.id ? {...d, reconhecimentos:(d.reconhecimentos||0)+1} : d))
+      } else {
+        setResultadoDisparo({ ok: false, erros: [data.detail || 'Erro desconhecido'] })
+      }
+    } catch (e) {
+      setResultadoDisparo({ ok: false, erros: [e.message] })
+    }
+    setDisparandoAuto(false)
+  }
+
   const [tipoSel, setTipoSel]       = useState(null)
   const [arquivo, setArquivo]       = useState(null)
   const [prompt, setPrompt]         = useState('')
@@ -72,13 +157,77 @@ export default function RoboObrigacoes() {
   const [form, setForm] = useState({ nome: '', tipo_doc: 'darf', ativo: true, campos: ['nome_documento','vencimento','valor'], obrigatorio: ['vencimento','valor'], regras: [], acao: 'registrar_entrega' })
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // ── Salvar com persistência LS ─────────────────────────────────────────────
+  const setTiposDocLS   = v => { setTiposDoc(v);    lsSet(LS.TIPOS_DOC,  v) }
+  const setCriteriosLS  = v => { setCriterios(v);   lsSet(LS.CRITERIOS,  v) }
+  const setHistoricoLS  = v => { setHistorico(v);   lsSet(LS.HISTORICO,  v) }
+  const setDocsBaseLS   = v => { setDocumentosBase(v); lsSet(LS.DOCS_BASE, v) }
+
+  // ── Obrigações disponíveis no sistema ─────────────────────────────────────
+  const obrigacoesDisponiveis = (() => {
+    try {
+      const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_custom') || 'null')
+      if (Array.isArray(cat) && cat.length > 0) return cat
+    } catch {}
+    return []
+  })()
+
+  // ── Reconhecimento automático por Docs Base ────────────────────────────────
+  const tentarReconhecerAuto = useCallback((nomeArquivo, tipoDocId) => {
+    if (!nomeArquivo) return null
+    const nome = nomeArquivo.toLowerCase()
+    // 1. Buscar por palavras-chave no nome do arquivo
+    for (const doc of documentosBase) {
+      if (!doc.ativo) continue
+      const palavras = (doc.palavras_chave || '').toLowerCase().split(/[\s,;]+/).filter(Boolean)
+      const tipoMatch = !tipoDocId || doc.tipo_doc === tipoDocId || tipoDocId === null
+      const nomeMatch = palavras.some(p => p.length >= 3 && nome.includes(p))
+      const tipoNomeMatch = doc.tipo_doc === tipoDocId
+      if ((nomeMatch || tipoNomeMatch) && tipoMatch) return doc
+    }
+    return null
+  }, [documentosBase])
+
+  // ── Salvar Documento Base ──────────────────────────────────────────────────
+  const salvarDocBase = () => {
+    if (!arquivoBase && !formDoc.obrigacao_id) return
+    const novo = {
+      id: Date.now(),
+      obrigacao_id:   formDoc.obrigacao_id,
+      obrigacao_nome: formDoc.obrigacao_nome || 'Obrigação não especificada',
+      tipo_doc:       formDoc.tipo_doc,
+      palavras_chave: formDoc.palavras_chave,
+      descricao:      formDoc.descricao,
+      arquivo_nome:   arquivoBase?.name || '',
+      criado_em:      new Date().toLocaleString('pt-BR'),
+      ativo:          true,
+      reconhecimentos: 0,
+    }
+    const nova = [novo, ...documentosBase]
+    setDocsBaseLS(nova)
+    setFormDoc({ obrigacao_id:'', obrigacao_nome:'', tipo_doc:'darf', palavras_chave:'', descricao:'' })
+    setArquivoBase(null)
+    setAbaDocs('lista')
+  }
+
+  const excluirDocBase = (id) => {
+    if(confirm('Remover este documento da biblioteca permanente?'))
+      setDocsBaseLS(documentosBase.filter(d => d.id !== id))
+  }
+
+  const toggleDocBase = (id) => {
+    setDocsBaseLS(documentosBase.map(d => d.id === id ? {...d, ativo:!d.ativo} : d))
+  }
+
   const salvarTipo = () => {
     const id = 'custom_' + Date.now()
+    let nova
     if (editTipo) {
-      setTiposDoc(p => p.map(t => t.id === editTipo.id ? { ...t, label: formTipo.label, icon: formTipo.icon, descricao: formTipo.descricao } : t))
+      nova = tiposDoc.map(t => t.id === editTipo.id ? { ...t, label: formTipo.label, icon: formTipo.icon, descricao: formTipo.descricao } : t)
     } else {
-      setTiposDoc(p => [...p, { id, label: formTipo.label, icon: formTipo.icon, descricao: formTipo.descricao, custom: true }])
+      nova = [...tiposDoc, { id, label: formTipo.label, icon: formTipo.icon, descricao: formTipo.descricao, custom: true }]
     }
+    setTiposDocLS(nova)
     setFormTipo({ label: '', icon: '📄', descricao: '' })
     setEditTipo(null)
     setModalTipo(false)
@@ -86,11 +235,33 @@ export default function RoboObrigacoes() {
 
   const excluirTipo = (id) => {
     if (!tiposDoc.find(t => t.id === id)?.custom) return
-    setTiposDoc(p => p.filter(t => t.id !== id))
+    setTiposDocLS(tiposDoc.filter(t => t.id !== id))
   }
 
   const processarDocumento = async () => {
     if (!arquivo && !prompt) return
+
+    // ── Verificar reconhecimento automático por Docs Base ─────────────────
+    const autoMatch = tentarReconhecerAuto(arquivo?.name, tipoSel)
+    if (autoMatch) {
+      setReconhecidoAuto(autoMatch)
+      // Atualizar contador de reconhecimentos
+      setDocsBaseLS(documentosBase.map(d => d.id === autoMatch.id ? {...d, reconhecimentos:(d.reconhecimentos||0)+1} : d))
+      const novoHist = {
+        id: Date.now(), nome: arquivo?.name || 'Análise',
+        tipo: tiposDoc.find(t=>t.id===tipoSel)?.label || '—',
+        criterio: `🤖 Auto: ${autoMatch.obrigacao_nome}`,
+        data: new Date().toLocaleString('pt-BR'),
+        status: 'concluido',
+        campos: { reconhecimento: 'Automático', obrigacao: autoMatch.obrigacao_nome, doc_base: autoMatch.arquivo_nome || autoMatch.descricao },
+        auto: true
+      }
+      const novoH = [novoHist, ...historico]
+      setHistoricoLS(novoH)
+      return
+    }
+
+    setReconhecidoAuto(null)
     setProcessando(true); setResultado(null)
     await new Promise(r => setTimeout(r, 2200))
     const criterioAtivo = criterios.find(c => c.tipo_doc === tipoSel && c.ativo)
@@ -100,18 +271,22 @@ export default function RoboObrigacoes() {
     campos.forEach(c => { if (mockDados[c]) extraidos[c] = mockDados[c] })
     const faltando = (criterioAtivo?.obrigatorio || []).filter(c => !extraidos[c])
     setResultado({ criterio: criterioAtivo?.nome || '—', tipo_doc: tiposDoc.find(t => t.id === tipoSel)?.label || 'Documento', campos: extraidos, faltando, sucesso: faltando.length === 0 })
-    setHistorico(p => [{ id: Date.now(), nome: arquivo?.name || 'Análise', tipo: tiposDoc.find(t => t.id === tipoSel)?.label || '—', criterio: criterioAtivo?.nome || '—', data: new Date().toLocaleString('pt-BR'), status: faltando.length === 0 ? 'concluido' : 'erro', campos: extraidos }, ...p])
+    const novoH = [{ id: Date.now(), nome: arquivo?.name || 'Análise', tipo: tiposDoc.find(t => t.id === tipoSel)?.label || '—', criterio: criterioAtivo?.nome || '—', data: new Date().toLocaleString('pt-BR'), status: faltando.length === 0 ? 'concluido' : 'erro', campos: extraidos }, ...historico]
+    setHistoricoLS(novoH)
     setProcessando(false)
   }
 
   const salvarCriterio = () => {
-    if (criterioEdit) setCriterios(p => p.map(c => c.id === criterioEdit ? { ...form, id: criterioEdit } : c))
-    else setCriterios(p => [...p, { ...form, id: Date.now() }])
+    let nova
+    if (criterioEdit) nova = criterios.map(c => c.id === criterioEdit ? { ...form, id: criterioEdit } : c)
+    else nova = [...criterios, { ...form, id: Date.now() }]
+    setCriteriosLS(nova)
     setCriterioEdit(null); setAba('criterios')
   }
 
   const ABAS_NAV = [
     { id: 'reconhecer',    label: '📄 Reconhecer' },
+    { id: 'docs_base',     label: '📚 Docs Base' },
     { id: 'criterios',     label: '⚙️ Critérios' },
     { id: 'tipos_doc',     label: '🗂️ Tipos de Documento' },
     { id: 'novo_criterio', label: '➕ Novo Critério' },
@@ -131,7 +306,7 @@ export default function RoboObrigacoes() {
           <div style={{ color: GOLD, fontSize: 11 }}>Reconhecimento inteligente com critérios personalizados</div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          {[{ n: criterios.filter(c=>c.ativo).length, l:'Critérios ativos'}, { n: historico.length, l:'Processados'}, { n: historico.filter(h=>h.status==='concluido').length, l:'Concluídos'}, { n: tiposDoc.filter(t=>t.custom).length, l:'Tipos custom'}].map(s => (
+          {[{ n: criterios.filter(c=>c.ativo).length, l:'Critérios ativos'}, { n: documentosBase.filter(d=>d.ativo).length, l:'Docs Base'}, { n: historico.length, l:'Processados'}, { n: historico.filter(h=>h.status==='concluido').length, l:'Concluídos'}, { n: historico.filter(h=>h.auto).length, l:'Auto-reconhecidos'}].map(s => (
             <div key={s.l} style={{ textAlign: 'center', padding: '4px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.08)' }}>
               <div style={{ color: GOLD, fontWeight: 700, fontSize: 15 }}>{s.n}</div>
               <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>{s.l}</div>
@@ -181,7 +356,21 @@ export default function RoboObrigacoes() {
               <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #e8e8e8' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: NAVY, marginBottom: 10 }}>2. Enviar Documento</div>
                 <div onClick={() => inputRef.current?.click()} style={{ border: `2px dashed ${arquivo ? GOLD : '#d0d0d0'}`, borderRadius: 10, padding: '20px 14px', textAlign: 'center', cursor: 'pointer', background: arquivo ? '#FFFBF2' : '#fafafa' }}>
-                  <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => setArquivo(e.target.files[0])} />
+                  <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => {
+                    const f = e.target.files[0]
+                    if (!f) return
+                    const reader = new FileReader()
+                    reader.onload = ev => {
+                      const bytes = new Uint8Array(ev.target.result)
+                      let b64 = ''
+                      for (let i = 0; i < bytes.length; i += 8192)
+                        b64 += String.fromCharCode(...bytes.subarray(i, i + 8192))
+                      f._base64 = btoa(b64)
+                      setArquivo({...f, _base64: btoa(b64), name: f.name, size: f.size})
+                    }
+                    reader.readAsArrayBuffer(f)
+                    setArquivo(f)
+                  }} />
                   {arquivo ? (
                     <><FileText size={26} style={{ color: GOLD, marginBottom: 6 }} /><div style={{ fontSize: 12, fontWeight: 600, color: NAVY }}>{arquivo.name}</div><div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>{(arquivo.size/1024).toFixed(0)} KB</div></>
                   ) : (
@@ -207,7 +396,89 @@ export default function RoboObrigacoes() {
                 {resultado && <button style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: `1px solid ${NAVY}`, color: NAVY, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Download size={11} /> Exportar</button>}
               </div>
               <div style={{ flex: 1, padding: 16 }}>
-                {processando ? (
+                {/* ── Banner de Reconhecimento Automático ─────────────────── */}
+                {reconhecidoAuto ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ padding: '14px 16px', borderRadius: 10, background: '#EDFBF1', border: '2px solid #86efac', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                      <ShieldCheck size={28} style={{ color: '#16a34a', flexShrink: 0, marginTop: 2 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#166534', marginBottom: 4 }}>
+                          🤖 Reconhecido Automaticamente!
+                        </div>
+                        <div style={{ fontSize: 12, color: '#166534', marginBottom: 8 }}>
+                          Este documento foi identificado pela <b>Biblioteca de Docs Base</b> e vinculado à obrigação sem necessidade de processamento manual.
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <div style={{ padding: '8px 10px', borderRadius: 7, background: 'rgba(255,255,255,.7)' }}>
+                            <div style={{ fontSize:10, color:'#888', fontWeight:600, textTransform:'uppercase' }}>Obrigação</div>
+                            <div style={{ fontSize:12, color:NAVY, fontWeight:700 }}>{reconhecidoAuto.obrigacao_nome}</div>
+                          </div>
+                          <div style={{ padding: '8px 10px', borderRadius: 7, background: 'rgba(255,255,255,.7)' }}>
+                            <div style={{ fontSize:10, color:'#888', fontWeight:600, textTransform:'uppercase' }}>Doc Referência</div>
+                            <div style={{ fontSize:12, color:NAVY, fontWeight:700 }}>{reconhecidoAuto.arquivo_nome || reconhecidoAuto.descricao || '—'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Resultado do disparo automático */}
+                    {resultadoDisparo && (
+                      <div style={{ padding: '12px 14px', borderRadius: 8, background: resultadoDisparo.ok ? '#EDFBF1' : '#FEF9C3', border: `1px solid ${resultadoDisparo.ok ? '#86efac' : '#fde68a'}` }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: resultadoDisparo.ok ? '#166534' : '#854D0E', marginBottom: 6 }}>
+                          {resultadoDisparo.ok ? '✅ Processamento completo!' : '⚠️ Processado com avisos'}
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                          {[
+                            { l: '📋 Entrega', v: resultadoDisparo.entrega_id ? `#${resultadoDisparo.entrega_id}` : '—' },
+                            { l: '💬 WhatsApp', v: resultadoDisparo.whatsapp_status || '—' },
+                            { l: '📧 Email',    v: resultadoDisparo.email_status    || '—' },
+                          ].map(i => (
+                            <div key={i.l} style={{ padding: '5px 8px', borderRadius: 6, background: 'rgba(255,255,255,.7)', fontSize: 11 }}>
+                              <div style={{ color: '#888', marginBottom: 2 }}>{i.l}</div>
+                              <div style={{ fontWeight: 700, color: NAVY }}>{i.v}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {resultadoDisparo.gdrive_url && (
+                          <a href={resultadoDisparo.gdrive_url} target="_blank" rel="noreferrer"
+                            style={{ display:'block', marginTop:8, fontSize:11, color:'#1D6FA4', fontWeight:600 }}>
+                            🗂️ Ver no Google Drive →
+                          </a>
+                        )}
+                        {resultadoDisparo.gdrive_path && (
+                          <div style={{ fontSize: 10, color: '#888', marginTop: 4 }}>
+                            📁 {resultadoDisparo.gdrive_path}
+                          </div>
+                        )}
+                        {(resultadoDisparo.erros || []).length > 0 && (
+                          <div style={{ marginTop: 6 }}>
+                            {resultadoDisparo.erros.map((e, i) => (
+                              <div key={i} style={{ fontSize: 10, color: '#dc2626' }}>⚠ {e}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Botões de ação */}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {!resultadoDisparo && (
+                        <button
+                          onClick={() => dispararCompleto(reconhecidoAuto, arquivo?._base64, arquivo?.name)}
+                          disabled={disparandoAuto}
+                          style={{ flex: 1, padding: '10px', borderRadius: 8, background: disparandoAuto ? '#ccc' : NAVY, color: '#fff', fontWeight: 700, fontSize: 13, border: 'none', cursor: disparandoAuto ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                          {disparandoAuto
+                            ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> Processando...</>
+                            : <><Zap size={15} /> 🚀 Processar: Entrega + Drive + Enviar ao Cliente</>}
+                        </button>
+                      )}
+                      <button onClick={() => { setReconhecidoAuto(null); setArquivo(null); setResultadoDisparo(null) }}
+                        style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                        Novo
+                      </button>
+                    </div>
+                  </div>
+                ) : processando ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 300 }}>
                     <Bot size={38} style={{ color: GOLD, marginBottom: 12 }} />
                     <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>Analisando critérios...</div>
@@ -251,6 +522,137 @@ export default function RoboObrigacoes() {
                 )}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── DOCS BASE ── */}
+        {aba === 'docs_base' && (
+          <div style={{ maxWidth: 900, margin: '0 auto', padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>📚 Biblioteca de Documentos Base</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                  Documentos cadastrados aqui são reconhecidos <b>automaticamente</b> — a obrigação é marcada sem precisar processar manualmente.
+                </div>
+              </div>
+              <button onClick={() => setAbaDocs(abaDocs==='novo'?'lista':'novo')}
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:abaDocs==='novo'?'#f5f5f5':NAVY, color:abaDocs==='novo'?'#555':'#fff', fontWeight:600, fontSize:12, border:'none', cursor:'pointer' }}>
+                {abaDocs==='novo' ? <><X size={13}/> Cancelar</> : <><Plus size={13}/> Novo Documento Base</>}
+              </button>
+            </div>
+
+            {/* Formulário de novo doc base */}
+            {abaDocs === 'novo' && (
+              <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e8e8e8', padding:20, marginBottom:20 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:NAVY, marginBottom:14 }}>📎 Cadastrar Documento Base</div>
+                <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:16, marginBottom:16 }}>
+                  <div>
+                    <label style={{ fontSize:11,fontWeight:600,color:'#888',display:'block',marginBottom:4 }}>Obrigação Vinculada *</label>
+                    <select
+                      value={formDoc.obrigacao_id}
+                      onChange={e => {
+                        const opt = e.target.options[e.target.selectedIndex]
+                        setFormDoc(f=>({...f, obrigacao_id: e.target.value, obrigacao_nome: opt.text}))
+                      }}
+                      style={sel}
+                    >
+                      <option value="">— Selecione a obrigação —</option>
+                      {obrigacoesDisponiveis.map(o => (
+                        <option key={o.id} value={o.id}>{o.nome || o.mininome}</option>
+                      ))}
+                      <optgroup label="Comuns">
+                        {['DAS Mensal','PGDAS-D','DCTF','DCTFWeb','e-Social','FGTS','DARF IRPJ','DARF CSLL','EFD Contribuições','SPED Fiscal','Folha Pagamento','DIRF','CAGED'].map(n=>(
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:11,fontWeight:600,color:'#888',display:'block',marginBottom:4 }}>Tipo de Documento</label>
+                    <select value={formDoc.tipo_doc} onChange={e=>setFormDoc(f=>({...f,tipo_doc:e.target.value}))} style={sel}>
+                      {tiposDoc.map(t=><option key={t.id} value={t.id}>{t.icon} {t.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:16 }}>
+                  <div>
+                    <label style={{ fontSize:11,fontWeight:600,color:'#888',display:'block',marginBottom:4 }}>Palavras-chave para reconhecimento *</label>
+                    <input
+                      value={formDoc.palavras_chave}
+                      onChange={e=>setFormDoc(f=>({...f,palavras_chave:e.target.value}))}
+                      placeholder="Ex: DAS, simples, mensal (separadas por vírgula)"
+                      style={inp}
+                    />
+                    <div style={{fontSize:10,color:'#aaa',marginTop:3}}>O robô buscará essas palavras no nome do arquivo ao reconhecer</div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:11,fontWeight:600,color:'#888',display:'block',marginBottom:4 }}>Descrição (opcional)</label>
+                    <input value={formDoc.descricao} onChange={e=>setFormDoc(f=>({...f,descricao:e.target.value}))} placeholder="Ex: Guia DAS mensal Simples Nacional" style={inp}/>
+                  </div>
+                </div>
+                <div style={{ marginBottom:16 }}>
+                  <label style={{ fontSize:11,fontWeight:600,color:'#888',display:'block',marginBottom:4 }}>Documento de referência (opcional)</label>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                    <input type="text" value={arquivoBase?.name||''} readOnly placeholder="Nenhum arquivo selecionado..." style={{...inp, cursor:'default', background:'#f9f9f9', flex:1}}/>
+                    <input ref={docBaseRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.xml" style={{display:'none'}} onChange={e=>setArquivoBase(e.target.files[0])}/>
+                    <button type="button" onClick={()=>docBaseRef.current?.click()}
+                      style={{padding:'7px 14px',borderRadius:7,background:'#555',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',border:'none',whiteSpace:'nowrap'}}>
+                      📂 Selecionar
+                    </button>
+                  </div>
+                  <div style={{fontSize:10,color:'#aaa',marginTop:3}}>Arquivo-modelo para referência visual (não obrigatório)</div>
+                </div>
+                <button onClick={salvarDocBase} disabled={!formDoc.obrigacao_id && !formDoc.palavras_chave}
+                  style={{padding:'9px 20px',borderRadius:8,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>
+                  💾 Salvar na Biblioteca Permanente
+                </button>
+              </div>
+            )}
+
+            {/* Lista de docs base */}
+            {documentosBase.length === 0 ? (
+              <div style={{ textAlign:'center', padding:60, color:'#aaa', background:'#fff', borderRadius:12, border:'1px dashed #e8e8e8' }}>
+                <BookOpen size={48} style={{marginBottom:12,opacity:.3}}/>
+                <div style={{fontSize:14,fontWeight:600,marginBottom:6}}>Biblioteca vazia</div>
+                <div style={{fontSize:12}}>Cadastre documentos-modelo acima.<br/>O robô os reconhecerá automaticamente em futuras análises.</div>
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <div style={{fontSize:11,color:'#aaa',marginBottom:4}}>{documentosBase.filter(d=>d.ativo).length} ativos de {documentosBase.length} cadastrados</div>
+                {documentosBase.map(doc => (
+                  <div key={doc.id} style={{background:'#fff',borderRadius:10,border:`1px solid ${doc.ativo?'#e8e8e8':'#f0f0f0'}`,padding:'12px 16px',display:'flex',gap:12,alignItems:'flex-start',opacity:doc.ativo?1:0.6}}>
+                    <div style={{width:40,height:40,borderRadius:9,background:doc.ativo?NAVY+'15':'#f5f5f5',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <BookOpen size={18} style={{color:doc.ativo?NAVY:'#ccc'}}/>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,color:NAVY,fontSize:13,marginBottom:2}}>{doc.obrigacao_nome}</div>
+                      <div style={{fontSize:11,color:'#888',marginBottom:4}}>
+                        Tipo: {tiposDoc.find(t=>t.id===doc.tipo_doc)?.label||doc.tipo_doc} · 
+                        Criado: {doc.criado_em} · 
+                        Reconhecimentos: <b style={{color:NAVY}}>{doc.reconhecimentos||0}</b>
+                      </div>
+                      {doc.palavras_chave && (
+                        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+                          {doc.palavras_chave.split(/[\s,;]+/).filter(Boolean).map(p=>(
+                            <span key={p} style={{fontSize:10,padding:'2px 7px',borderRadius:10,background:GOLD+'20',color:GOLD,fontWeight:600}}>{p}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{display:'flex',gap:6,flexShrink:0}}>
+                      <button onClick={()=>toggleDocBase(doc.id)}
+                        style={{padding:'4px 10px',borderRadius:6,fontSize:11,border:'none',cursor:'pointer',background:doc.ativo?'#EDFBF1':'#f5f5f5',color:doc.ativo?'#166534':'#aaa',fontWeight:600}}>
+                        {doc.ativo?'✓ Ativo':'Inativo'}
+                      </button>
+                      <button onClick={()=>excluirDocBase(doc.id)}
+                        style={{padding:'4px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>
+                        <Trash2 size={13}/>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
