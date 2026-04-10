@@ -496,6 +496,7 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
 function TabProcessos({ templates }) {
   const [processos, setProcessos] = useState(()=>{ try{return JSON.parse(localStorage.getItem("ep_processos")||"[]");}catch{return [];} });
   const [filtroStatus, setFiltroStatus] = useState("");
+    const [empresaFiltro, setEmpresaFiltro] = useState('');
   const [filtroTexto, setFiltroTexto] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [selecionado, setSelecionado] = useState(null);
