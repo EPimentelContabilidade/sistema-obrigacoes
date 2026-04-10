@@ -190,16 +190,6 @@ async def verificar_exclusao(cliente_id: int, db: AsyncSession = Depends(get_db)
             cnt = r.scalar()
             if cnt and cnt > 0: motivos.append(f"{cnt} {desc}")
         except Exception: pass
-    if moti),
-        ("lancamentos","lançamentos"),
-        ("documentos_cliente","documentos"),
-    ]:
-        try:
-            from sqlalchemy import text
-            r = await db.execute(text(f"SELECT COUNT(*) FROM {tabela} WHERE cliente_id = :id"), {"id": cliente_id})
-            cnt = r.scalar()
-            if cnt and cnt > 0: motivos.append(f"{cnt} {desc}")
-        except Exception: pass
 
     if motivos:
         return {"bloqueado": True, "motivo": "Este cliente possui: " + ", ".join(motivos) + ". Remova os vínculos antes de excluir."}
