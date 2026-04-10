@@ -160,7 +160,7 @@ export default function Clientes() {
     if (!form.tributacao) return
     const obrigEsp = REGIME_OBRIG_AUTO[form.tributacao]||[]
     const todas = [...new Set([...obrigEsp])]
-    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(form.tributacao))if (editId) {
+    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(form.tributacao)); if (editId) {
       const updated = JSON.parse(localStorage.getItem('ep_clientes')||'[]').map(c=>String(c.id)===String(editId)?{...c,obrigacoes_vinculadas:todas,obrigacoes_catalogo:obrigsCatalogo(form.tributacao)}:c)
       localStorage.setItem('ep_clientes',JSON.stringify(updated)); setClientes(updated)
     }
@@ -270,7 +270,7 @@ export default function Clientes() {
     <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 44px)', fontFamily:'Inter, system-ui, sans-serif' }}>
 
       {/* Abas header */}
-      <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', display:'flex', alignItems:'center', padding:'0 16px' }>
+      <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', display:'flex', alignItems:'center', padding:'0 16px' }}>
         <button onClick={()=>setAba('lista')} style={{ padding:'11px 16px', fontSize:13, fontWeight:aba==='lista'?700:400, color:aba==='lista'?NAVY:'#999', background:'none', border:'none', borderBottom:aba==='lista'?`2px solid ${GOLD}`:'2px solid transparent', cursor:'pointer' }}>Clientes</button>
         {aba==='cadastro'&&<button style={{ padding:'11px 16px', fontSize:13, fontWeight:700, color:NAVY, background:'none', border:'none', borderBottom:`2px solid ${GOLD}`, cursor:'default' }}>{editId?'Editar Cliente':'Novo Cliente'}</button>}
         <div style={{ marginLeft:'auto' }}>
