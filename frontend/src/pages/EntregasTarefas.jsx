@@ -166,6 +166,7 @@ export default function EntregasTarefas() {
   const [vinc,       setVinc]       = useState([])
   const [mes,        setMes]        = useState(new Date().toISOString().slice(0,7))
   const [expanded,   setExpanded]   = useState(null)
+    const [empresasFiltro, setEmpresasFiltro]  = useState([])
   const [protos,     setProtos]     = useState({})
   const [coments,    setComents]    = useState({})
   const [mVinc,      setMVinc]      = useState(false)
