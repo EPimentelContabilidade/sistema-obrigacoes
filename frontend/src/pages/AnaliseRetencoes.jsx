@@ -38,7 +38,7 @@ async function analisarIA(f) {
   return {erro:txt,retencoes:[]}
 }
 
- AnaliseRetencoes() {
+
   const [aba, setAba] = useState('analise')
   const [form, setForm] = useState(Object.assign({},F0))
   const [analisando, setAnalisando] = useState(false)
