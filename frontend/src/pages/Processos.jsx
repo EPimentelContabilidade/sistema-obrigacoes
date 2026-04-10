@@ -556,7 +556,7 @@ function TabProcessos({ templates }) {
   const progresso = p=>!p.etapas?.length?0:Math.round(p.etapas.filter(e=>e.concluida).length/p.etapas.length*100);
   const clientesFiltrados = clientes.filter(c=>(c.nome_razao||c.nome||"").toLowerCase().includes(buscaCliente.toLowerCase())).slice(0,8);
 
-  const filtrados = processos.filter(p=>(empresaFiltro===''||p.cliente_id===empresaFiltro)&&p=>{
+  const filtrados = processos.filter(p=>{if(!(empresaFiltro===''||p.cliente_id===empresaFiltro))return false;
     if(filtroTexto&&!(p.titulo+p.cliente).toLowerCase().includes(filtroTexto.toLowerCase())) return false;
     if(filtroStatus&&p.status!==filtroStatus) return false;
     if(filtroCategoria&&p.categoria!==filtroCategoria) return false;
