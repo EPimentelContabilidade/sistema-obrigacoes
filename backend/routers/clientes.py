@@ -207,31 +207,33 @@ async def verificar_exclusao(cliente_id: int, db: AsyncSession = Depends(get_db)
 
 
 from fastapi import UploadFile, File, Form
-from fastapi.responses import FileResponse
-from pathlib import Path
+from fastapi.responses import Response
 from datetime import datetime
-import uuid, os
-
-DOCS_DIR = Path("uploads/docs")
-DOCS_DIR.mkdir(parents=True, exist_ok=True)
+import uuid, base64 as _b64
 
 
 async def _init_docs_table(db):
+    """Cria tabela de documentos com conteúdo em base64 (sem filesystem)."""
     from sqlalchemy import text
     await db.execute(text("""
         CREATE TABLE IF NOT EXISTS documentos_cliente (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id   INTEGER NOT NULL,
-            nome_arquivo TEXT NOT NULL,
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            cliente_id    INTEGER NOT NULL,
+            nome_arquivo  TEXT NOT NULL,
             nome_original TEXT,
-            categoria    TEXT DEFAULT 'outros',
-            descricao    TEXT,
-            tamanho      INTEGER,
-            mime_type    TEXT,
-            caminho      TEXT NOT NULL,
-            criado_em    TEXT DEFAULT (datetime('now','localtime'))
+            categoria     TEXT DEFAULT 'outros',
+            descricao     TEXT,
+            tamanho       INTEGER,
+            mime_type     TEXT,
+            conteudo      TEXT,
+            criado_em     TEXT DEFAULT (datetime('now','localtime'))
         )
     """))
+    # Migração: adicionar coluna conteudo se não existir (tabelas antigas com 'caminho')
+    try:
+        await db.execute(text("ALTER TABLE documentos_cliente ADD COLUMN conteudo TEXT"))
+    except Exception:
+        pass
     await db.commit()
 
 
@@ -239,30 +241,53 @@ async def _init_docs_table(db):
 async def listar_docs(cliente_id: int, db: AsyncSession = Depends(get_db)):
     await _init_docs_table(db)
     from sqlalchemy import text
-    r = await db.execute(text("SELECT * FROM documentos_cliente WHERE cliente_id = :id ORDER BY criado_em DESC"), {"id": cliente_id})
+    r = await db.execute(
+        text("SELECT id,cliente_id,nome_arquivo,nome_original,categoria,descricao,tamanho,mime_type,criado_em FROM documentos_cliente WHERE cliente_id = :id ORDER BY criado_em DESC"),
+        {"id": cliente_id}
+    )
     rows = r.mappings().fetchall()
     return [dict(row, url=f"/api/v1/clientes/docs/arquivo/{row['id']}") for row in rows]
 
 
 @router.post("/{cliente_id}/docs")
-async def upload_doc(cliente_id: int, arquivo: UploadFile = File(...), categoria: str = Form("outros"), descricao: str = Form(""), db: AsyncSession = Depends(get_db)):
+async def upload_doc(
+    cliente_id: int,
+    arquivo: UploadFile = File(...),
+    categoria: str = Form("outros"),
+    descricao: str = Form(""),
+    db: AsyncSession = Depends(get_db)
+):
     await _init_docs_table(db)
     conteudo = await arquivo.read()
     if len(conteudo) > 20 * 1024 * 1024:
         raise HTTPException(400, "Arquivo muito grande. Máximo: 20 MB")
-    ext = Path(arquivo.filename).suffix.lower()
-    nome_salvo = f"{uuid.uuid4().hex}{ext}"
-    pasta = DOCS_DIR / str(cliente_id)
-    pasta.mkdir(parents=True, exist_ok=True)
-    caminho = pasta / nome_salvo
-    caminho.write_bytes(conteudo)
+
+    conteudo_b64 = _b64.b64encode(conteudo).decode("utf-8")
+    nome_salvo = f"{uuid.uuid4().hex}_{arquivo.filename}"
+
     from sqlalchemy import text
-    await db.execute(text("INSERT INTO documentos_cliente (cliente_id, nome_arquivo, nome_original, categoria, descricao, tamanho, mime_type, caminho) VALUES (:cid, :nf, :no, :cat, :desc, :tam, :mime, :camp)"), {"cid": cliente_id, "nf": nome_salvo, "no": arquivo.filename, "cat": categoria, "desc": descricao, "tam": len(conteudo), "mime": arquivo.content_type, "camp": str(caminho)})
+    await db.execute(text("""
+        INSERT INTO documentos_cliente
+            (cliente_id, nome_arquivo, nome_original, categoria, descricao, tamanho, mime_type, conteudo)
+        VALUES (:cid, :nf, :no, :cat, :desc, :tam, :mime, :cont)
+    """), {
+        "cid": cliente_id, "nf": nome_salvo, "no": arquivo.filename,
+        "cat": categoria, "desc": descricao, "tam": len(conteudo),
+        "mime": arquivo.content_type or "application/octet-stream", "cont": conteudo_b64
+    })
     await db.commit()
-    from sqlalchemy import text as t2
-    r = await db.execute(t2("SELECT last_insert_rowid()"))
+
+    r = await db.execute(text("SELECT last_insert_rowid()"))
     doc_id = r.scalar()
-    return {"id": doc_id, "cliente_id": cliente_id, "nome_arquivo": nome_salvo, "nome_original": arquivo.filename, "categoria": categoria, "descricao": descricao, "tamanho": len(conteudo), "mime_type": arquivo.content_type, "criado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "url": f"/api/v1/clientes/docs/arquivo/{doc_id}"}
+
+    return {
+        "id": doc_id, "cliente_id": cliente_id,
+        "nome_arquivo": nome_salvo, "nome_original": arquivo.filename,
+        "categoria": categoria, "descricao": descricao,
+        "tamanho": len(conteudo), "mime_type": arquivo.content_type,
+        "criado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "url": f"/api/v1/clientes/docs/arquivo/{doc_id}"
+    }
 
 
 @router.get("/docs/arquivo/{doc_id}")
@@ -270,20 +295,32 @@ async def servir_arquivo(doc_id: int, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import text
     r = await db.execute(text("SELECT * FROM documentos_cliente WHERE id = :id"), {"id": doc_id})
     row = r.mappings().fetchone()
-    if not row: raise HTTPException(404, "Documento não encontrado")
-    caminho = Path(row["caminho"])
-    if not caminho.exists(): raise HTTPException(404, "Arquivo não encontrado no servidor")
-    return FileResponse(path=str(caminho), filename=row["nome_original"] or row["nome_arquivo"], media_type=row["mime_type"] or "application/octet-stream")
+    if not row:
+        raise HTTPException(404, "Documento não encontrado")
+    if not row.get("conteudo"):
+        raise HTTPException(404, "Conteúdo não encontrado (arquivo armazenado no filesystem antigo)")
+    try:
+        conteudo = _b64.b64decode(row["conteudo"])
+    except Exception:
+        raise HTTPException(500, "Erro ao decodificar arquivo")
+    nome = row["nome_original"] or row["nome_arquivo"]
+    mime = row["mime_type"] or "application/octet-stream"
+    return Response(
+        content=conteudo,
+        media_type=mime,
+        headers={"Content-Disposition": f'attachment; filename="{nome}"'}
+    )
 
 
 @router.delete("/{cliente_id}/docs/{doc_id}")
 async def excluir_doc(cliente_id: int, doc_id: int, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import text
-    r = await db.execute(text("SELECT * FROM documentos_cliente WHERE id = :id AND cliente_id = :cid"), {"id": doc_id, "cid": cliente_id})
-    row = r.mappings().fetchone()
-    if not row: raise HTTPException(404, "Documento não encontrado")
-    try: Path(row["caminho"]).unlink(missing_ok=True)
-    except Exception: pass
+    r = await db.execute(
+        text("SELECT id FROM documentos_cliente WHERE id = :id AND cliente_id = :cid"),
+        {"id": doc_id, "cid": cliente_id}
+    )
+    if not r.fetchone():
+        raise HTTPException(404, "Documento não encontrado")
     await db.execute(text("DELETE FROM documentos_cliente WHERE id = :id"), {"id": doc_id})
     await db.commit()
     return {"ok": True}
