@@ -1,8 +1,7 @@
- // test
-// x
-// import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Plus, X, Save, ChevronLeft, ChevronRight, User, MapPin, Phone, CheckCircle, Zap, Trash2, Eye, EyeOff, ExternalLink, Shield, FileText } from 'lucide-react'
 import GerarObrigacoes from './GerarObrigacoes'
+import AbaDocumentos from '../components/AbaDocumentos'
 
 const NAVY = '#1B2A4A'
 const GOLD  = '#C5A55A'
@@ -76,6 +75,7 @@ const ABA_TABS = [
   { id:'responsavel',  label:'👤 Responsável',  icon:User },
   { id:'comunicacao',  label:'📱 Comunicação',  icon:Phone },
   { id:'credenciais',  label:'🔐 Credenciais',  icon:Shield },
+  { id:'docs',          label:'📎 DOCs',          icon:FileText },
 ]
 
 const FORM_VAZIO = {
@@ -123,7 +123,6 @@ export default function Clientes() {
   const [abaObrig,     setAbaObrig]     = useState('lista')
   const [buscaObrig,   setBuscaObrig]   = useState('')
   const [deptSel,      setDeptSel]      = useState('Todos')
-  const [confirmObrig, setConfirmObrig] = useState(false)
   const [mostrarSenhas, setMostrarSenhas] = useState({})
 
   useEffect(() => { carregarClientes() }, [])
@@ -155,17 +154,13 @@ export default function Clientes() {
     setF('tributacao',novoRegime); setF('regime',novoRegime)
     const obrigEsp = REGIME_OBRIG_AUTO[novoRegime]||[]
     const todas = [...new Set([...obrigEsp])]
-    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(novoRegime))
-    setConfirmObrig(true)
-  }
+    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(novoRegime))}
 
   const gerarObrigacoes = () => {
     if (!form.tributacao) return
     const obrigEsp = REGIME_OBRIG_AUTO[form.tributacao]||[]
     const todas = [...new Set([...obrigEsp])]
-    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(form.tributacao))
-    setConfirmObrig(true)
-    if (editId) {
+    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(form.tributacao))if (editId) {
       const updated = JSON.parse(localStorage.getItem('ep_clientes')||'[]').map(c=>String(c.id)===String(editId)?{...c,obrigacoes_vinculadas:todas,obrigacoes_catalogo:obrigsCatalogo(form.tributacao)}:c)
       localStorage.setItem('ep_clientes',JSON.stringify(updated)); setClientes(updated)
     }
@@ -220,11 +215,20 @@ export default function Clientes() {
     try { await fetch(editId?`${API}/clientes/${editId}`:`${API}/clientes/`,{method:editId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(novoCliente)}) } catch {}
   }
 
-  const excluirCliente = (id) => {
+  const excluirCliente = async (id) => {
+    try {
+      const check = await fetch(`${API}/clientes/${id}/verificar-exclusao`)
+      const res = await check.json()
+      if (res.bloqueado) {
+        alert(`Não é possível excluir este cliente.\nMotivo: ${res.motivo}`)
+        setModalExcluir(null)
+        return
+      }
+    } catch {}
     const novaLista = clientes.filter(c=>c.id!==id)
     setClientes(novaLista); localStorage.setItem('ep_clientes',JSON.stringify(novaLista))
     setModalExcluir(null)
-    try { fetch(`${API}/clientes/${id}`,{method:'DELETE'}) } catch {}
+    try { await fetch(`${API}/clientes/${id}`,{method:'DELETE'}) } catch {}
   }
 
   const nova = () => { setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setCnpjDados(null); setAba('cadastro'); setAbaForm('dados') }
@@ -266,7 +270,7 @@ export default function Clientes() {
     <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 44px)', fontFamily:'Inter, system-ui, sans-serif' }}>
 
       {/* Abas header */}
-      <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', display:'flex', alignItems:'center', padding:'0 16px' }}>
+      <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', display:'flex', alignItems:'center', padding:'0 16px' }>
         <button onClick={()=>setAba('lista')} style={{ padding:'11px 16px', fontSize:13, fontWeight:aba==='lista'?700:400, color:aba==='lista'?NAVY:'#999', background:'none', border:'none', borderBottom:aba==='lista'?`2px solid ${GOLD}`:'2px solid transparent', cursor:'pointer' }}>Clientes</button>
         {aba==='cadastro'&&<button style={{ padding:'11px 16px', fontSize:13, fontWeight:700, color:NAVY, background:'none', border:'none', borderBottom:`2px solid ${GOLD}`, cursor:'default' }}>{editId?'Editar Cliente':'Novo Cliente'}</button>}
         <div style={{ marginLeft:'auto' }}>
@@ -412,13 +416,35 @@ export default function Clientes() {
                     <div style={{ marginBottom:14, padding:'12px 16px', borderRadius:10, background:'#F0FDF4', border:'1px solid #bbf7d0' }}>
                       <div style={{ fontWeight:700, color:'#166534', fontSize:12, marginBottom:8 }}>✅ Dados obtidos da Receita Federal</div>
                       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
-                        {[['Porte', cnpjDados.porte],['Natureza Jurídica', cnpjDados.natureza_juridica],['Situação', cnpjDados.descricao_situacao_cadastral],['Capital Social', cnpjDados.capital_social?`R$ ${Number(cnpjDados.capital_social).toLocaleString('pt-BR')}`:null],['Sócios', (cnpjDados.qsa||[]).map(s=>s.nome_socio).join(', ')]].filter(([,v])=>v).map(([k,v])=>(
+                        {[['Porte', cnpjDados.porte],['Natureza Jurídica', cnpjDados.natureza_juridica],['Situação', cnpjDados.descricao_situacao_cadastral],['Capital Social', cnpjDados.capital_social?`R$ ${Number(cnpjDados.capital_social).toLocaleString('pt-BR')}`:null],['Sócios', (cnpjDados.qsa||[]).length > 0 ? (cnpjDados.qsa||[]).map(s=>s.nome_socio).join(', ') : null]].filter(([,v])=>v).map(([k,v])=>(
                           <div key={k}>
                             <div style={{ fontSize:10, color:'#aaa', fontWeight:600 }}>{k}</div>
                             <div style={{ fontSize:12, color:'#166534', fontWeight:600 }}>{v}</div>
                           </div>
                         ))}
                       </div>
+                      {/* QSA Visual */}
+                      {(cnpjDados.qsa||[]).length > 0 && (
+                        <div style={{ marginTop:10, borderTop:'1px solid #bbf7d0', paddingTop:10 }}>
+                          <div style={{ fontSize:11, color:'#166534', fontWeight:700, marginBottom:6 }}>👥 QSA — Quadro de Sócios e Administradores</div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                            {(cnpjDados.qsa||[]).map((s,i)=>(
+                              <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 8px', borderRadius:7, background:'rgba(255,255,255,.6)' }}>
+                                <div style={{ width:26, height:26, borderRadius:'50%', background:'#166534', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:11, flexShrink:0 }}>
+                                  {s.nome_socio?.charAt(0)||'?'}
+                                </div>
+                                <div style={{ flex:1 }}>
+                                  <div style={{ fontWeight:700, color:'#166534', fontSize:12 }}>{s.nome_socio}</div>
+                                  <div style={{ fontSize:10, color:'#4ade80' }}>{s.qualificacao_socio}{s.faixa_etaria?' · '+s.faixa_etaria:''}</div>
+                                </div>
+                                {s.pais_socio && s.pais_socio !== 'Brasil' && (
+                                  <span style={{ fontSize:10, background:'#fef9c3', color:'#854d0e', borderRadius:6, padding:'2px 6px' }}>🌍 {s.pais_socio}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -460,27 +486,9 @@ export default function Clientes() {
                         )
                       })}
                     </div>
-                    {form.tributacao && (
-                      <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:11, color:NAVY, padding:'8px 12px', borderRadius:7, background:'#f0f4ff', border:'1px solid #c7d7fd' }}>
-                        <span style={{ flex:1 }}>✓ Regime <b>{form.tributacao}</b> — <b>{obrigacoesPorTributacao(form.tributacao).length} obrigações</b> disponíveis</span>
-                        <button onClick={()=>setModalObrig(true)} style={{ color:NAVY, background:'none', border:'none', cursor:'pointer', fontWeight:700, textDecoration:'underline', fontSize:11, whiteSpace:'nowrap' }}>Ver obrigações →</button>
-                        <button onClick={gerarObrigacoes} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:7, background:NAVY, color:'#fff', fontWeight:700, fontSize:11, border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
-                          <Zap size={11}/> Gerar Obrigações
-                        </button>
-                      </div>
-                    )}
+
                   </div>
 
-                  {confirmObrig && (
-                    <div style={{ marginBottom:12, padding:'10px 14px', borderRadius:9, background:'#F0FDF4', border:'1px solid #bbf7d0', display:'flex', alignItems:'center', gap:10 }}>
-                      <CheckCircle size={16} style={{ color:'#22c55e', flexShrink:0 }}/>
-                      <div style={{ flex:1, fontSize:12, color:'#166534' }}>
-                        <b>{form.obrigacoes_vinculadas.length} obrigações</b> vinculadas — regime <b>{form.tributacao}</b>.
-                        <button onClick={()=>setModalObrig(true)} style={{ marginLeft:8, color:NAVY, background:'none', border:'none', cursor:'pointer', fontWeight:700, textDecoration:'underline', fontSize:11 }}>Personalizar →</button>
-                      </div>
-                      <button onClick={()=>setConfirmObrig(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#aaa' }}><X size={14}/></button>
-                    </div>
-                  )}
 
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
                     <div>
@@ -614,14 +622,22 @@ export default function Clientes() {
                           <input type="text" value={creds.cert_arquivo||''} readOnly placeholder="Nenhum arquivo selecionado..." style={{ ...inp, cursor:'default', background:'#f9f9f9', flex:1 }}/>
                           <label style={{ padding:'7px 14px', borderRadius:7, background:'#555', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', display:'inline-flex', alignItems:'center' }}>
                             Browse
-                            <input type="file" accept=".pfx,.p12" style={{ display:'none' }} onChange={e=>{
+                            <input type="file" accept=".pfx,.p12,.cer,.crt,.pem" style={{ display:'none' }} onChange={e=>{
                               if(!e.target.files[0]) return
                               const f2=e.target.files[0]
                               setC('cert_arquivo',f2.name)
-                              // Auto-detectar tipo pelo nome do arquivo
+                              setC('cert_senha_pendente',true)
                               const nome=f2.name.toLowerCase()
                               if(nome.includes('cpf')||nome.includes('ecpf')) setC('cert_tipo','e-CPF')
                               else if(nome.includes('cnpj')||nome.includes('ecnpj')) setC('cert_tipo','e-CNPJ')
+                              // Ler bytes para reconhecimento posterior
+                              const reader=new FileReader()
+                              reader.onload=ev=>{
+                                const bytes=new Uint8Array(ev.target.result)
+                                const b64=btoa(Array.from(bytes).map(b=>String.fromCharCode(b)).join(''))
+                                setC('cert_b64',b64)
+                              }
+                              reader.readAsArrayBuffer(f2)
                             }}/>
                           </label>
                         </div>
@@ -631,6 +647,22 @@ export default function Clientes() {
                       </CampoLabel>
                       <CampoLabel label="Senha do certificado">
                         <SenhaInput value={creds.cert_senha||''} onChange={e=>setC('cert_senha',e.target.value)}/>
+                        {creds.cert_b64 && creds.cert_senha && (
+                          <button onClick={async()=>{
+                            try {
+                              const r=await fetch(`${API}/clientes/certificado/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cert_base64:creds.cert_b64,senha:creds.cert_senha})})
+                              const info=await r.json()
+                              if(info.cnpj) setC('cert_cnpj_cpf',info.cnpj)
+                              if(info.titular) setC('cert_titular',info.titular)
+                              if(info.validade) setC('cert_validade',info.validade)
+                              if(info.tipo) setC('cert_tipo',info.tipo)
+                              if(info.emitente) setC('cert_emissora',info.emitente.substring(0,40))
+                              alert('✅ Certificado reconhecido!\nTitular: '+info.titular+'\nValidade: '+info.validade)
+                            } catch(e){ alert('Erro ao ler certificado: '+e.message) }
+                          }} style={{ marginTop:6,width:'100%',padding:'6px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer' }}>
+                            🔍 Reconhecer automaticamente
+                          </button>
+                        )}
                       </CampoLabel>
                     </div>
                     {/* Validade e emissora */}
@@ -772,6 +804,11 @@ export default function Clientes() {
                 </div>
               )}
 
+              {/* ABA DOCs */}
+              {abaForm==='docs' && (
+                <AbaDocumentos clienteId={editId} clienteNome={form.nome} API={API}/>
+              )}
+
               {/* Rodapé botões */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:14, marginTop:14, borderTop:'1px solid #f0f0f0' }}>
                 <button onClick={()=>{ const idx=ABA_TABS.findIndex(a=>a.id===abaForm); if(idx>0) setAbaForm(ABA_TABS[idx-1].id); else setAba('lista') }} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:'#f5f5f5', color:'#555', fontSize:13, border:'none', cursor:'pointer' }}>
@@ -808,7 +845,7 @@ export default function Clientes() {
             <Trash2 size={40} style={{ color:'#dc2626',marginBottom:12 }}/>
             <div style={{ fontSize:15,fontWeight:700,color:NAVY,marginBottom:8 }}>Excluir Cliente</div>
             <div style={{ fontSize:13,color:'#666',marginBottom:6 }}>Tem certeza? Esta ação não pode ser desfeita.</div>
-            <div style={{ fontSize:14,fontWeight:700,color:NAVY,marginBottom:16 }}>"{modalExcluir.nome}"</div>
+            <div style={{ fontSize:14,fontWeight:700,color:NAVY,marginBottom:16 }}>"{ modalExcluir.nome}"</div>
             <div style={{ display:'flex',gap:10,justifyContent:'center' }}>
               <button onClick={()=>setModalExcluir(null)} style={{ padding:'9px 20px',borderRadius:8,border:'1px solid #ddd',background:'#fff',cursor:'pointer',fontSize:13 }}>Cancelar</button>
               <button onClick={()=>excluirCliente(modalExcluir.id)} style={{ padding:'9px 22px',borderRadius:8,background:'#dc2626',color:'#fff',fontWeight:700,cursor:'pointer',fontSize:13,border:'none' }}>Excluir</button>
