@@ -53,7 +53,28 @@ export default function AnaliseRetencoes() {
   const clientes = getClientes()
   const sf = function(k,v) { setForm(function(f) { var n=Object.assign({},f); n[k]=v; return n }) }
 
-  const executar = async function() {
+  const handleArquivo = async function(e) {
+        const file = e.target.files&&e.target.files[0]; if(!file) return
+            setPreviewUrl(URL.createObjectURL(file)); setPreviewNome(file.name)
+                if(file.name.split('.').pop().toLowerCase()==='xml'){
+                      try{
+                              const txt=await file.text(); const parser=new DOMParser()
+                                      const xml=parser.parseFromString(txt,'text/xml')
+                                              const get=function(tag){const el=xml.getElementsByTagName(tag)[0];return el?el.textContent.trim():''}
+                                                      const nf=get('nNF')||get('nRPS')||''; const cnpj=get('CNPJ')||''
+                                                              const val=get('vServicos')||get('vNF')||get('vLiq')||''
+                                                                      const desc=get('xServ')||get('discriminacao')||''
+                                                                              const dt=(get('dhEmi')||get('dtEmissao')||'').split('T')[0]
+                                                                                      if(nf)sf('num',nf); if(cnpj)sf('cnpj',cnpj)
+                                                                                              if(val)sf('valor',val.replace(',','.')); if(desc)sf('descricao',desc)
+                                                                                                      if(dt)sf('emissao',dt); sf('municipio',get('xMunFG')||get('xMun')||'')
+                                                                                                              alert('NF-e processada! Verifique os campos.')
+                                                                                                                    }catch(err){console.error(err)}
+                                                                                                                        }
+                                                                                                                          }
+
+                                                                                                                          
+  }  const executar = async function() {
     if(!form.prestador||!form.valor||!form.descricao){alert('Preencha Prestador, Valor e Descricao.');return}
     setAnalisando(true); setResultado(null)
     try { setResultado(await analisarIA(form)) }
