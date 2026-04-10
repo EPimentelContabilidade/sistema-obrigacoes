@@ -20,3 +20,4 @@ from .whatsapp_evolution import router as whatsapp_evolution_router
 from .disparos import router as disparos_router
 from .automacao import router as automacao_router
 from .entrega_auto import router as entrega_auto_router
+from .drive_monitor import router as drive_monitor_router

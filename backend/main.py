@@ -12,14 +12,35 @@ from routers import (
     goiania_router, robo_obrig_router,
     consulta_fiscal_router, ecac_download_router,
     whatsapp_evolution_router, disparos_router, entrega_auto_router,
-    automacao_router,
+    automacao_router, drive_monitor_router,
 )
 from routers import retencoes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
         await init_db()
+        # ── Scheduler: varrer pasta ENTRADA do Drive a cada 10 minutos ─────────
+        try:
+            from apscheduler.schedulers.asyncio import AsyncIOScheduler
+            from routers.drive_monitor import varrer_pasta_entrada
+            from database import get_db as _get_db
+
+            scheduler = AsyncIOScheduler()
+
+            async def _varrer():
+                async for db in _get_db():
+                    await varrer_pasta_entrada(db)
+                    break
+
+            scheduler.add_job(_varrer, "interval", minutes=10, id="drive_monitor")
+            scheduler.start()
+            app.state.scheduler = scheduler
+        except Exception as e:
+            print(f"⚠️ Scheduler não iniciado: {e}")
         yield
+        # Shutdown
+        if hasattr(app.state, "scheduler"):
+            app.state.scheduler.shutdown(wait=False)
 
 app = FastAPI(title="EPimentel Sistema", lifespan=lifespan)
 
@@ -54,6 +75,7 @@ app.include_router(whatsapp_evolution_router, prefix="/api/v1")
 app.include_router(automacao_router,          prefix="/api/v1")
 app.include_router(disparos_router,           prefix="/api/v1")
 app.include_router(entrega_auto_router,       prefix="/api/v1")
+app.include_router(drive_monitor_router,      prefix="/api/v1")
 app.include_router(retencoes.router,       prefix="/api/v1")
 
 @app.get("/")
