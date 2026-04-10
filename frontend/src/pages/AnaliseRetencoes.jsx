@@ -74,7 +74,7 @@ export default function AnaliseRetencoes() {
                                                                                                                           }
 
                                                                                                                           
-  }  const executar = async function() {
+   const executar = async function() {
     if(!form.prestador||!form.valor||!form.descricao){alert('Preencha Prestador, Valor e Descricao.');return}
     setAnalisando(true); setResultado(null)
     try { setResultado(await analisarIA(form)) }
