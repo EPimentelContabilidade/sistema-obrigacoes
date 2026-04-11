@@ -29,6 +29,7 @@ import AnaliseRetencoes      from './pages/AnaliseRetencoes'
 import Processos             from './pages/Processos'
 import DisparoWhatsApp       from './pages/DisparoWhatsApp'
 import BoasVindas            from './pages/BoasVindas'
+import Comunicados           from './pages/Comunicados'
 import Obrigacoes            from './pages/Obrigacoes'
 
 const NAVY = '#1B2A4A'
@@ -61,6 +62,7 @@ const NAV_GROUPS = [
   { id:'comunicacao', label:'Comunicação', items:[
     { id:'conversas',   label:'WhatsApp',            icon:MessageSquare                          },
     { id:'disparo_wa',  label:'Disparo Automático',  icon:Send                                   },
+    { id:'comunicados', label:'Comunicados',          icon:MessageSquare, badge:'NOVO'            },
     { id:'comunicacao', label:'Comunicação Interna', icon:MessageSquare                          },
     { id:'boas_vindas', label:'Boas-vindas',          icon:Heart,     badge:'NOVO'                },
   ]},
@@ -79,7 +81,7 @@ const PAGES = {
   obrigacoes:Obrigacoes, notas:NotasFiscais, retencoes:AnaliseRetencoes,
   parcelamentos:Parcelamentos, financeiro:Financeiro, balanco:AnaliseBalanco,
   certificados:Certificados, certidoes:Certidoes, conversas:Conversas,
-  disparo_wa:DisparoWhatsApp, robo:Robo, comunicacao:ComunicacaoInterna,
+  disparo_wa:DisparoWhatsApp, robo:Robo, comunicacao:ComunicacaoInterna, comunicados:Comunicados,
   contratos:Contratos, goiania_nfse:GoianiaNFSe, relatorio:RelatorioFiscal,
   robo_obrig:RoboObrigacoes, configuracoes_tarefas:ConfiguracoesTarefas,
   admin:Admin, boas_vindas:BoasVindas,
