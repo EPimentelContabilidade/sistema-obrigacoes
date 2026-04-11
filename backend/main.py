@@ -12,7 +12,7 @@ from routers import (
     goiania_router, robo_obrig_router,
     consulta_fiscal_router, ecac_download_router,
     whatsapp_evolution_router, disparos_router, entrega_auto_router,
-    automacao_router, drive_monitor_router, whatsapp_bot_router,
+    automacao_router, drive_monitor_router, whatsapp_bot_router, agenda_mensal_router,
 )
 from routers import retencoes
 
@@ -33,6 +33,13 @@ async def lifespan(app: FastAPI):
                     break
 
             scheduler.add_job(_varrer, "interval", minutes=10, id="drive_monitor")
+            # Agenda mensal: 1º dia de cada mês às 08:00
+            from routers.agenda_mensal import disparar_agenda_mensal
+            async def _agenda_mensal():
+                async for db in _get_db():
+                    await disparar_agenda_mensal(db)
+                    break
+            scheduler.add_job(_agenda_mensal, "cron", day=1, hour=8, minute=0, id="agenda_mensal")
             scheduler.start()
             app.state.scheduler = scheduler
         except Exception as e:
@@ -77,6 +84,7 @@ app.include_router(disparos_router,           prefix="/api/v1")
 app.include_router(entrega_auto_router,       prefix="/api/v1")
 app.include_router(drive_monitor_router,      prefix="/api/v1")
 app.include_router(whatsapp_bot_router,        prefix="/api/v1")
+app.include_router(agenda_mensal_router,       prefix="/api/v1")
 app.include_router(retencoes.router,       prefix="/api/v1")
 
 @app.get("/")

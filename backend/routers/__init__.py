@@ -22,3 +22,4 @@ from .automacao import router as automacao_router
 from .entrega_auto import router as entrega_auto_router
 from .drive_monitor import router as drive_monitor_router
 from .whatsapp_bot import router as whatsapp_bot_router
+from .agenda_mensal import router as agenda_mensal_router
