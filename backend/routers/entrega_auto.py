@@ -465,7 +465,8 @@ async def buscar_docs(
     params = {}
     if cnpj:
         condicoes.append("cnpj LIKE :cnpj")
-        params["cnpj"] = f"%{re.sub(r'\\D','',cnpj)}%"
+        cnpj_num = re.sub(r'\D', '', cnpj)
+              params["cnpj"] = f"%{cnpj_num}%"
     if obrigacao:
         condicoes.append("obrigacao LIKE :obr")
         params["obr"] = f"%{obrigacao}%"
