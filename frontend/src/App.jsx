@@ -105,6 +105,11 @@ export default function App() {
   const [groups, setGroups]       = useState(() => Object.fromEntries(NAV_GROUPS.map(g=>[g.id,true])))
   const [busca, setBusca]         = useState('')
 
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [esqueciModal, setEsqueciModal]  = useState(false)
+  const [esqueciEmail, setEsqueciEmail]  = useState('')
+  const [esqueciMsg, setEsqueciMsg]      = useState('')
+
   useEffect(() => {
     document.documentElement.style.setProperty('--c-navy', tema.navy)
     document.documentElement.style.setProperty('--c-gold', tema.gold)
@@ -121,14 +126,59 @@ export default function App() {
 
   const login = async e => {
     e.preventDefault()
-    const demo = { nome:'Carlos Eduardo Pimentel', perfil:'Administrador' }
+    // Validação obrigatória dos campos
+    if (!loginForm.email.trim()) { setLoginErro('Informe o e-mail.'); return }
+    if (!loginForm.senha.trim()) { setLoginErro('Informe a senha.'); return }
+
+    setLoginLoading(true); setLoginErro('')
     try {
-      const r = await fetch('/api/v1/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(loginForm) })
-      const data = r.ok ? await r.json() : null
-      const user = data?.usuario || demo
-      setUsuario(user); localStorage.setItem('usuario', JSON.stringify(user))
-    } catch { setUsuario(demo); localStorage.setItem('usuario', JSON.stringify(demo)) }
-    setLoginErro('')
+      const r = await fetch('/api/v1/auth/login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(loginForm)
+      })
+      if (r.ok) {
+        const data = await r.json()
+        const user = data.usuario || { nome:'Administrador', perfil:'Administrador' }
+        setUsuario(user)
+        localStorage.setItem('usuario', JSON.stringify(user))
+        if (data.token) localStorage.setItem('authToken', data.token)
+      } else if (r.status === 401) {
+        setLoginErro('E-mail ou senha incorretos.')
+      } else if (r.status === 403) {
+        setLoginErro('Acesso bloqueado. Contate o administrador.')
+      } else {
+        // API offline — fallback demo apenas com credenciais corretas
+        if (loginForm.email === 'admin@epimentel.com.br' && loginForm.senha === 'admin123') {
+          const demo = { nome:'Carlos Eduardo Pimentel', perfil:'Administrador' }
+          setUsuario(demo); localStorage.setItem('usuario', JSON.stringify(demo))
+        } else {
+          setLoginErro('E-mail ou senha incorretos.')
+        }
+      }
+    } catch {
+      // Sem conexão com backend — aceita credenciais demo
+      if (loginForm.email === 'admin@epimentel.com.br' && loginForm.senha === 'admin123') {
+        const demo = { nome:'Carlos Eduardo Pimentel', perfil:'Administrador' }
+        setUsuario(demo); localStorage.setItem('usuario', JSON.stringify(demo))
+      } else {
+        setLoginErro('E-mail ou senha incorretos.')
+      }
+    }
+    setLoginLoading(false)
+  }
+
+  const enviarEsqueci = async () => {
+    if (!esqueciEmail.trim()) { setEsqueciMsg('Informe o e-mail cadastrado.'); return }
+    setEsqueciMsg('⏳ Enviando...')
+    try {
+      const r = await fetch('/api/v1/auth/recuperar-senha', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email: esqueciEmail })
+      })
+      setEsqueciMsg(r.ok ? '✅ E-mail enviado! Verifique sua caixa de entrada.' : '⚠️ E-mail não encontrado no sistema.')
+    } catch {
+      setEsqueciMsg('⚠️ Sistema temporariamente indisponível. Contate: ceampimentel@gmail.com')
+    }
   }
 
   const logout = () => { localStorage.removeItem('usuario'); localStorage.removeItem('authToken'); setUsuario(null); setPage('dashboard') }
@@ -142,6 +192,37 @@ export default function App() {
   if (!usuario) return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg, #0f1c30 0%, ${NAVY} 60%, #1a2f4a 100%)` }}>
       <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle at 20% 50%, rgba(197,165,90,.12) 0%, transparent 50%)' }}/>
+
+      {/* Modal Esqueci Minha Senha */}
+      {esqueciModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div style={{ background:'#fff', borderRadius:16, padding:28, width:'100%', maxWidth:340, boxShadow:'0 24px 64px rgba(0,0,0,.4)' }}>
+            <div style={{ fontSize:16, fontWeight:800, color:NAVY, marginBottom:6 }}>🔑 Recuperar Senha</div>
+            <div style={{ fontSize:12, color:'#888', marginBottom:18 }}>Informe o e-mail cadastrado e enviaremos as instruções.</div>
+            <label style={{ fontSize:10, fontWeight:700, color:'#aaa', display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:.8 }}>E-mail</label>
+            <input value={esqueciEmail} onChange={e=>setEsqueciEmail(e.target.value)}
+              placeholder="seu@email.com.br"
+              style={{ width:'100%', boxSizing:'border-box', border:'2px solid #f0f0f0', borderRadius:9, padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit', marginBottom:12 }}
+              onFocus={e=>e.target.style.borderColor=NAVY} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
+            {esqueciMsg && (
+              <div style={{ padding:'8px 12px', borderRadius:8, background: esqueciMsg.startsWith('✅')?'#EDFBF1':esqueciMsg.startsWith('⏳')?'#EBF5FF':'#FEF9C3', fontSize:12, marginBottom:12, color:'#333' }}>
+                {esqueciMsg}
+              </div>
+            )}
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={enviarEsqueci}
+                style={{ flex:1, padding:10, borderRadius:9, background:NAVY, color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>
+                Enviar
+              </button>
+              <button onClick={()=>{ setEsqueciModal(false); setEsqueciMsg(''); setEsqueciEmail('') }}
+                style={{ padding:'10px 16px', borderRadius:9, background:'#f5f5f5', color:'#555', fontSize:13, border:'none', cursor:'pointer' }}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ position:'relative', background:'#fff', borderRadius:20, boxShadow:'0 32px 80px rgba(0,0,0,.45)', padding:'44px 40px', width:'100%', maxWidth:380, boxSizing:'border-box' }}>
         <div style={{ textAlign:'center', marginBottom:32 }}>
           <div style={{ width:68, height:68, borderRadius:16, background:`linear-gradient(135deg, ${NAVY}, #2d4a7a)`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', boxShadow:`0 8px 24px ${NAVY}60` }}>
@@ -151,17 +232,35 @@ export default function App() {
           <div style={{ fontSize:11, color:'#bbb', marginTop:4, letterSpacing:1, textTransform:'uppercase' }}>Auditoria & Contabilidade</div>
         </div>
         <form onSubmit={login}>
-          {[['E-mail','text','email','admin@epimentel.com.br'],['Senha','password','senha','••••••••']].map(([l,t,k,p]) => (
-            <div key={k} style={{ marginBottom:16 }}>
-              <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#aaa', marginBottom:6, textTransform:'uppercase', letterSpacing:.8 }}>{l}</label>
-              <input type={t} value={loginForm[k]} onChange={e=>setLoginForm(f=>({...f,[k]:e.target.value}))} placeholder={p}
-                style={{ width:'100%', boxSizing:'border-box', border:'2px solid #f0f0f0', borderRadius:10, padding:'11px 14px', fontSize:13, outline:'none', fontFamily:'inherit' }}
-                onFocus={e=>e.target.style.borderColor=NAVY} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#aaa', marginBottom:6, textTransform:'uppercase', letterSpacing:.8 }}>E-mail</label>
+            <input type="text" value={loginForm.email} onChange={e=>setLoginForm(f=>({...f,email:e.target.value}))}
+              placeholder="admin@epimentel.com.br" autoComplete="email"
+              style={{ width:'100%', boxSizing:'border-box', border:'2px solid #f0f0f0', borderRadius:10, padding:'11px 14px', fontSize:13, outline:'none', fontFamily:'inherit' }}
+              onFocus={e=>e.target.style.borderColor=NAVY} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
+          </div>
+          <div style={{ marginBottom:6 }}>
+            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#aaa', marginBottom:6, textTransform:'uppercase', letterSpacing:.8 }}>Senha</label>
+            <input type="password" value={loginForm.senha} onChange={e=>setLoginForm(f=>({...f,senha:e.target.value}))}
+              placeholder="••••••••" autoComplete="current-password"
+              style={{ width:'100%', boxSizing:'border-box', border:'2px solid #f0f0f0', borderRadius:10, padding:'11px 14px', fontSize:13, outline:'none', fontFamily:'inherit' }}
+              onFocus={e=>e.target.style.borderColor=NAVY} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
+          </div>
+          {/* Link Esqueci minha senha */}
+          <div style={{ textAlign:'right', marginBottom:18 }}>
+            <button type="button" onClick={()=>{ setEsqueciModal(true); setEsqueciEmail(loginForm.email) }}
+              style={{ background:'none', border:'none', cursor:'pointer', color:NAVY, fontSize:11, fontWeight:600, textDecoration:'underline', padding:0 }}>
+              Esqueci minha senha
+            </button>
+          </div>
+          {loginErro && (
+            <div style={{ background:'#FEF2F2', border:'1px solid #fca5a5', borderRadius:8, padding:'9px 12px', fontSize:12, color:'#991B1B', marginBottom:14, fontWeight:600 }}>
+              ⚠️ {loginErro}
             </div>
-          ))}
-          {loginErro && <p style={{ color:'#e53e3e', fontSize:12, marginBottom:12 }}>{loginErro}</p>}
-          <button type="submit" style={{ width:'100%', padding:13, borderRadius:10, background:`linear-gradient(135deg, ${GOLD}, #d4a84b)`, color:NAVY, fontWeight:800, fontSize:14, border:'none', cursor:'pointer', boxShadow:`0 4px 16px ${GOLD}50`, marginTop:8 }}>
-            Entrar no Sistema
+          )}
+          <button type="submit" disabled={loginLoading}
+            style={{ width:'100%', padding:13, borderRadius:10, background: loginLoading ? '#d0a84b' : `linear-gradient(135deg, ${GOLD}, #d4a84b)`, color:NAVY, fontWeight:800, fontSize:14, border:'none', cursor: loginLoading ? 'wait' : 'pointer', boxShadow:`0 4px 16px ${GOLD}50` }}>
+            {loginLoading ? '⏳ Verificando...' : 'Entrar no Sistema'}
           </button>
         </form>
         <div style={{ textAlign:'center', marginTop:22, fontSize:10, color:'#ccc', borderTop:'1px solid #f5f5f5', paddingTop:18 }}>
