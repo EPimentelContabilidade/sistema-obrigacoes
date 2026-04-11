@@ -88,6 +88,13 @@ def pasta_organizada(cnpj: str, obrigacao: str, ano: str, mes: str) -> str:
 
 # ── Google Drive ──────────────────────────────────────────────────────────────
 
+def nome_pasta_cliente(nome_cliente: str, cnpj: str = "") -> str:
+    """Retorna nome legível da pasta: 'Nome Empresa Ltda' em vez do CNPJ."""
+    if nome_cliente:
+        nome = re.sub(r'[\\/:*?"<>|]', '', nome_cliente).strip()
+        return nome[:60] if nome else (re.sub(r"\D", "", cnpj) or "sem_cnpj")
+    return re.sub(r"\D", "", cnpj or "sem_cnpj")
+
 def drive_service():
     """Retorna cliente autenticado do Google Drive (service account)."""
     if not DRIVE_SA_JSON or not DRIVE_FOLDER_ID:
@@ -114,10 +121,11 @@ def criar_ou_buscar_pasta(service, nome: str, parent_id: str) -> str:
     pasta = service.files().create(body=meta, fields="id").execute()
     return pasta["id"]
 
-def salvar_no_drive(base64_pdf: str, nome_arquivo: str, cnpj: str, obrigacao: str, ano: str, mes: str) -> Optional[str]:
+def salvar_no_drive(base64_pdf: str, nome_arquivo: str, cnpj: str, obrigacao: str, ano: str, mes: str, nome_cliente: str = "") -> Optional[str]:
     """
     Salva PDF no Google Drive na estrutura:
-    EPimentel/[CNPJ]/[Obrigacao]/[Ano]/[Mes]/arquivo.pdf
+    EPimentel/[Nome Cliente]/[Obrigacao]/[Ano]/[Mes]/arquivo.pdf
+    Usa nome do cliente (mais legível que CNPJ).
     Retorna URL de visualização ou None se Drive não configurado.
     """
     service = drive_service()
@@ -125,8 +133,9 @@ def salvar_no_drive(base64_pdf: str, nome_arquivo: str, cnpj: str, obrigacao: st
         return None
     try:
         from googleapiclient.http import MediaIoBaseUpload
-        # Criar hierarquia de pastas
-        p_cnpj  = criar_ou_buscar_pasta(service, re.sub(r"\D","", cnpj or "sem_cnpj"), DRIVE_FOLDER_ID)
+        # Criar hierarquia de pastas usando NOME DO CLIENTE
+        pasta_cli = nome_pasta_cliente(nome_cliente, cnpj)
+        p_cnpj  = criar_ou_buscar_pasta(service, pasta_cli, DRIVE_FOLDER_ID)
         p_obr   = criar_ou_buscar_pasta(service, (obrigacao or "Geral")[:40], p_cnpj)
         p_ano   = criar_ou_buscar_pasta(service, ano or str(datetime.now().year), p_obr)
         mes_str = f"{mes:>02}-{mes_por_extenso(mes)}" if (mes or "").isdigit() else (mes or "")
@@ -364,7 +373,8 @@ async def processar_entrega_auto(
     try:
         drive_url = salvar_no_drive(
             payload.base64_pdf, payload.nome_arquivo,
-            cliente.cnpj or "", payload.obrigacao_nome, ano, mes
+            cliente.cnpj or "", payload.obrigacao_nome, ano, mes,
+            nome_cliente=cliente.nome or ""
         )
     except Exception as e:
         erros.append(f"Drive: {e}")

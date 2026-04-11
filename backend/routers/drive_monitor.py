@@ -243,7 +243,8 @@ async def processar_arquivo(svc, arquivo: dict, pasta_entrada_id: str,
     drive_url = None
     try:
         from routers.entrega_auto import salvar_no_drive
-        drive_url = salvar_no_drive(b64, nome, cliente.cnpj or "", obr, ano, mes)
+        drive_url = salvar_no_drive(b64, nome, cliente.cnpj or "", obr, ano, mes,
+                                     nome_cliente=cliente.nome or "")
     except Exception: pass
 
     # Salvar no SQLite
