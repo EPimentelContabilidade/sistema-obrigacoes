@@ -89,9 +89,10 @@ app.include_router(comunicados_router, contratos_router,         prefix="/api/v1
 app.include_router(retencoes.router,       prefix="/api/v1")
 
 @app.get("/")
-async def root():
+app.include_router(comunicados_router, prefix="/api/v1")
         return {"status": "ok", "sistema": "EPimentel"}
 
-@app.get("/health")
+app.include_router(comunicados_router, prefix="/api/v1")
+app.include_router(contratos_router,   prefix="/api/v1")
 async def health():
         return {"status": "healthy"}
