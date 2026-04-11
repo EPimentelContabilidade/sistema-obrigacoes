@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, X, Save, Bot, Trash2, Eye, RefreshCw, DollarSign, TrendingUp,
+import { Plus, X, Save, Bot, Trash2, Eye, RefreshCw, DollarSign, TrendingUp, Edit2,
          TrendingDown, AlertTriangle, CheckCircle, Clock, Building2, Users,
          BarChart2, Filter, Search, Download, CreditCard, Settings, Send,
          FileText, ChevronDown } from 'lucide-react'
@@ -44,36 +44,59 @@ function KPICard({titulo,valor,cor,bg,icon:Icon,sub}){
   )
 }
 
-function ContaRow({item,tipo,onPagar,onExcluir,onAlerta}){
+function ContaRow({item,tipo,onPagar,onExcluir,onAlerta,onEditar,onCancelar,onArquivo}){
   const coresStatus=tipo==='pagar'?COR_STATUS_PAGAR:COR_STATUS_RECEBER
   const cor=coresStatus[item.status]||'#888'
   const urgente=item.status==='vencido'||(item.dias_vencimento!==null&&item.dias_vencimento<=3)
+  const pago=item.status==='pago'||item.status==='recebido'
+  const cancelado=item.status==='cancelado'
+  const fileRef = useRef ? null : null
+
   return(
-    <div style={{background:'#fff',borderRadius:10,border:`1px solid ${urgente?'#fca5a5':'#e8e8e8'}`,padding:'12px 16px',marginBottom:8,display:'flex',gap:12,alignItems:'flex-start'}}>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
-          <span style={{fontSize:13,fontWeight:700,color:NAVY}}>{item.descricao}</span>
-          <Badge texto={item.status.charAt(0).toUpperCase()+item.status.slice(1)} cor={cor}/>
-          {item.categoria&&<Badge texto={item.categoria} cor='#6B7280'/>}
-          {item.alerta_ia&&<Badge texto='🤖 IA' cor='#6B3EC9'/>}
-          {item.dias_vencimento!==null&&item.dias_vencimento<=3&&item.status!=='vencido'&&item.status!=='pago'&&item.status!=='recebido'&&(
-            <Badge texto={`⏰ ${item.dias_vencimento}d`} cor='#854D0E'/>
-          )}
+    <div style={{background:'#fff',borderRadius:10,border:`1px solid ${urgente?'#fca5a5':pago?'#86efac':cancelado?'#e0e0e0':'#e8e8e8'}`,padding:'12px 16px',marginBottom:8}}>
+      <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:5,flexWrap:'wrap'}}>
+            <span style={{fontSize:13,fontWeight:700,color:cancelado?'#aaa':NAVY,textDecoration:cancelado?'line-through':'none'}}>{item.descricao}</span>
+            <Badge texto={item.status.charAt(0).toUpperCase()+item.status.slice(1)} cor={cor}/>
+            {item.categoria&&<Badge texto={item.categoria} cor='#6B7280'/>}
+            {item.alerta_ia&&<Badge texto='🤖 IA' cor='#6B3EC9'/>}
+            {item.comprovante_b64&&<Badge texto='📎 Comprovante' cor='#1D6FA4'/>}
+            {item.dias_vencimento!==null&&item.dias_vencimento<=3&&!pago&&!cancelado&&(
+              <Badge texto={`⏰ ${item.dias_vencimento}d`} cor='#854D0E'/>
+            )}
+          </div>
+          <div style={{fontSize:11,color:'#888',display:'flex',gap:12,flexWrap:'wrap',marginBottom:6}}>
+            {(item.fornecedor_nome||item.cliente_nome)&&<span>👤 {item.fornecedor_nome||item.cliente_nome}</span>}
+            <span>📅 Vence: <strong style={{color:item.status==='vencido'?'#dc2626':'#333'}}>{item.data_vencimento||'—'}</strong></span>
+            {pago&&<span style={{color:'#1A7A3C'}}>✅ {tipo==='pagar'?'Pago':'Recebido'} em {item.data_pagamento||item.data_recebimento||'—'}</span>}
+            {item.numero_documento&&<span>📄 {item.numero_documento}</span>}
+            {item.forma_pagamento&&<span>💳 {item.forma_pagamento}</span>}
+            {item.total_parcelas>1&&<span>📊 Parcela {item.parcela_atual}/{item.total_parcelas}</span>}
+          </div>
+          {item.alerta_ia&&<div style={{padding:'6px 10px',borderRadius:7,background:'#F3EEFF',fontSize:11,color:'#6B3EC9',lineHeight:1.5,marginBottom:4}}>{item.alerta_ia.slice(0,150)}{item.alerta_ia.length>150?'…':''}</div>}
+          {item.observacoes&&<div style={{fontSize:11,color:'#888',fontStyle:'italic'}}>{item.observacoes}</div>}
         </div>
-        <div style={{fontSize:11,color:'#888',display:'flex',gap:12,flexWrap:'wrap',marginBottom:6}}>
-          {(item.fornecedor_nome||item.cliente_nome)&&<span>👤 {item.fornecedor_nome||item.cliente_nome}</span>}
-          <span>📅 Vence: <strong style={{color:item.status==='vencido'?'#dc2626':'#333'}}>{item.data_vencimento||'—'}</strong></span>
-          {item.numero_documento&&<span>📄 {item.numero_documento}</span>}
-        </div>
-        {item.alerta_ia&&<div style={{padding:'6px 10px',borderRadius:7,background:'#F3EEFF',fontSize:11,color:'#6B3EC9',lineHeight:1.5}}>{item.alerta_ia.slice(0,150)}{item.alerta_ia.length>150?'…':''}</div>}
-      </div>
-      <div style={{flexShrink:0,textAlign:'right'}}>
-        <div style={{fontSize:16,fontWeight:800,color:tipo==='pagar'?'#dc2626':'#1A7A3C'}}>{fmtBRL(item.valor)}</div>
-        {item.total_parcelas>1&&<div style={{fontSize:10,color:'#aaa'}}>{item.parcela_atual}/{item.total_parcelas}x</div>}
-        <div style={{display:'flex',gap:5,marginTop:8,justifyContent:'flex-end'}}>
-          <button onClick={()=>onAlerta(item.id)} title="Alerta IA" style={{padding:'5px 8px',borderRadius:6,background:'#F3EEFF',border:'none',cursor:'pointer',color:'#6B3EC9'}}><Bot size={12}/></button>
-          {item.status!=='pago'&&item.status!=='recebido'&&<button onClick={()=>onPagar(item)} title={tipo==='pagar'?'Pagar':'Receber'} style={{padding:'5px 8px',borderRadius:6,background:'#EDFBF1',border:'none',cursor:'pointer',color:'#1A7A3C'}}><CheckCircle size={12}/></button>}
-          <button onClick={()=>onExcluir(item.id)} title="Excluir" style={{padding:'5px 8px',borderRadius:6,background:'#FEF2F2',border:'none',cursor:'pointer',color:'#dc2626'}}><Trash2 size={12}/></button>
+        <div style={{flexShrink:0,textAlign:'right'}}>
+          <div style={{fontSize:16,fontWeight:800,color:cancelado?'#aaa':tipo==='pagar'?'#dc2626':'#1A7A3C'}}>{fmtBRL(item.valor)}</div>
+          {pago&&(item.valor_pago||item.valor_recebido)&&<div style={{fontSize:11,color:'#1A7A3C',fontWeight:700}}>{fmtBRL(item.valor_pago||item.valor_recebido)} pago</div>}
+          {/* Botões de ação */}
+          <div style={{display:'flex',gap:4,marginTop:8,justifyContent:'flex-end',flexWrap:'wrap'}}>
+            {/* Editar */}
+            <button onClick={()=>onEditar(item)} title="Editar" style={{padding:'5px 8px',borderRadius:6,background:'#EBF5FF',border:'none',cursor:'pointer',color:'#1D6FA4'}}><Edit2 size={11}/></button>
+            {/* Alerta IA */}
+            <button onClick={()=>onAlerta(item.id)} title="Alerta IA" style={{padding:'5px 8px',borderRadius:6,background:'#F3EEFF',border:'none',cursor:'pointer',color:'#6B3EC9'}}><Bot size={11}/></button>
+            {/* Quitar/Receber */}
+            {!pago&&!cancelado&&<button onClick={()=>onPagar(item)} title={tipo==='pagar'?'Quitar':'Confirmar Recebimento'} style={{padding:'5px 10px',borderRadius:6,background:'#EDFBF1',border:'none',cursor:'pointer',color:'#1A7A3C',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',gap:4}}>
+              <CheckCircle size={11}/>{tipo==='pagar'?'Quitar':'Receber'}
+            </button>}
+            {/* Cancelar */}
+            {!cancelado&&!pago&&<button onClick={()=>onCancelar(item.id)} title="Cancelar" style={{padding:'5px 8px',borderRadius:6,background:'#FEF9C3',border:'none',cursor:'pointer',color:'#854D0E'}}><X size={11}/></button>}
+            {/* Arquivo/Comprovante */}
+            <button onClick={()=>onArquivo(item)} title="Anexar comprovante" style={{padding:'5px 8px',borderRadius:6,background:'#f5f5f5',border:'none',cursor:'pointer',color:'#555'}}><FileText size={11}/></button>
+            {/* Excluir */}
+            <button onClick={()=>onExcluir(item.id)} title="Excluir" style={{padding:'5px 8px',borderRadius:6,background:'#FEF2F2',border:'none',cursor:'pointer',color:'#dc2626'}}><Trash2 size={11}/></button>
+          </div>
         </div>
       </div>
     </div>
@@ -102,6 +125,9 @@ export default function Financeiro(){
   const [filtroMes,setFiltroMes]=useState(new Date().getMonth()+1)
   const [filtroAno,setFiltroAno]=useState(new Date().getFullYear())
   const [pagamentoModal,setPagamentoModal]=useState(null)
+  const [editModal,setEditModal]=useState(null)       // item sendo editado
+  const [arquivoModal,setArquivoModal]=useState(null) // item para anexar arquivo
+  const [editForm,setEditForm]=useState({})
   const [pagForm,setPagForm]=useState({valor_pago:0,data_pagamento:'',forma_pagamento:'PIX',banco_id:''})
   const [inadimplencia,setInadimplencia]=useState({a_pagar:[],a_receber:[]})
   const [catRelatorio,setCatRelatorio]=useState([])
@@ -192,7 +218,43 @@ export default function Financeiro(){
     setSucesso('🤖 Alerta IA gerado!');setTimeout(()=>setSucesso(''),3000);await carregarDados()
   }
 
-  const registrarPagamento=async()=>{
+  const cancelarConta=async(id,tipo)=>{
+    if(!confirm('Cancelar esta conta?'))return
+    await fetch(`${API}/financeiro/${tipo}/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'cancelado'})})
+    setSucesso('❌ Conta cancelada');await carregarDados();setTimeout(()=>setSucesso(''),2000)
+  }
+
+  const editarConta=async(tipo)=>{
+    if(!editModal)return
+    setEnviando(true)
+    try{
+      const endpoint=tipo==='pagar'?'contas-pagar':'contas-receber'
+      const r=await fetch(`${API}/financeiro/${endpoint}/${editModal.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(editForm)})
+      if(r.ok){setSucesso('✅ Atualizado!');setEditModal(null);await carregarDados();setTimeout(()=>setSucesso(''),1500)}
+    }catch{}finally{setEnviando(false)}
+  }
+
+  const salvarArquivo=async(tipo)=>{
+    if(!arquivoModal||!arquivoModal._b64)return
+    const endpoint=tipo==='pagar'?'contas-pagar':'contas-receber'
+    await fetch(`${API}/financeiro/${endpoint}/${arquivoModal.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({comprovante_b64:arquivoModal._b64})})
+    setSucesso('📎 Arquivo anexado!');setArquivoModal(null);await carregarDados();setTimeout(()=>setSucesso(''),2000)
+  }
+
+  const lerArquivo=(file,item)=>{
+    const reader=new FileReader()
+    reader.onload=e=>setArquivoModal({...item,_b64:e.target.result.split(',')[1]||'',_nome:file.name})
+    reader.readAsDataURL(file)
+  }
+
+  const abrirEditar=(item,tipo)=>{
+    setEditModal({...item,_tipo:tipo})
+    setEditForm({descricao:item.descricao,valor:item.valor,data_vencimento:item.data_vencimento,
+      categoria:item.categoria,observacoes:item.observacoes,email_aviso:item.email_aviso,whatsapp_aviso:item.whatsapp_aviso})
+  }
+
+    const registrarPagamento=async()=>{
     if(!pagamentoModal||!pagForm.valor_pago){alert('Informe o valor');return}
     setEnviando(true)
     try{
@@ -374,6 +436,9 @@ export default function Financeiro(){
             onPagar={x=>{ setPagamentoModal({...x,tipo:['pagar','pagas'].includes(aba)?'pagar':'receber'}); setPagForm({valor_pago:x.valor,data_pagamento:'',forma_pagamento:x.forma_pagamento||'PIX',banco_id:''}) }}
             onExcluir={id=>excluir(id,['pagar','pagas'].includes(aba)?'contas-pagar':'contas-receber')}
             onAlerta={id=>gerarAlerta(id,['pagar','pagas'].includes(aba)?'pagar':'receber')}
+            onEditar={x=>abrirEditar(x,['pagar','pagas'].includes(aba)?'pagar':'receber')}
+            onCancelar={id=>cancelarConta(id,['pagar','pagas'].includes(aba)?'contas-pagar':'contas-receber')}
+            onArquivo={x=>setArquivoModal(x)}
           />
         ))}
         {(aba==='pagar'?pagarPendentes:aba==='receber'?receberPendentes:aba==='pagas'?pagas:recebidas).length===0&&(
@@ -699,6 +764,55 @@ export default function Financeiro(){
           <div style={{padding:'0 22px 22px',display:'flex',gap:8,justifyContent:'flex-end'}}>
             <button onClick={()=>setModal(null)} style={{padding:'9px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',fontSize:12,fontWeight:700,border:'none',cursor:'pointer'}}>Cancelar</button>
             <button onClick={salvarCentro} style={{padding:'9px 18px',borderRadius:8,background:NAVY,color:'#fff',fontSize:12,fontWeight:800,border:'none',cursor:'pointer'}}><Save size={13} style={{display:'inline',marginRight:6}}/>Salvar</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* ── MODAL EDITAR CONTA ─────────────────────────────────────── */}
+      {editModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:520,boxShadow:'0 24px 64px rgba(0,0,0,.3)'}}>
+          <div style={{padding:'16px 22px',background:editModal._tipo==='pagar'?NAVY:'#1A7A3C',borderRadius:'16px 16px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{color:'#fff',fontWeight:800}}>✏️ Editar — {editModal.descricao?.slice(0,30)}</div>
+            <button onClick={()=>setEditModal(null)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.7)'}}><X size={18}/></button>
+          </div>
+          <div style={{padding:22,display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div style={{gridColumn:'1/-1'}}><label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>Descrição</label><input value={editForm.descricao||''} onChange={e=>setEditForm(f=>({...f,descricao:e.target.value}))} style={inp}/></div>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>Valor (R$)</label><input type="number" step="0.01" value={editForm.valor||''} onChange={e=>setEditForm(f=>({...f,valor:e.target.value}))} style={inp}/></div>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>Vencimento</label><input value={editForm.data_vencimento||''} onChange={e=>setEditForm(f=>({...f,data_vencimento:e.target.value}))} placeholder="dd/mm/aaaa" style={inp}/></div>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>E-mail Alerta</label><input value={editForm.email_aviso||''} onChange={e=>setEditForm(f=>({...f,email_aviso:e.target.value}))} style={inp}/></div>
+            <div><label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>WhatsApp Alerta</label><input value={editForm.whatsapp_aviso||''} onChange={e=>setEditForm(f=>({...f,whatsapp_aviso:e.target.value}))} style={inp}/></div>
+            <div style={{gridColumn:'1/-1'}}><label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>Observações</label><textarea value={editForm.observacoes||''} onChange={e=>setEditForm(f=>({...f,observacoes:e.target.value}))} rows={2} style={{...inp,resize:'vertical'}}/></div>
+          </div>
+          <div style={{padding:'0 22px 22px',display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={()=>setEditModal(null)} style={{padding:'9px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',fontSize:12,fontWeight:700,border:'none',cursor:'pointer'}}>Cancelar</button>
+            <button onClick={()=>editarConta(editModal._tipo)} disabled={enviando} style={{padding:'9px 18px',borderRadius:8,background:enviando?'#aaa':NAVY,color:'#fff',fontSize:12,fontWeight:800,border:'none',cursor:'pointer'}}><Save size={13} style={{display:'inline',marginRight:6}}/>{enviando?'Salvando...':'Salvar'}</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* ── MODAL ANEXAR ARQUIVO ─────────────────────────────────────── */}
+      {arquivoModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+        <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:460,boxShadow:'0 24px 64px rgba(0,0,0,.3)'}}>
+          <div style={{padding:'16px 22px',background:NAVY,borderRadius:'16px 16px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{color:'#fff',fontWeight:800}}>📎 Anexar Comprovante</div>
+            <button onClick={()=>setArquivoModal(null)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.7)'}}><X size={18}/></button>
+          </div>
+          <div style={{padding:22}}>
+            <div style={{padding:'10px 14px',borderRadius:8,background:'#f8f9fb',fontSize:12,color:'#333',marginBottom:16}}>
+              <strong>{arquivoModal.descricao}</strong><br/>
+              <span style={{color:'#888'}}>Valor: {fmtBRL(arquivoModal.valor)} · Vence: {arquivoModal.data_vencimento}</span>
+            </div>
+            <label style={{display:'block',border:'2px dashed #e0e0e0',borderRadius:10,padding:'24px',textAlign:'center',cursor:'pointer',marginBottom:12}}>
+              <FileText size={28} style={{color:'#aaa',marginBottom:8,display:'block',margin:'0 auto 8px'}}/>
+              <div style={{fontSize:13,color:'#555',fontWeight:600}}>Clique para selecionar arquivo</div>
+              <div style={{fontSize:11,color:'#aaa'}}>PDF, imagem, XML (máx. 5MB)</div>
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png,.xml" style={{display:'none'}} onChange={e=>e.target.files[0]&&lerArquivo(e.target.files[0],arquivoModal)}/>
+            </label>
+            {arquivoModal._nome&&<div style={{padding:'8px 12px',borderRadius:8,background:'#EDFBF1',fontSize:12,color:'#166534',fontWeight:700}}>📎 {arquivoModal._nome} — pronto para salvar</div>}
+          </div>
+          <div style={{padding:'0 22px 22px',display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={()=>setArquivoModal(null)} style={{padding:'9px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',fontSize:12,fontWeight:700,border:'none',cursor:'pointer'}}>Cancelar</button>
+            <button onClick={()=>salvarArquivo(arquivoModal._tipo||'pagar')} disabled={!arquivoModal._b64} style={{padding:'9px 18px',borderRadius:8,background:arquivoModal._b64?NAVY:'#aaa',color:'#fff',fontSize:12,fontWeight:800,border:'none',cursor:'pointer'}}>Salvar Arquivo</button>
           </div>
         </div>
       </div>}

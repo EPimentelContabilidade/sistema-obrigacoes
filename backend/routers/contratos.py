@@ -271,3 +271,181 @@ async def resumo(db: AsyncSession=Depends(get_db)):
 @router.get("/tipos")
 async def listar_tipos():
     return {"tipos":TIPOS_CONTRATO,"status":STATUS_CONTRATO,"templates":[{"id":k} for k in TEMPLATES_WA]}
+
+# ── API de Assinatura Digital ─────────────────────────────────────────────────
+# Suporta: Autentique (GraphQL), ZapSign (REST)
+AUTENTIQUE_TOKEN = os.getenv("AUTENTIQUE_TOKEN", "")
+ZAPSIGN_TOKEN    = os.getenv("ZAPSIGN_TOKEN", "")
+CLICKSIGN_KEY    = os.getenv("CLICKSIGN_KEY", "")
+ZAPSIGN_SANDBOX  = os.getenv("ZAPSIGN_SANDBOX", "true").lower() == "true"
+
+class AssinaturaRequest(BaseModel):
+    contrato_id: int
+    provider: str = "autentique"  # autentique | zapsign | clicksign
+    documento_b64: str = ""  # PDF base64 — se vazio usa arquivo do contrato
+    signatarios: List[dict] = []  # [{nome, email, telefone, acao}]
+    mensagem: str = ""
+    enviar_por_email: bool = True
+    enviar_por_whatsapp: bool = False
+
+async def assinar_autentique(contrato: dict, doc_b64: str, signatarios: List[dict], mensagem: str) -> dict:
+    """Envia contrato para assinatura via Autentique (GraphQL)."""
+    if not AUTENTIQUE_TOKEN: return {"erro": "AUTENTIQUE_TOKEN não configurado"}
+    nome_doc = f"Contrato {contrato.get('tipo','')} — {contrato.get('cliente_nome','')}"
+    # Build signatários GraphQL
+    sign_gql = "\n".join([
+        f'{{ action: {{name: "{s.get("acao","SIGN")}"}}, email: "{s.get("email","")}", name: "{s.get("nome","")}" }}'
+        for s in signatarios
+    ])
+    query = f"""
+    mutation CreateDocument {{
+        createDocument(
+            document: {{
+                name: "{nome_doc}"
+                message: "{mensagem or 'Por favor, assine o documento.'}"
+            }}
+            signatories: [{sign_gql}]
+            file: {{ content_base64: "{doc_b64[:50]}..." }}
+        ) {{
+            id name created_at
+            signatories {{ public_id email name token
+                action {{ name }} signed {{ created_at }}
+            }}
+        }}
+    }}"""
+    try:
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post("https://api.autentique.com.br/v2/graphql",
+                headers={"Authorization": f"Bearer {AUTENTIQUE_TOKEN}", "Content-Type": "application/json"},
+                json={"query": query})
+            data = r.json()
+            if "errors" in data: return {"erro": str(data["errors"])}
+            doc = data.get("data",{}).get("createDocument",{})
+            return {"provider": "autentique", "documento_id": doc.get("id",""),
+                    "nome": doc.get("name",""), "signatarios": doc.get("signatories",[]),
+                    "url": f"https://app.autentique.com.br/dashboard/documentos/{doc.get('id','')}"}
+    except Exception as e:
+        return {"erro": str(e)}
+
+async def assinar_zapsign(contrato: dict, doc_b64: str, signatarios: List[dict], mensagem: str, por_wa: bool) -> dict:
+    """Envia contrato para assinatura via ZapSign (pode enviar por WhatsApp)."""
+    if not ZAPSIGN_TOKEN: return {"erro": "ZAPSIGN_TOKEN não configurado"}
+    base_url = "https://sandbox.api.zapsign.com.br/api/v1" if ZAPSIGN_SANDBOX else "https://api.zapsign.com.br/api/v1"
+    nome_doc = f"Contrato {contrato.get('tipo','')} — {contrato.get('cliente_nome','')}"
+    signers = []
+    for s in signatarios:
+        signer = {"name": s.get("nome",""), "email": s.get("email",""), "sign_as": "signer"}
+        if por_wa and s.get("telefone"): signer["phone_country"] = "55"; signer["phone_number"] = re.sub(r"\D","",s.get("telefone",""))[-11:]
+        signers.append(signer)
+    payload = {"name": nome_doc, "lang": "pt-br", "signers": signers, "brand_logo": "",
+               "brand_name": "EPimentel Auditoria", "brand_primary_color": "#1B2A4A",
+               "external_id": str(contrato.get("id","")),
+               "send_automatic_email": True, "send_automatic_whatsapp": por_wa}
+    if doc_b64:
+        payload["base64_pdf"] = doc_b64
+    try:
+        async with httpx.AsyncClient(timeout=30) as c:
+            r = await c.post(f"{base_url}/docs/", headers={"Authorization": f"Bearer {ZAPSIGN_TOKEN}", "Content-Type": "application/json"}, json=payload)
+            data = r.json()
+            if r.status_code >= 400: return {"erro": data.get("detail", str(data))}
+            return {"provider": "zapsign", "documento_id": data.get("token",""), "nome": data.get("name",""),
+                    "status": data.get("status",""), "url": data.get("request_signature_link",""),
+                    "signatarios": data.get("signers",[])}
+    except Exception as e:
+        return {"erro": str(e)}
+
+@router.post("/assinar")
+async def enviar_para_assinatura(req: AssinaturaRequest, db: AsyncSession = Depends(get_db)):
+    """Envia contrato para assinatura digital via Autentique ou ZapSign."""
+    await init_tables(db)
+    r = await db.execute(text("SELECT * FROM contratos WHERE id=:id"), {"id": req.contrato_id})
+    cont = r.mappings().fetchone()
+    if not cont: raise HTTPException(404, "Contrato não encontrado")
+    cont = dict(cont)
+
+    doc_b64 = req.documento_b64 or cont.get("arquivo_b64", "")
+
+    # Signatários padrão se não fornecidos
+    signatarios = req.signatarios or [
+        {"nome": "Carlos Eduardo Pimentel", "email": "ceampimentel@gmail.com", "acao": "SIGN", "telefone": ""},
+        {"nome": cont.get("cliente_nome",""), "email": cont.get("email_contato",""), "acao": "SIGN", "telefone": cont.get("whatsapp_contato","")},
+    ]
+    signatarios = [s for s in signatarios if s.get("email")]
+
+    if req.provider == "zapsign":
+        resultado = await assinar_zapsign(cont, doc_b64, signatarios, req.mensagem, req.enviar_por_whatsapp)
+    else:  # autentique (padrão)
+        resultado = await assinar_autentique(cont, doc_b64, signatarios, req.mensagem)
+
+    if "erro" not in resultado:
+        await db.execute(text("""
+            UPDATE contratos SET status='aguardando', assinado=0,
+            atualizado_em=datetime('now','localtime')
+            WHERE id=:id
+        """), {"id": req.contrato_id})
+        await db.execute(text("""
+            INSERT INTO contratos_ocorrencias (contrato_id, tipo, descricao, data)
+            VALUES (:cid, 'assinatura_enviada', :desc, date('now'))
+        """), {"cid": req.contrato_id,
+               "desc": f"Enviado para assinatura via {req.provider} · Doc ID: {resultado.get('documento_id','')}"})
+        await db.commit()
+
+    return resultado
+
+@router.get("/status-assinatura/{doc_id}")
+async def status_assinatura(doc_id: str, provider: str = "autentique"):
+    """Verifica o status de assinatura de um documento."""
+    if provider == "zapsign":
+        if not ZAPSIGN_TOKEN: raise HTTPException(400, "ZAPSIGN_TOKEN não configurado")
+        base_url = "https://sandbox.api.zapsign.com.br/api/v1" if ZAPSIGN_SANDBOX else "https://api.zapsign.com.br/api/v1"
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.get(f"{base_url}/docs/{doc_id}/", headers={"Authorization": f"Bearer {ZAPSIGN_TOKEN}"})
+                data = r.json()
+                return {"provider": "zapsign", "status": data.get("status",""), "nome": data.get("name",""),
+                        "signatarios": data.get("signers",[]), "created_at": data.get("created_at","")}
+        except Exception as e: raise HTTPException(500, str(e))
+    else:  # autentique
+        if not AUTENTIQUE_TOKEN: raise HTTPException(400, "AUTENTIQUE_TOKEN não configurado")
+        query = f'query {{ document(id: "{doc_id}") {{ id name status created_at signatories {{ email name signed {{ created_at }} }} }} }}'
+        try:
+            async with httpx.AsyncClient(timeout=15) as c:
+                r = await c.post("https://api.autentique.com.br/v2/graphql",
+                    headers={"Authorization": f"Bearer {AUTENTIQUE_TOKEN}", "Content-Type": "application/json"},
+                    json={"query": query})
+                data = r.json().get("data",{}).get("document",{})
+                return {"provider": "autentique", **data}
+        except Exception as e: raise HTTPException(500, str(e))
+
+@router.post("/webhook-assinatura")
+async def webhook_assinatura(request: Request, db: AsyncSession = Depends(get_db)):
+    """Recebe eventos de assinatura do Autentique/ZapSign."""
+    from fastapi import Request
+    body = await request.json()
+    await init_tables(db)
+    # ZapSign webhook
+    token = body.get("token") or body.get("doc_token","")
+    status = body.get("status","")
+    external_id = body.get("external_id","")
+    if external_id and status == "signed":
+        await db.execute(text("UPDATE contratos SET assinado=1, status='ativo', atualizado_em=datetime('now','localtime') WHERE id=:id"),{"id": int(external_id)})
+        await db.execute(text("INSERT INTO contratos_ocorrencias (contrato_id,tipo,descricao,data) VALUES (:cid,'assinatura_concluida','Contrato assinado por todas as partes',date('now'))"),{"cid": int(external_id)})
+        await db.commit()
+    return {"ok": True}
+
+@router.get("/providers-assinatura")
+async def listar_providers():
+    """Lista providers de assinatura disponíveis e configurados."""
+    return {
+        "providers": [
+            {"id": "autentique", "nome": "Autentique", "url": "https://autentique.com.br",
+             "configurado": bool(AUTENTIQUE_TOKEN), "variaveis": ["AUTENTIQUE_TOKEN"],
+             "descricao": "Plataforma brasileira · Envio por e-mail · GraphQL API · Jurídico válido (ICP-Brasil)"},
+            {"id": "zapsign", "nome": "ZapSign", "url": "https://zapsign.com.br",
+             "configurado": bool(ZAPSIGN_TOKEN), "variaveis": ["ZAPSIGN_TOKEN", "ZAPSIGN_SANDBOX"],
+             "descricao": "Plataforma brasileira · Envio por WhatsApp e e-mail · REST API · ICP-Brasil"},
+        ],
+        "configurados": [p["id"] for p in [
+            {"id":"autentique","ok":bool(AUTENTIQUE_TOKEN)},{"id":"zapsign","ok":bool(ZAPSIGN_TOKEN)}
+        ] if p["ok"]]
+    }

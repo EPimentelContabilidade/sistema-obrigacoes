@@ -33,6 +33,10 @@ export default function Contratos(){
   const [buscaCli,setBuscaCli]=useState('')
   const [templateId,setTemplateId]=useState('boas_vindas')
   const [aditivo,setAditivo]=useState({descricao:'',valor_novo:0,motivo:''})
+  const [assModal,setAssModal]=useState(null)
+  const [assForm,setAssForm]=useState({provider:'autentique',enviar_por_whatsapp:false,mensagem:'',signatarios:[]})
+  const [assResultado,setAssResultado]=useState(null)
+  const [providers,setProviders]=useState({providers:[],configurados:[]})
 
   useEffect(()=>{
     try{setClientes(JSON.parse(localStorage.getItem('ep_clientes')||'[]'))}catch{}
@@ -90,6 +94,19 @@ export default function Contratos(){
   const atualizarStatus=async(id,status)=>{
     await fetch(`${API}/contratos/atualizar/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})})
     await carregarDados()
+  }
+
+  const enviarAssinatura=async()=>{
+    if(!assModal)return
+    setEnviando(true);setAssResultado(null)
+    try{
+      const r=await fetch(`${API}/contratos/assinar`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contrato_id:assModal.id,...assForm})})
+      const d=await r.json()
+      if(d.erro){setAssResultado({erro:true,msg:d.erro})}
+      else{setAssResultado({ok:true,url:d.url,doc_id:d.documento_id,provider:d.provider,msg:'✅ Enviado para assinatura!'})}
+      await carregarDados()
+    }catch(e){setAssResultado({erro:true,msg:e.message})}finally{setEnviando(false)}
   }
 
   const salvarAditivo=async(contId)=>{
@@ -178,7 +195,8 @@ export default function Contratos(){
             </div>
 
             <div style={{display:'flex',gap:8}}>
-              <button onClick={()=>gerarAlerta(detalhe.id)} style={{flex:1,padding:'9px',borderRadius:8,background:'#F3EEFF',color:'#6B3EC9',fontWeight:700,fontSize:12,border:'1px solid #c4b5fd',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Bot size={13}/> Gerar Alerta IA</button>
+              <button onClick={()=>{setAssModal(detalhe);setAssResultado(null);setAssForm({provider:providers.configurados[0]||'autentique',enviar_por_whatsapp:false,mensagem:'Por favor, assine o contrato.',signatarios:[{nome:detalhe.cliente_nome,email:detalhe.email_contato,telefone:detalhe.whatsapp_contato}]})}} style={{flex:1,padding:'9px',borderRadius:8,background:'#EBF5FF',color:'#1D6FA4',fontWeight:700,fontSize:12,border:'1px solid #93c5fd',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>✍️ Assinar Digitalmente</button>
+              <button onClick={()=>gerarAlerta(detalhe.id)} style={{padding:'9px',borderRadius:8,background:'#F3EEFF',color:'#6B3EC9',fontWeight:700,fontSize:12,border:'1px solid #c4b5fd',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><Bot size={13}/></button>
               <button onClick={()=>excluir(detalhe.id)} style={{padding:'9px 14px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',fontWeight:700,fontSize:12,border:'1px solid #fca5a5',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}><Trash2 size={13}/> Excluir</button>
             </div>
           </div>
@@ -272,6 +290,7 @@ export default function Contratos(){
                   {cont.vigencia_meses&&<div style={{fontSize:10,color:'#aaa'}}>{cont.vigencia_meses} meses</div>}
                   <div style={{display:'flex',gap:5,marginTop:8,justifyContent:'flex-end'}}>
                     <button onClick={()=>setDetalhe(cont)} title="Detalhes" style={{padding:'5px 8px',borderRadius:6,background:'#f5f5f5',border:'none',cursor:'pointer',color:NAVY}}><Eye size={12}/></button>
+                    <button onClick={()=>{setAssModal(cont);setAssResultado(null);setAssForm({provider:providers.configurados[0]||'autentique',enviar_por_whatsapp:false,mensagem:'',signatarios:[{nome:cont.cliente_nome,email:cont.email_contato,telefone:cont.whatsapp_contato}]})}} title='Assinar digitalmente' style={{padding:'5px 8px',borderRadius:6,background:'#EBF5FF',border:'none',cursor:'pointer',color:'#1D6FA4'}}>✍️</button>
                     <button onClick={()=>gerarAlerta(cont.id)} title="Alerta IA" style={{padding:'5px 8px',borderRadius:6,background:'#F3EEFF',border:'none',cursor:'pointer',color:'#6B3EC9'}}><Bot size={12}/></button>
                     <button onClick={()=>excluir(cont.id)} title="Excluir" style={{padding:'5px 8px',borderRadius:6,background:'#FEF2F2',border:'none',cursor:'pointer',color:'#dc2626'}}><Trash2 size={12}/></button>
                   </div>
@@ -280,6 +299,62 @@ export default function Contratos(){
             </div>
           )
         })}
+      </div>}
+
+      {/* ── MODAL ASSINATURA DIGITAL ──────────────────────────────── */}
+      {assModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:400,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'20px 16px',overflowY:'auto'}}>
+        <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:580,boxShadow:'0 24px 64px rgba(0,0,0,.3)',marginBottom:40}}>
+          <div style={{padding:'16px 22px',background:'#1D6FA4',borderRadius:'16px 16px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div style={{color:'#fff',fontWeight:800}}>✍️ Assinatura Digital — {assModal.tipo}</div>
+            <button onClick={()=>setAssModal(null)} style={{background:'none',border:'none',cursor:'pointer',color:'rgba(255,255,255,.7)'}}><X size={18}/></button>
+          </div>
+          <div style={{padding:22}}>
+            {/* Status dos providers */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+              {(providers.providers||[]).map(p=>(
+                <div key={p.id} onClick={()=>setAssForm(f=>({...f,provider:p.id}))}
+                  style={{padding:'12px 14px',borderRadius:10,border:`2px solid ${assForm.provider===p.id?'#1D6FA4':'#e0e0e0'}`,background:assForm.provider===p.id?'#EBF5FF':'#fff',cursor:p.configurado?'pointer':'not-allowed',opacity:p.configurado?1:0.5}}>
+                  <div style={{fontWeight:700,color:'#1B2A4A',fontSize:13}}>{p.nome}{p.configurado&&' ✅'}</div>
+                  <div style={{fontSize:10,color:'#888',marginTop:4,lineHeight:1.4}}>{p.descricao}</div>
+                  {!p.configurado&&<div style={{fontSize:9,color:'#dc2626',marginTop:4}}>Configurar: {p.variaveis.join(', ')}</div>}
+                </div>
+              ))}
+            </div>
+            {assResultado&&<div style={{padding:'10px 14px',borderRadius:8,background:assResultado.erro?'#FEF2F2':'#EDFBF1',border:`1px solid ${assResultado.erro?'#fca5a5':'#86efac'}`,color:assResultado.erro?'#991B1B':'#166534',fontSize:12,fontWeight:700,marginBottom:14}}>
+              {assResultado.msg}{assResultado.url&&<><br/><a href={assResultado.url} target="_blank" rel="noreferrer" style={{color:'#1D6FA4'}}>🔗 Ver documento no {assResultado.provider}</a></>}
+            </div>}
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:.7}}>Signatários</label>
+              {(assForm.signatarios||[]).map((s,i)=>(
+                <div key={i} style={{display:'grid',gridTemplateColumns:'2fr 2fr 1fr auto',gap:6,marginBottom:6}}>
+                  <input value={s.nome||''} onChange={e=>{const sl=[...assForm.signatarios];sl[i]={...sl[i],nome:e.target.value};setAssForm(f=>({...f,signatarios:sl}))}} placeholder="Nome" style={{...inp}}/>
+                  <input value={s.email||''} onChange={e=>{const sl=[...assForm.signatarios];sl[i]={...sl[i],email:e.target.value};setAssForm(f=>({...f,signatarios:sl}))}} placeholder="E-mail" style={{...inp}}/>
+                  <input value={s.telefone||''} onChange={e=>{const sl=[...assForm.signatarios];sl[i]={...sl[i],telefone:e.target.value};setAssForm(f=>({...f,signatarios:sl}))}} placeholder="Telefone" style={{...inp}}/>
+                  <button onClick={()=>setAssForm(f=>({...f,signatarios:f.signatarios.filter((_,j)=>j!==i)}))} style={{padding:'8px',borderRadius:7,background:'#FEF2F2',border:'none',cursor:'pointer',color:'#dc2626'}}><X size={12}/></button>
+                </div>
+              ))}
+              <button onClick={()=>setAssForm(f=>({...f,signatarios:[...(f.signatarios||[]),{nome:'',email:'',telefone:''}]}))} style={{padding:'6px 12px',borderRadius:7,background:'#f5f5f5',border:'1px dashed #e0e0e0',cursor:'pointer',fontSize:11,color:'#555'}}>+ Adicionar signatário</button>
+            </div>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:10,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Mensagem</label>
+              <textarea value={assForm.mensagem||''} onChange={e=>setAssForm(f=>({...f,mensagem:e.target.value}))} rows={2} placeholder="Mensagem aos signatários..." style={{...inp,resize:'vertical'}}/>
+            </div>
+            <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:16}}>
+              <input type="checkbox" checked={!!assForm.enviar_por_whatsapp} onChange={e=>setAssForm(f=>({...f,enviar_por_whatsapp:e.target.checked}))}/>
+              <span style={{fontSize:12,color:'#555'}}>💬 Enviar link de assinatura também pelo WhatsApp (ZapSign)</span>
+            </label>
+            <div style={{padding:'10px 14px',borderRadius:8,background:'#EBF5FF',fontSize:11,color:'#1D6FA4',lineHeight:1.6}}>
+              📋 <strong>Como funciona:</strong> O documento será enviado para os signatários via e-mail{assForm.enviar_por_whatsapp?' e WhatsApp':''}. 
+              Cada um receberá um link para assinar eletronicamente. Após todas as assinaturas, o contrato é marcado como <strong>Ativo</strong> automaticamente via webhook.
+            </div>
+          </div>
+          <div style={{padding:'0 22px 22px',display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={()=>setAssModal(null)} style={{padding:'9px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',fontSize:12,fontWeight:700,border:'none',cursor:'pointer'}}>Fechar</button>
+            <button onClick={enviarAssinatura} disabled={enviando||!providers.configurados?.length} style={{padding:'9px 18px',borderRadius:8,background:enviando||!providers.configurados?.length?'#aaa':'#1D6FA4',color:'#fff',fontSize:12,fontWeight:800,border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              ✍️ {enviando?'Enviando...':'Enviar para Assinatura'}
+            </button>
+          </div>
+        </div>
       </div>}
 
       {/* MODAL NOVO CONTRATO */}
