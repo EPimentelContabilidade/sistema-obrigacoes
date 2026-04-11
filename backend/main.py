@@ -85,9 +85,7 @@ app.include_router(entrega_auto_router,       prefix="/api/v1")
 app.include_router(drive_monitor_router,      prefix="/api/v1")
 app.include_router(whatsapp_bot_router,        prefix="/api/v1")
 app.include_router(agenda_mensal_router,       prefix="/api/v1")
-app.include_router(comunicados_router, contratos_router,         prefix="/api/v1")
-app.include_router(retencoes.router,       prefix="/api/v1")
-
+app.include_router(comunicados_router, prefix="/api/v1")
 @app.get("/")
 app.include_router(comunicados_router, prefix="/api/v1")
         return {"status": "ok", "sistema": "EPimentel"}
