@@ -4,7 +4,7 @@ import {
   CreditCard, DollarSign, BarChart2, Award, MessageSquare,
   Bot, CheckSquare, LogOut, Menu, Bell,
   ScrollText, Smartphone, BarChart, Repeat, Briefcase,
-  Settings, ChevronDown, ChevronRight, Search, Heart, X
+  Settings, ChevronDown, ChevronRight, Search, Heart, X, Sparkles
 } from 'lucide-react'
 
 import Dashboard             from './pages/Dashboard'
@@ -31,6 +31,8 @@ import DisparoWhatsApp       from './pages/DisparoWhatsApp'
 import BoasVindas            from './pages/BoasVindas'
 import Comunicados           from './pages/Comunicados'
 import Obrigacoes            from './pages/Obrigacoes'
+import Alvaras              from './pages/Alvaras'
+import EPInteligencia       from './pages/EPInteligencia'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -58,6 +60,7 @@ const NAV_GROUPS = [
   { id:'documentos', label:'Documentos & Legal', items:[
     { id:'certidoes',    label:'Certidões',            icon:Award  },
     { id:'certificados', label:'Certificados Digitais',icon:Shield },
+    { id:'alvaras',      label:'Alvarás e Licenças',   icon:Award  },
   ]},
   { id:'comunicacao', label:'Comunicação', items:[
     { id:'conversas',   label:'WhatsApp',            icon:MessageSquare                          },
@@ -67,8 +70,9 @@ const NAV_GROUPS = [
     { id:'boas_vindas', label:'Boas-vindas',          icon:Heart,     badge:'NOVO'                },
   ]},
   { id:'automacao', label:'Automação & IA', items:[
-    { id:'robo_obrig', label:'Robô de Obrigações', icon:Repeat },
-    { id:'robo',       label:'Robô IA',            icon:Bot    },
+    { id:'robo_obrig',      label:'Robô de Obrigações', icon:Repeat   },
+    { id:'robo',            label:'Robô IA',            icon:Bot      },
+    { id:'ep_inteligencia', label:'EP Inteligência',    icon:Sparkles },
   ]},
   { id:'config', label:'Configurações', items:[
     { id:'configuracoes_tarefas', label:'Config. Tarefas', icon:Settings },
@@ -84,7 +88,7 @@ const PAGES = {
   disparo_wa:DisparoWhatsApp, robo:Robo, comunicacao:ComunicacaoInterna, comunicados:Comunicados,
   contratos:Contratos, goiania_nfse:GoianiaNFSe, relatorio:RelatorioFiscal,
   robo_obrig:RoboObrigacoes, configuracoes_tarefas:ConfiguracoesTarefas,
-  admin:Admin, boas_vindas:BoasVindas,
+  admin:Admin, boas_vindas:BoasVindas, alvaras:Alvaras, ep_inteligencia:EPInteligencia,
 }
 
 const allItems = () => NAV_GROUPS.flatMap(g => g.items)
