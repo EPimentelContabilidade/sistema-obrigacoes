@@ -371,6 +371,19 @@ async def webhook_evolution(request: Request, background: BackgroundTasks):
                     "cliente_nome": push_name,
                 })
 
+                # ── Acionar bot de autoatendimento (somente mensagens de texto) ──
+                if conteudo and not conteudo.startswith("[") and remote and not "@g.us" in key.get("remoteJid",""):
+                    async def _bot(tel=remote, txt=conteudo):
+                        try:
+                            from routers.whatsapp_bot import processar_mensagem
+                            from database import get_db as _gdb
+                            async for db in _gdb():
+                                await processar_mensagem(tel, txt, db)
+                                break
+                        except Exception:
+                            pass
+                    background.add_task(_bot)
+
         elif evento == "messages.update":
             updates = dados if isinstance(dados, list) else [dados]
             for upd in updates:
