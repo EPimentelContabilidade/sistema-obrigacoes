@@ -45,12 +45,12 @@ const NAV_GROUPS = [
     { id:'processos', label:'Processos',           icon:Briefcase       },
   ]},
   { id:'fiscal', label:'Fiscal & Contábil', items:[
-    { id:'obrigacoes',    label:'Obrigações',        icon:FileText   },
-    { id:'notas',         label:'Notas Fiscais',     icon:Receipt    },
-    { id:'retencoes',     label:'Retenções',          icon:BarChart2  },
-    { id:'balanco',       label:'Análise Balanço',   icon:BarChart   },
-    { id:'relatorio',     label:'Relatório Fiscal',  icon:FileText   },
-    { id:'goiania_nfse',  label:'Goiânia NFS-e',     icon:Smartphone },
+  { id:'notas',         label:'Notas Fiscais',     icon:Receipt    },
+  { id:'retencoes',     label:'Retenções',         icon:BarChart2  },
+  { id:'balanco',       label:'Análise Balanço',   icon:BarChart   },
+  { id:'relatorio',     label:'Relatório Fiscal',  icon:FileText   },
+  { id:'goiania_nfse',  label:'Goiânia NFS-e',     icon:Smartphone },
+]},
   ]},
   { id:'financeiro', label:'Financeiro', items:[
     { id:'financeiro',    label:'Financeiro',   icon:DollarSign },
