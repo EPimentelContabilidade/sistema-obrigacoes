@@ -86,11 +86,13 @@ app.include_router(drive_monitor_router,      prefix="/api/v1")
 app.include_router(whatsapp_bot_router,        prefix="/api/v1")
 app.include_router(agenda_mensal_router,       prefix="/api/v1")
 app.include_router(comunicados_router, prefix="/api/v1")
+app.include_router(contratos_router,   prefix="/api/v1")
+app.include_router(retencoes.router,   prefix="/api/v1")
+
 @app.get("/")
-app.include_router(comunicados_router, prefix="/api/v1")
+async def root():
         return {"status": "ok", "sistema": "EPimentel"}
 
-app.include_router(comunicados_router, prefix="/api/v1")
-app.include_router(contratos_router,   prefix="/api/v1")
+@app.get("/health")
 async def health():
         return {"status": "healthy"}
