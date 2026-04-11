@@ -25,3 +25,5 @@ from .whatsapp_bot import router as whatsapp_bot_router
 from .agenda_mensal import router as agenda_mensal_router
 
 from .comunicados import router as comunicados_router
+
+from .contratos import router as contratos_router
