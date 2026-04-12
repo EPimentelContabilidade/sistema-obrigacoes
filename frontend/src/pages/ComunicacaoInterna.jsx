@@ -107,7 +107,7 @@ export default function ComunicacaoInterna() {
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 220px', gap: 16, height: 'calc(100vh - 200px)', minHeight: 500 }}>
         {/* Grupos */}
         <div style={{ background: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,.08)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9', fontWeight: 600, color: '#1B2A4A', fontSize: 13, background: '#1B2A4A', color: '#C5A55A' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: 13, background: '#1B2A4A', color: '#C5A55A' }}>
             💬 Grupos
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
