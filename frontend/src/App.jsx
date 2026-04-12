@@ -51,7 +51,6 @@ const NAV_GROUPS = [
   { id:'relatorio',     label:'Relatório Fiscal',  icon:FileText   },
   { id:'goiania_nfse',  label:'Goiânia NFS-e',     icon:Smartphone },
 ]},
-  ]},
   { id:'financeiro', label:'Financeiro', items:[
     { id:'financeiro',    label:'Financeiro',   icon:DollarSign },
     { id:'parcelamentos', label:'Parcelamentos',icon:CreditCard },
