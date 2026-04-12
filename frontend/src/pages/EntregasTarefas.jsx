@@ -397,7 +397,6 @@ export default function EntregasTarefas() {
  const corB = pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
 
         return (
-          return (
     <div style={{display:'flex',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif'}}>
           <div style={{position:'relative'}}>
             <Search size={11} style={{position:'absolute',left:7,top:7,color:'#bbb'}}/>
