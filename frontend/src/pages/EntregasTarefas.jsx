@@ -398,6 +398,10 @@ export default function EntregasTarefas() {
 
         return (
     <div style={{display:'flex',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif'}}>
+            {/* Sidebar */}
+                  <div style={{width:210,background:'#fff',borderRight:'1px solid #e8e8e8',display:'flex',flexDirection:'column',flexShrink:0}}>
+                          <div style={{padding:'10px 12px 8px',borderBottom:'1px solid #f0f0f0'}}>
+                                    <div style={{fontSize:12,fontWeight:700,color:NAVY,marginBottom:6}}>Clientes</div>
           <div style={{position:'relative'}}>
             <Search size={11} style={{position:'absolute',left:7,top:7,color:'#bbb'}}/>
             <input value={buscaCli} onChange={e=>setBuscaCli(e.target.value)} placeholder="Buscar..." style={{...inp,width:'100%',padding:'5px 8px 5px 22px'}}/>
