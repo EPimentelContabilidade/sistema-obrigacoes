@@ -397,7 +397,8 @@ export default function EntregasTarefas() {
  const corB = pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
 
         return (
-          <div style={{fontSize:12,fontWeight:700,color:NAVY,marginBottom:6}}>Clientes</div>
+          return (
+    <div style={{display:'flex',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif'}}>
           <div style={{position:'relative'}}>
             <Search size={11} style={{position:'absolute',left:7,top:7,color:'#bbb'}}/>
             <input value={buscaCli} onChange={e=>setBuscaCli(e.target.value)} placeholder="Buscar..." style={{...inp,width:'100%',padding:'5px 8px 5px 22px'}}/>
