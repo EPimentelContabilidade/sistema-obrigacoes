@@ -394,15 +394,9 @@ export default function EntregasTarefas() {
   const ent = filtradas.filter(t => t.status === 'entregue').length
   const tot = filtradas.length
   const pct = tot > 0 ? Math.round((ent / tot) * 100) : 0
-  const corB = pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'length
-  const ent=tarefas.filter(t=>t.status==='entregue').length
-  const tot=tarefas.length
-  const pct=tot>0?Math.round((ent/tot)*100):0
-  const corB=pct===100?'#22c55e':pct>=50?'#f59e0b':'#ef4444'
-
+ const corB = pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
   return (
     <div style={{display:'flex',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif'}}>
-
       {/* Sidebar */}
       <div style={{width:210,background:'#fff',borderRight:'1px solid #e8e8e8',display:'flex',flexDirection:'column',flexShrink:0}}>
         <div style={{padding:'10px 12px 8px',borderBottom:'1px solid #f0f0f0'}}>
