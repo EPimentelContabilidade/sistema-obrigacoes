@@ -395,11 +395,8 @@ export default function EntregasTarefas() {
   const tot = filtradas.length
   const pct = tot > 0 ? Math.round((ent / tot) * 100) : 0
  const corB = pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
-  return (
-    <div style={{display:'flex',height:'calc(100vh - 44px)',fontFamily:'Inter, system-ui, sans-serif'}}>
-      {/* Sidebar */}
-      <div style={{width:210,background:'#fff',borderRight:'1px solid #e8e8e8',display:'flex',flexDirection:'column',flexShrink:0}}>
-        <div style={{padding:'10px 12px 8px',borderBottom:'1px solid #f0f0f0'}}>
+
+        return (
           <div style={{fontSize:12,fontWeight:700,color:NAVY,marginBottom:6}}>Clientes</div>
           <div style={{position:'relative'}}>
             <Search size={11} style={{position:'absolute',left:7,top:7,color:'#bbb'}}/>
