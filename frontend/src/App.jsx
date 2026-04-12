@@ -19,7 +19,6 @@ import Conversas             from './pages/Conversas'
 import Robo                  from './pages/Robo'
 import Admin                 from './pages/Admin'
 import EntregasTarefas       from './pages/EntregasTarefas'
-import ComunicacaoInterna    from './pages/ComunicacaoInterna'
 import Contratos             from './pages/Contratos'
 import GoianiaNFSe           from './pages/GoianiaNFSe'
 import RelatorioFiscal       from './pages/RelatorioFiscal'
@@ -65,7 +64,6 @@ const NAV_GROUPS = [
     { id:'conversas',   label:'WhatsApp',            icon:MessageSquare                          },
     { id:'disparo_wa',  label:'Disparo Automático',  icon:Send                                   },
     { id:'comunicados', label:'Comunicados',          icon:MessageSquare, badge:'NOVO'            },
-    { id:'comunicacao', label:'Comunicação Interna', icon:MessageSquare                          },
     { id:'boas_vindas', label:'Boas-vindas',          icon:Heart,     badge:'NOVO'                },
   ]},
   { id:'automacao', label:'Automação & IA', items:[
@@ -84,7 +82,7 @@ const PAGES = {
   obrigacoes:Obrigacoes, notas:NotasFiscais, retencoes:AnaliseRetencoes,
   parcelamentos:Parcelamentos, financeiro:Financeiro, balanco:AnaliseBalanco,
   certificados:Certificados, certidoes:Certidoes, conversas:Conversas,
-  disparo_wa:DisparoWhatsApp, robo:Robo, comunicacao:ComunicacaoInterna, comunicados:Comunicados,
+  disparo_wa:DisparoWhatsApp, robo:Robo, comunicados:Comunicados,
   contratos:Contratos, goiania_nfse:GoianiaNFSe, relatorio:RelatorioFiscal,
   robo_obrig:RoboObrigacoes, configuracoes_tarefas:ConfiguracoesTarefas,
   admin:Admin, boas_vindas:BoasVindas, alvaras:Alvaras, ep_inteligencia:EPInteligencia,
