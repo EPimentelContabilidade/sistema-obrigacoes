@@ -527,7 +527,8 @@ function TabProcessos({ templates }) {
     setBuscaCliente(""); setMostrarBuscaCliente(false); setModal(true);
   };
 
-  const salvarProcesso = () => {
+    const excluirProcesso = (id, e) => { e.stopPropagation(); if(!window.confirm('Excluir este processo?')) return; const l=processos.filter(p=>p.id!==id); salvarProcessos(l); if(selecionado?.id===id) setSelecionado(null); };
+    const salvarProcesso = () => {
     if(!form.titulo||!form.cliente) return;
     const tpl = templates.find(t=>t.id===form.template);
     const etapas = form.etapas.length ? form.etapas
@@ -685,6 +686,7 @@ function TabProcessos({ templates }) {
               <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
                 <span style={{ fontWeight:700,color:NAVY,fontSize:13 }}>{p.titulo}</span>
                 <Badge cor={STATUS_CORES[p.status]||"#999"} texto={p.status} />
+                                  <button onClick={(e)=>excluirProcesso(p.id,e)} style={{background:"none",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:5,padding:"1px 6px",cursor:"pointer",fontSize:11,marginLeft:4}}>✕</button>
               </div>
               <div style={{ fontSize:12,color:"#666",marginBottom:5 }}>
                 👤 {p.cliente}{p.categoria?` · ${p.categoria}`:""}

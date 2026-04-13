@@ -229,8 +229,9 @@ export default function EntregasTarefas() {
 
       // 1. Buscar tarefas geradas via catálogo (principal)
       const todas = JSON.parse(localStorage.getItem('ep_tarefas_entregas') || '[]')
+            const excluidas = JSON.parse(localStorage.getItem('ep_tarefas_excluidas') || '[]')
       const tarefasGeradas = todas
-        .filter(t => (empresasFiltro.length===0 || empresasFiltro.includes(t.cliente_id)) && String(t.cliente_id) === String(cli?.id) && t.competencia === mesComp)
+        .filter(t => (empresasFiltro.length===0 || empresasFiltro.includes(t.cliente_id)) && String(t.cliente_id) === String(cli?.id) && t.competencia === mesComp && !excluidas.includes(String(t.id)))
         .map(t => ({
           id: t.id,
           _origem: 'catalogo',
@@ -328,7 +329,7 @@ export default function EntregasTarefas() {
   }
 
   const salvarRen  = () => { setTarefas(p=>p.map(x=>x.id===mRenomear.id?{...x,nome:novoNome}:x)); setMRenomear(null) }
-  const excluir    = (id) => { setTarefas(p=>p.filter(x=>x.id!==id)); setVinc(v=>v.filter(x=>x!==id)); setMExcluir(null) }
+    const excluir = (id) => { setTarefas(p=>p.filter(x=>x.id!==id)); setVinc(v=>v.filter(x=>x!==id)); setMExcluir(null); try { const t=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]'); localStorage.setItem('ep_tarefas_entregas',JSON.stringify(t.filter(x=>String(x.id)!==String(id)))); const ex=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]'); if(!ex.includes(String(id))){ex.push(String(id));localStorage.setItem('ep_tarefas_excluidas',JSON.stringify(ex))} } catch {} }
   const addAnexo   = (arq) => {
     if(!arq||!mAnexo) return
     setTarefas(p=>p.map(x=>x.id===mAnexo.id?{...x,anexos:[...(x.anexos||[]),{nome:arq.name,tamanho:(arq.size/1024).toFixed(0)+' KB',data:new Date().toLocaleDateString('pt-BR')}]}:x))

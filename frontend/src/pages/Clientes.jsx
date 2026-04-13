@@ -245,7 +245,7 @@ export default function Clientes() {
   }
 
   const salvar = async () => {
-    const novoCliente = { ...form, id:editId||Date.now(), ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:form.credenciais||{...CREDS_VAZIO}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
+        const novoCliente = { ...form, id:editId||(()=>{const c=parseInt(localStorage.getItem('ep_cliente_counter')||'0')+1;localStorage.setItem('ep_cliente_counter',String(c));return 'EP-'+String(c).padStart(4,'0')})(), ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:form.credenciais||{...CREDS_VAZIO}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
     let novaLista = []
     setClientes(p=>{ novaLista=editId?p.map(x=>x.id===editId?novoCliente:x):[...p,novoCliente]; localStorage.setItem('ep_clientes',JSON.stringify(novaLista)); return novaLista })
     setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setAba('lista')

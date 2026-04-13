@@ -249,6 +249,9 @@ export default function Comunicados() {
           <button onClick={()=>setAba(aba==='novo'?'lista':'novo')} style={btn(NAVY)}>
             <Plus size={14}/> Novo Comunicado
           </button>
+                      <button onClick={()=>setAba(aba==='usuarios'?'lista':'usuarios')} style={{...btn(aba==='usuarios'?NAVY:'#f0f4ff',aba==='usuarios'?GOLD:NAVY),border:'1px solid #c7d2fe'}}>
+                                      <Users size={14}/> Equipe
+                                                  </button>
           <button onClick={()=>setAba(aba==='config_smtp'?'lista':'config_smtp')} style={{ ...btn('#f5f5f5','#555'), padding:'9px 12px' }}>
             <Settings size={14}/>
           </button>
@@ -270,6 +273,39 @@ export default function Comunicados() {
         ))}
       </div>
 
+            {/* Aba Equipe/Usuários */}
+                  {aba === 'usuarios' && (
+                          <div style={{background:'#fff',borderRadius:14,border:'1px solid #e8e8e8',padding:24,marginBottom:20}}>
+                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+                                                <div style={{fontSize:15,fontWeight:800,color:NAVY}}>👥 Equipe EPimentel</div>
+                                                            <button onClick={()=>setAba('lista')} style={btn('#f5f5f5','#555')}>✕ Fechar</button>
+                                                                      </div>
+                                                                                {[
+                                                                                            {n:'Eduardo Pimentel',l:'admin@epimentel.com.br',p:'Administrador',d:'Diretoria',c:'#C5A55A'},
+                                                                                                        {n:'Gleidson Tavares',l:'gleidson@epimentel.com.br',p:'Fiscal',d:'Fiscal',c:'#3b82f6'},
+                                                                                                                    {n:'Luciene Alves',l:'luciene@epimentel.com.br',p:'Pessoal',d:'Pessoal',c:'#f59e0b'},
+                                                                                                                                {n:'Yasmin Larissa',l:'yasmin@epimentel.com.br',p:'Contábil',d:'Contábil',c:'#22c55e'},
+                                                                                                                                            {n:'Carlos Eduardo',l:'carlos@epimentel.com.br',p:'Contábil',d:'Contábil',c:'#a855f7'},
+                                                                                                                                                      ].map((u,i)=>(
+                                                                                                                                                                  <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid #f0f0f0'}}>
+                                                                                                                                                                                <div style={{width:40,height:40,borderRadius:10,background:u.c,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,flexShrink:0}}>
+                                                                                                                                                                                                {u.n.split(' ').map(x=>x[0]).slice(0,2).join('')}
+                                                                                                                                                                                                              </div>
+                                                                                                                                                                                                                            <div style={{flex:1}}>
+                                                                                                                                                                                                                                            <div style={{fontWeight:700,color:NAVY,fontSize:13}}>{u.n}</div>
+                                                                                                                                                                                                                                                            <div style={{fontSize:11,color:'#888',marginTop:2}}>{u.l}</div>
+                                                                                                                                                                                                                                                                          </div>
+                                                                                                                                                                                                                                                                                        <div style={{display:'flex',gap:6}}>
+                                                                                                                                                                                                                                                                                                        <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6,background:u.c+'22',color:u.c}}>{u.p}</span>
+                                                                                                                                                                                                                                                                                                                        <span style={{fontSize:10,fontWeight:600,padding:'2px 8px',borderRadius:6,background:'#f1f5f9',color:'#475569'}}>{u.d}</span>
+                                                                                                                                                                                                                                                                                                                                      </div>
+                                                                                                                                                                                                                                                                                                                                                  </div>
+                                                                                                                                                                                                                                                                                                                                                            ))}
+                                                                                                                                                                                                                                                                                                                                                                      <div style={{marginTop:12,padding:12,background:'#f8f9fb',borderRadius:8,fontSize:11,color:'#888'}}>
+                                                                                                                                                                                                                                                                                                                                                                                  💡 Para gerenciar acessos e permissões, acesse <b>Admin → Usuários</b>.
+                                                                                                                                                                                                                                                                                                                                                                                            </div>
+                                                                                                                                                                                                                                                                                                                                                                                                    </div>
+                                                                                                                                                                                                                                                                                                                                                                                                          )}
       {/* Config SMTP */}
       {aba === 'config_smtp' && (
         <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8e8e8', padding:24, marginBottom:20 }}>
