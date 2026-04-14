@@ -62,9 +62,28 @@ export default function Comunicados() {
   const [detalhe, setDetalhe]     = useState(null)
   const [resposta, setResposta]   = useState('')
 
+  // Usuários do painel admin
+  const [usuariosAdmin, setUsuariosAdmin] = useState([])
+  // IA de atrasos
+  const [iaAtrasos, setIaAtrasos]   = useState('')
+  const [iaCarregando, setIaCarregando] = useState(false)
+  // Alerta de menção de responsável
+  const [alertaResponsavel, setAlertaResponsavel] = useState('')
+
+  const carregarUsuariosAdmin = () => {
+    try {
+      const raw = localStorage.getItem('epimentel_usuarios')
+      if (raw) {
+        const lista = JSON.parse(raw).filter(u => u.ativo !== false)
+        setUsuariosAdmin(lista)
+      }
+    } catch {}
+  }
+
   useEffect(() => {
     carregarComunicados()
     try { setClientes(JSON.parse(localStorage.getItem('ep_clientes') || '[]')) } catch {}
+    carregarUsuariosAdmin()
     fetch(`${API}/comunicados/config-smtp`).then(r=>r.json()).then(d=>setSmtp(s=>({...s,...d}))).catch(()=>{})
   }, [])
 
@@ -83,6 +102,42 @@ export default function Comunicados() {
   useEffect(() => { carregarComunicados() }, [filtroUrg, filtroDept, filtroStatus])
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // Ao selecionar responsável: alerta + prepara notificação
+  const onResponsavelChange = (nome) => {
+    setF('responsavel', nome)
+    if (nome) {
+      const u = usuariosAdmin.find(u => u.nome === nome)
+      if (u) {
+        setAlertaResponsavel(`📣 ${u.nome} será notificado por e-mail: ${u.email}`)
+        setTimeout(() => setAlertaResponsavel(''), 4000)
+      }
+    }
+  }
+
+  // IA verifica atrasos
+  const verificarAtrasos = async () => {
+    setIaCarregando(true); setIaAtrasos('')
+    const pendentes = comunicados.filter(c => c.status === 'pendente')
+    const hoje = new Date()
+    const resumo = pendentes.map(c => {
+      const dias = Math.floor((hoje - new Date(c.criado_em)) / 86400000)
+      return `"${c.titulo}" (${c.urgencia}, ${c.departamento}, ${dias}d atraso, resp: ${c.responsavel||'—'})`
+    }).join('\n')
+    try {
+      const r = await fetch(`${API}/ai/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Analise esses comunicados pendentes e identifique os que estão atrasados ou críticos. Dê uma análise objetiva e sugira ações:\n${resumo || 'Nenhum comunicado pendente.'}`,
+          max_tokens: 600
+        })
+      })
+      const d = await r.json()
+      setIaAtrasos(d.response || d.content || 'Análise não disponível.')
+    } catch { setIaAtrasos('Erro ao conectar com a IA. Verifique a configuração.') }
+    setIaCarregando(false)
+  }
 
   const cliFiltrados = clientes.filter(c => {
     const q = clienteBusca.toLowerCase()
@@ -138,15 +193,6 @@ export default function Comunicados() {
     await fetch(`${API}/comunicados/encerrar/${id}`, { method:'POST' })
     setDetalhe(null)
     await carregarComunicados()
-  }
-
-  const verificarAtrasados = async () => {
-    setCarregando(true)
-    const r = await fetch(`${API}/comunicados/verificar-atrasados`, { method:'POST' })
-    const d = await r.json()
-    alert(`IA verificou: ${d.comunicados_atrasados} comunicado(s) atrasado(s) alertado(s).`)
-    await carregarComunicados()
-    setCarregando(false)
   }
 
   const salvarSmtp = async () => {
@@ -243,20 +289,31 @@ export default function Comunicados() {
           </div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button onClick={verificarAtrasados} style={{ ...btn('#FEF9C3','#854D0E'), border:'1px solid #fcd34d' }}>
-            <Bot size={13}/> IA: Verificar atrasados
+          <button onClick={verificarAtrasos} disabled={iaCarregando} style={{ ...btn('#FEF9C3','#854D0E'), border:'1px solid #fcd34d', opacity:iaCarregando?0.7:1 }}>
+            <Bot size={13}/> {iaCarregando?'Analisando...':'🤖 IA: Verificar atrasos'}
           </button>
           <button onClick={()=>setAba(aba==='novo'?'lista':'novo')} style={btn(NAVY)}>
             <Plus size={14}/> Novo Comunicado
           </button>
-                      <button onClick={()=>setAba(aba==='usuarios'?'lista':'usuarios')} style={{...btn(aba==='usuarios'?NAVY:'#f0f4ff',aba==='usuarios'?GOLD:NAVY),border:'1px solid #c7d2fe'}}>
-                                      <Users size={14}/> Equipe
-                                                  </button>
+          <button onClick={()=>setAba(aba==='usuarios'?'lista':'usuarios')} style={{ ...btn(aba==='usuarios'?'#1B2A4A':'#f0f4ff', aba==='usuarios'?'#C5A55A':NAVY), border:`1px solid ${aba==='usuarios'?'#C5A55A':'#c7d2fe'}` }}>
+            <Users size={14}/> Equipe
+          </button>
           <button onClick={()=>setAba(aba==='config_smtp'?'lista':'config_smtp')} style={{ ...btn('#f5f5f5','#555'), padding:'9px 12px' }}>
             <Settings size={14}/>
           </button>
         </div>
       </div>
+
+      {/* Painel IA Atrasos */}
+      {iaAtrasos && (
+        <div style={{ background:'#FFFBF0', border:'1px solid #fcd34d', borderRadius:12, padding:16, marginBottom:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+            <div style={{ fontWeight:700, color:'#854D0E', fontSize:13 }}>🤖 Análise IA — Comunicados com Atraso</div>
+            <button onClick={()=>setIaAtrasos('')} style={{ background:'none', border:'none', cursor:'pointer', color:'#aaa' }}><X size={14}/></button>
+          </div>
+          <div style={{ fontSize:13, color:'#333', whiteSpace:'pre-wrap', lineHeight:1.7 }}>{iaAtrasos}</div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
@@ -273,43 +330,68 @@ export default function Comunicados() {
         ))}
       </div>
 
-            {/* Aba Equipe/Usuários */}
-                  {aba === 'usuarios' && (
-                          <div style={{background:'#fff',borderRadius:14,border:'1px solid #e8e8e8',padding:24,marginBottom:20}}>
-                                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-                                                <div style={{fontSize:15,fontWeight:800,color:NAVY}}>👥 Equipe EPimentel</div>
-                                                            <button onClick={()=>setAba('lista')} style={btn('#f5f5f5','#555')}>✕ Fechar</button>
-                                                                      </div>
-                                                                                {[
-                                                                                            {n:'Eduardo Pimentel',l:'admin@epimentel.com.br',p:'Administrador',d:'Diretoria',c:'#C5A55A'},
-                                                                                                        {n:'Gleidson Tavares',l:'gleidson@epimentel.com.br',p:'Fiscal',d:'Fiscal',c:'#3b82f6'},
-                                                                                                                    {n:'Luciene Alves',l:'luciene@epimentel.com.br',p:'Pessoal',d:'Pessoal',c:'#f59e0b'},
-                                                                                                                                {n:'Yasmin Larissa',l:'yasmin@epimentel.com.br',p:'Contábil',d:'Contábil',c:'#22c55e'},
-                                                                                                                                            {n:'Carlos Eduardo',l:'carlos@epimentel.com.br',p:'Contábil',d:'Contábil',c:'#a855f7'},
-                                                                                                                                                      ].map((u,i)=>(
-                                                                                                                                                                  <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid #f0f0f0'}}>
-                                                                                                                                                                                <div style={{width:40,height:40,borderRadius:10,background:u.c,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontWeight:900,fontSize:13,flexShrink:0}}>
-                                                                                                                                                                                                {u.n.split(' ').map(x=>x[0]).slice(0,2).join('')}
-                                                                                                                                                                                                              </div>
-                                                                                                                                                                                                                            <div style={{flex:1}}>
-                                                                                                                                                                                                                                            <div style={{fontWeight:700,color:NAVY,fontSize:13}}>{u.n}</div>
-                                                                                                                                                                                                                                                            <div style={{fontSize:11,color:'#888',marginTop:2}}>{u.l}</div>
-                                                                                                                                                                                                                                                                          </div>
-                                                                                                                                                                                                                                                                                        <div style={{display:'flex',gap:6}}>
-                                                                                                                                                                                                                                                                                                        <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:6,background:u.c+'22',color:u.c}}>{u.p}</span>
-                                                                                                                                                                                                                                                                                                                        <span style={{fontSize:10,fontWeight:600,padding:'2px 8px',borderRadius:6,background:'#f1f5f9',color:'#475569'}}>{u.d}</span>
-                                                                                                                                                                                                                                                                                                                                      </div>
-                                                                                                                                                                                                                                                                                                                                                  </div>
-                                                                                                                                                                                                                                                                                                                                                            ))}
-                                                                                                                                                                                                                                                                                                                                                                      <div style={{marginTop:12,padding:12,background:'#f8f9fb',borderRadius:8,fontSize:11,color:'#888'}}>
-                                                                                                                                                                                                                                                                                                                                                                                  💡 Para gerenciar acessos e permissões, acesse <b>Admin → Usuários</b>.
-                                                                                                                                                                                                                                                                                                                                                                                            </div>
-                                                                                                                                                                                                                                                                                                                                                                                                    </div>
-                                                                                                                                                                                                                                                                                                                                                                                                          )}
+      {/* Aba Equipe / Usuários */}
+      {aba === 'usuarios' && (
+        <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8e8e8', padding:24, marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:800, color:NAVY }}>👥 Equipe EPimentel</div>
+              <div style={{ fontSize:12, color:'#888', marginTop:2 }}>Usuários cadastrados no sistema</div>
+            </div>
+            <button onClick={()=>setAba('lista')} style={{ ...btn('#f5f5f5','#555'), fontSize:12 }}>✕ Fechar</button>
+          </div>
+          {(()=>{
+            // Buscar usuários cadastrados no painel Admin
+            const CORES = ['#C5A55A','#3b82f6','#f59e0b','#22c55e','#a855f7','#ec4899','#14b8a6']
+            const lista = usuariosAdmin.length > 0 ? usuariosAdmin : []
+            if (lista.length === 0) {
+              return (
+                <div style={{ padding:30, textAlign:'center', color:'#aaa', background:'#fafafa', borderRadius:10, border:'2px dashed #e8e8e8' }}>
+                  <div style={{ fontSize:28, marginBottom:8 }}>👥</div>
+                  <div style={{ fontWeight:600, marginBottom:4 }}>Nenhum usuário cadastrado ainda</div>
+                  <div style={{ fontSize:12 }}>Acesse <b>Admin → Usuários</b> para cadastrar a equipe.</div>
+                </div>
+              )
+            }
+            return (
+              <div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:14 }}>
+                  {lista.map((u,i)=>{
+                    const cor = CORES[i % CORES.length]
+                    const perfilLabel = {admin:'Administrador', contador:'Contador', assistente:'Assistente', gerente:'Gerente'}[u.perfil] || u.perfil
+                    return (
+                      <div key={u.id||i} style={{ border:`1.5px solid ${cor}33`, borderRadius:12, padding:16, background:`${cor}08`, position:'relative' }}>
+                        <div style={{ position:'absolute', top:12, right:12 }}>
+                          <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:8, background:u.ativo!==false?'#f0fdf4':'#f5f5f5', color:u.ativo!==false?'#166534':'#888' }}>
+                            {u.ativo!==false?'● Ativo':'○ Inativo'}
+                          </span>
+                        </div>
+                        <div style={{ width:44, height:44, borderRadius:12, background:cor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:900, color:'#fff', marginBottom:10 }}>
+                          {(u.nome||'?').split(' ').map(n=>n[0]).slice(0,2).join('')}
+                        </div>
+                        <div style={{ fontWeight:700, fontSize:14, color:NAVY }}>{u.nome}</div>
+                        <div style={{ fontSize:11, color:'#888', margin:'2px 0' }}>{u.email || u.usuario}</div>
+                        {u.cargo && <div style={{ fontSize:11, color:'#aaa', marginBottom:4 }}>{u.cargo}</div>}
+                        <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
+                          <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:`${cor}22`, color:cor }}>{perfilLabel}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ marginTop:16, padding:14, background:'#f8f9fb', borderRadius:10, border:'1px solid #e8e8e8', fontSize:12, color:'#888' }}>
+                  💡 Para gerenciar usuários, acessos e permissões, utilize o menu <b>Admin → Usuários</b>.
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
       {/* Config SMTP */}
       {aba === 'config_smtp' && (
         <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8e8e8', padding:24, marginBottom:20 }}>
-          <div style={{ fontSize:15, fontWeight:800, color:NAVY, marginBottom:16 }}>⚙️ Configuração de E-mail — Domínio Próprio</div>
+          <div style={{ fontSize:15, fontWeight:800, color:NAVY, marginBottom:16 }}>⚙️ Configurção de E-mail — Domínio Próprio</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
             <div><label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>Servidor SMTP</label>
               <input value={smtp.host} onChange={e=>setSmtp(s=>({...s,host:e.target.value}))} placeholder="smtp.seuprovedor.com.br" style={inp}/></div>
@@ -360,7 +442,7 @@ export default function Comunicados() {
                 ))}
               </div>
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
               <div>
                 <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Departamento</label>
                 <select value={form.departamento} onChange={e=>setF('departamento',e.target.value)} style={sel}>
@@ -372,6 +454,21 @@ export default function Comunicados() {
                 <select value={form.canal} onChange={e=>setF('canal',e.target.value)} style={sel}>
                   {CANAIS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Responsável</label>
+                <select value={form.responsavel} onChange={e=>onResponsavelChange(e.target.value)} style={sel}>
+                  <option value=''>— Selecionar —</option>
+                  {usuariosAdmin.length > 0
+                    ? usuariosAdmin.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)
+                    : ['Carlos Eduardo Pimentel','Eduardo Pimentel','Gleidson Tavares','Luciene Alves','Yasmin Larissa'].map(n => <option key={n} value={n}>{n}</option>)
+                  }
+                </select>
+                {alertaResponsavel && (
+                  <div style={{ marginTop:5, padding:'5px 10px', borderRadius:7, background:'#EBF5FF', border:'1px solid #93c5fd', fontSize:11, color:'#1D6FA4', fontWeight:600 }}>
+                    {alertaResponsavel}
+                  </div>
+                )}
               </div>
             </div>
             {/* Conteúdo */}
