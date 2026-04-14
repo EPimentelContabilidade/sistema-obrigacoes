@@ -132,9 +132,9 @@ export default function Clientes() {
   const [aba, setAba]               = useState('lista')
   const [abaForm, setAbaForm]       = useState('dados')
   const [busca,        setBusca]        = useState('')
-  const [filtroReg,    setFiltroReg]    = useState('')
-  const [filtroStatus, setFiltroStatus] = useState('')
-  const [filtroCanal,  setFiltroCanal]  = useState('')
+  const [filtroRegimes, setFiltroRegimes] = useState([])   // multi
+  const [filtroStatus,  setFiltroStatus]  = useState('')
+  const [filtroGrupos,  setFiltroGrupos]  = useState([])   // multi
   const [buscandoCNPJ, setBuscandoCNPJ] = useState(false)
   const [cnpjDados,    setCnpjDados]    = useState(null)
   const [modalObrig,   setModalObrig]   = useState(false)
@@ -245,7 +245,32 @@ export default function Clientes() {
   }
 
   const salvar = async () => {
-        const novoCliente = { ...form, id:editId||(()=>{const c=parseInt(localStorage.getItem('ep_cliente_counter')||'0')+1;localStorage.setItem('ep_cliente_counter',String(c));return 'EP-'+String(c).padStart(4,'0')})(), ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:form.credenciais||{...CREDS_VAZIO}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
+    // Validar CNPJ duplicado
+    const cnpjLimpo = (form.cnpj||'').replace(/\D/g,'')
+    if (cnpjLimpo.length >= 11) {
+      const duplicado = clientes.find(c => {
+        if (editId && String(c.id) === String(editId)) return false
+        return (c.cnpj||'').replace(/\D/g,'') === cnpjLimpo
+      })
+      if (duplicado) {
+        alert(`⚠️ CNPJ já cadastrado!\nCliente existente: ${duplicado.nome} (${duplicado.id})\nNão é possível cadastrar dois clientes com o mesmo CNPJ.`)
+        return
+      }
+    }
+    // Gerar ID sequencial EP-XXXX para novos clientes
+    let novoId = editId
+    let novoSeq
+    if (!novoId) {
+      // seq numérico simples: max(seq existentes) + 1
+      const maxSeq = clientes.reduce((m,c) => Math.max(m, c.seq||0), 0)
+      novoSeq = maxSeq + 1
+      const counter = parseInt(localStorage.getItem('ep_cliente_counter') || '0') + 1
+      localStorage.setItem('ep_cliente_counter', String(counter))
+      novoId = `EP-${String(counter).padStart(4,'0')}`
+    } else {
+      novoSeq = clientes.find(c=>String(c.id)===String(editId))?.seq
+    }
+    const novoCliente = { ...form, id:novoId, seq:novoSeq, ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:form.credenciais||{...CREDS_VAZIO}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
     let novaLista = []
     setClientes(p=>{ novaLista=editId?p.map(x=>x.id===editId?novoCliente:x):[...p,novoCliente]; localStorage.setItem('ep_clientes',JSON.stringify(novaLista)); return novaLista })
     setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setAba('lista')
@@ -275,13 +300,13 @@ export default function Clientes() {
   }
 
   const clientesFiltrados = clientes.filter(c=>{
-    if (busca && !c.nome?.toLowerCase().includes(busca.toLowerCase()) && !c.cnpj?.includes(busca)) return false
-    if (filtroReg && (c.tributacao||c.regime)!==filtroReg) return false
+    if (busca && !c.nome?.toLowerCase().includes(busca.toLowerCase()) && !c.cnpj?.includes(busca) && !String(c.seq||'').includes(busca) && !String(c.id||'').toLowerCase().includes(busca.toLowerCase())) return false
+    if (filtroRegimes.length > 0 && !filtroRegimes.includes(c.tributacao||c.regime)) return false
     if (filtroStatus==='ativo' && c.ativo===false) return false
     if (filtroStatus==='inativo' && c.ativo!==false) return false
-    if (filtroCanal && c.canal_padrao!==filtroCanal) return false
+    if (filtroGrupos.length > 0 && !filtroGrupos.includes(c.grupo||'')) return false
     return true
-  })
+  }).sort((a,b)=>(a.seq||99999)-(b.seq||99999))
 
   const obrigsPorTrib = obrigacoesPorTributacao(form.tributacao)
 
@@ -327,33 +352,46 @@ export default function Clientes() {
             <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
               <div style={{ position:'relative', flex:1, maxWidth:380 }}>
                 <Search size={12} style={{ position:'absolute', left:8, top:8, color:'#bbb' }}/>
-                <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome ou CNPJ..." style={{ ...inp, paddingLeft:26 }}/>
+                <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, CNPJ ou ID..." style={{ ...inp, paddingLeft:26 }}/>
               </div>
-              {(filtroReg||filtroStatus||filtroCanal||busca) && <button onClick={()=>{setBusca('');setFiltroReg('');setFiltroStatus('');setFiltroCanal('')}} style={{ display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5',fontSize:11,fontWeight:600,cursor:'pointer' }}><X size={11}/> Limpar</button>}
+              {(filtroRegimes.length>0||filtroStatus||filtroGrupos.length>0||busca) && <button onClick={()=>{setBusca('');setFiltroRegimes([]);setFiltroStatus('');setFiltroGrupos([])}} style={{ display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5',fontSize:11,fontWeight:600,cursor:'pointer' }}><X size={11}/> Limpar</button>}
               <span style={{ fontSize:12, color:'#aaa', marginLeft:'auto' }}>{clientesFiltrados.length} cliente(s)</span>
             </div>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <select value={filtroReg} onChange={e=>setFiltroReg(e.target.value)} style={{ ...sel, width:160, fontSize:12 }}>
-                <option value="">Todos os regimes</option>
-                {TRIBUTACOES.map(t=><option key={t} value={t}>{t}</option>)}
-              </select>
-              <select value={filtroStatus} onChange={e=>setFiltroStatus(e.target.value)} style={{ ...sel, width:120, fontSize:12 }}>
-                <option value="">Todos status</option>
-                <option value="ativo">● Ativo</option>
-                <option value="inativo">○ Inativo</option>
-              </select>
-              <select value={filtroCanal} onChange={e=>setFiltroCanal(e.target.value)} style={{ ...sel, width:140, fontSize:12 }}>
-                <option value="">Todos canais</option>
-                <option value="whatsapp">💬 WhatsApp</option>
-                <option value="email">📧 E-mail</option>
-              </select>
+            {/* ── FILTROS MULTI-CHIP ── */}
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {/* Regime — chips múltiplos */}
+              <div style={{ display:'flex', gap:5, flexWrap:'wrap', alignItems:'center' }}>
+                <span style={{ fontSize:10, color:'#aaa', fontWeight:700, textTransform:'uppercase', marginRight:2 }}>Regime</span>
+                {TRIBUTACOES.map(t=>{
+                  const on = filtroRegimes.includes(t)
+                  const ct = cTrib(t)
+                  return <button key={t} onClick={()=>setFiltroRegimes(prev=>on?prev.filter(x=>x!==t):[...prev,t])} style={{ padding:'3px 9px', borderRadius:20, fontSize:11, cursor:'pointer', border:`1px solid ${on?ct.c:'#ddd'}`, background:on?ct.bg:'#fff', color:on?ct.c:'#888', fontWeight:on?700:400, transition:'all .15s' }}>{on&&'✓ '}{t}</button>
+                })}
+              </div>
+              {/* Status e Grupo */}
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                <span style={{ fontSize:10, color:'#aaa', fontWeight:700, textTransform:'uppercase', marginRight:2 }}>Status</span>
+                {[['','Todos'],['ativo','● Ativo'],['inativo','○ Inativo']].map(([v,l])=>(
+                  <button key={v} onClick={()=>setFiltroStatus(filtroStatus===v&&v?'':v)} style={{ padding:'3px 9px', borderRadius:20, fontSize:11, cursor:'pointer', border:`1px solid ${filtroStatus===v&&v?NAVY:'#ddd'}`, background:filtroStatus===v&&v?NAVY:'#fff', color:filtroStatus===v&&v?'#fff':'#888', fontWeight:filtroStatus===v&&v?700:400 }}>{l}</button>
+                ))}
+                {/* Grupos disponíveis */}
+                {[...new Set(clientes.map(c=>c.grupo||'').filter(Boolean))].length > 0 && (
+                  <>
+                    <span style={{ fontSize:10, color:'#aaa', fontWeight:700, textTransform:'uppercase', marginLeft:8, marginRight:2 }}>Grupo</span>
+                    {[...new Set(clientes.map(c=>c.grupo||'').filter(Boolean))].sort().map(g=>{
+                      const on = filtroGrupos.includes(g)
+                      return <button key={g} onClick={()=>setFiltroGrupos(prev=>on?prev.filter(x=>x!==g):[...prev,g])} style={{ padding:'3px 9px', borderRadius:20, fontSize:11, cursor:'pointer', border:`1px solid ${on?GOLD:'#ddd'}`, background:on?GOLD+'20':'#fff', color:on?'#7a5c00':'#888', fontWeight:on?700:400 }}>{on&&'✓ '}{g}</button>
+                    })}
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <div style={{ flex:1, overflowY:'auto', background:'#f8f9fb' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
               <thead>
                 <tr style={{ background:'#fff', borderBottom:'2px solid #e8e8e8', position:'sticky', top:0, zIndex:1 }}>
-                  {['Cliente','CNPJ','Regime','CNAE Principal','Obrig.','Cred.','Status','Ações'].map(h=>(
+                  {['#','ID','Cliente','CNPJ','Grupo','Regime','Obrig.','Status','Ações'].map(h=>(
                     <th key={h} style={{ padding:'9px 12px', textAlign:'left', fontSize:10, fontWeight:700, color:'#888', textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -361,25 +399,31 @@ export default function Clientes() {
               <tbody>
                 {clientesFiltrados.map((c,i)=>{
                   const ct=cTrib(c.tributacao||c.regime)
-                  const temCreds = c.credenciais && Object.values(c.credenciais).some(v=>v&&v!=='')
                   return (
                     <tr key={c.id} style={{ background:i%2===0?'#fff':'#fafafa', borderBottom:'1px solid #f0f0f0' }}>
+                      <td style={{ padding:'9px 8px', textAlign:'center', width:32 }}>
+                        <span style={{ fontSize:11, fontFamily:'monospace', color:'#bbb' }}>{c.seq||'—'}</span>
+                      </td>
+                      <td style={{ padding:'9px 8px', textAlign:'center', width:68 }}>
+                        {c.id&&String(c.id).startsWith('EP-')
+                          ? <span style={{ fontSize:10, fontFamily:'monospace', fontWeight:700, color:'#1B2A4A', background:'#f0f4ff', padding:'2px 5px', borderRadius:4 }}>{c.id}</span>
+                          : <span style={{ color:'#ddd',fontSize:11 }}>—</span>}
+                      </td>
                       <td style={{ padding:'9px 12px' }}>
                         <div style={{ fontWeight:600, color:NAVY }}>{c.nome}</div>
                         {c.nome_fantasia&&<div style={{ fontSize:10, color:'#aaa' }}>{c.nome_fantasia}</div>}
                       </td>
                       <td style={{ padding:'9px 12px', color:'#555', fontFamily:'monospace', fontSize:11 }}>{c.cnpj}</td>
                       <td style={{ padding:'9px 12px' }}>
-                        <span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:ct.bg, color:ct.c, fontWeight:600 }}>{c.tributacao||c.regime||'—'}</span>
+                        {c.grupo
+                          ? <span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:GOLD+'22', color:'#7a5c00', fontWeight:600 }}>{c.grupo}</span>
+                          : <span style={{ color:'#ddd' }}>—</span>}
                       </td>
-                      <td style={{ padding:'9px 12px', fontSize:11, color:'#666', maxWidth:200 }}>
-                        <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.cnae_principal||'—'}</div>
+                      <td style={{ padding:'9px 12px' }}>
+                        <span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:ct.bg, color:ct.c, fontWeight:600 }}>{c.tributacao||c.regime||'—'}</span>
                       </td>
                       <td style={{ padding:'9px 12px', textAlign:'center' }}>
                         <span style={{ fontSize:11, padding:'2px 7px', borderRadius:6, background:'#EBF5FF', color:NAVY, fontWeight:600 }}>{(c.obrigacoes_vinculadas||[]).length}</span>
-                      </td>
-                      <td style={{ padding:'9px 12px', textAlign:'center' }}>
-                        {temCreds?<span style={{ fontSize:11, color:'#22c55e' }}>🔐</span>:<span style={{ fontSize:11, color:'#e0e0e0' }}>—</span>}
                       </td>
                       <td style={{ padding:'9px 12px' }}>
                         <span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:c.ativo!==false?'#F0FDF4':'#f5f5f5', color:c.ativo!==false?'#166534':'#888', fontWeight:600 }}>
@@ -396,7 +440,7 @@ export default function Clientes() {
                     </tr>
                   )
                 })}
-                {clientesFiltrados.length===0&&<tr><td colSpan={8} style={{ padding:40, textAlign:'center', color:'#ccc' }}>Nenhum cliente encontrado.</td></tr>}
+                {clientesFiltrados.length===0&&<tr><td colSpan={9} style={{ padding:40, textAlign:'center', color:'#ccc' }}>Nenhum cliente encontrado.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -657,7 +701,7 @@ export default function Clientes() {
                     </div>
                     {/* Arquivo e senha */}
                     <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12 }}>
-                      <CampoLabel label="Arquivo .pfx (.p12)">
+                      <CampoLabel label="Arquivo .pfx (.p12">
                         <div style={{ display:'flex', gap:8 }}>
                           <input type="text" value={creds.cert_arquivo||''} readOnly placeholder="Nenhum arquivo selecionado..." style={{ ...inp, cursor:'default', background:'#f9f9f9', flex:1 }}/>
                           <input
