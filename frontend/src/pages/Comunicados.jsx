@@ -448,32 +448,56 @@ export default function Comunicados() {
     if (emailAvulso?.includes('@')) { setF('emails_extra',[...form.emails_extra,emailAvulso.trim()]); setEmailAvulso('') }
   }
 
-  // ── Salvar sem enviar ─────────────────────────────────────────────────────
+  // ── Salvar sem enviar (com fallback localStorage) ─────────────────────────
   const salvar = async () => {
     if (!form.titulo.trim()) { addToast('Atenção','Informe o título.','alerta',null,4000); return }
     setSalvando(true)
     try {
-      let id, ok
-      if (editandoId) {
-        const r = await fetch(`${API}/comunicados/${editandoId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)})
-        ok=r.ok; id=editandoId
-      } else {
-        const r = await fetch(`${API}/comunicados/criar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,salvar:true})})
-        const d = await r.json(); ok=r.ok; id=d.id
+      let id = editandoId || null
+      let ok = false
+      // Tentar API primeiro
+      try {
+        if (editandoId) {
+          const r = await fetch(`${API}/comunicados/${editandoId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)})
+          ok=r.ok; id=editandoId
+        } else {
+          const r = await fetch(`${API}/comunicados/criar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,status:'salvo'})})
+          if (r.ok) { const d = await r.json(); ok=true; id=d.id||d.comunicado_id||Date.now() }
+        }
+      } catch { ok=false }
+      // Fallback: localStorage se API falhar
+      if (!ok) {
+        id = editandoId || `local_${Date.now()}`
+        const novoReg = { ...form, id, status:'salvo', criado_em: new Date().toISOString(), origem:'local' }
+        let lista = []
+        try { lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]') } catch {}
+        if (editandoId) { lista = lista.map(c => String(c.id)===String(editandoId)?{...c,...form}:c) }
+        else { lista = [novoReg, ...lista] }
+        localStorage.setItem('ep_comunicados', JSON.stringify(lista))
+        ok=true
       }
       if (ok && id) {
-        for (const arq of uploadPendente) { const fd=new FormData(); fd.append('file',arq); try{ await fetch(`${API}/comunicados/${id}/docs`,{method:'POST',body:fd}) }catch{} }
+        if (!String(id).startsWith('local_')) {
+          for (const arq of uploadPendente) { const fd=new FormData(); fd.append('file',arq); try{ await fetch(`${API}/comunicados/${id}/docs`,{method:'POST',body:fd}) }catch{} }
+        }
+        // Abrir arquivo automaticamente se houver 1 PDF/imagem
+        if (uploadPendente.length === 1) {
+          const arq = uploadPendente[0]
+          if (arq.type.includes('pdf') || arq.type.includes('image')) {
+            setTimeout(() => window.open(URL.createObjectURL(arq), '_blank'), 800)
+          }
+        }
         setUploadPendente([])
         addToast('💾 Salvo', editandoId?`"${form.titulo}" atualizado.`:`"${form.titulo}" salvo.`,'info',null,5000)
         setForm({...FORM_VAZIO}); setEditandoId(null)
         await carregarComunicados()
         setTimeout(()=>setAba('lista'),1200)
       }
-    } catch{ addToast('Erro','Não foi possível salvar.','erro',null,5000) }
+    } catch(e){ addToast('Erro','Não foi possível salvar.','erro',null,5000) }
     finally{ setSalvando(false) }
   }
 
-  // ── Enviar (criar ou de salvo) ────────────────────────────────────────────
+    // ── Enviar (criar ou de salvo) ────────────────────────────────────────────
   const enviar = async () => {
     if (!form.titulo.trim()||!form.conteudo.trim()) { addToast('Atenção','Preencha título e conteúdo.','alerta',null,4000); return }
     setEnviando(true)
