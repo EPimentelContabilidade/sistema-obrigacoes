@@ -507,28 +507,34 @@ export default function Clientes() {
                           </div>
                         ))}
                       </div>
-                      {/* QSA Visual */}
-                      {(cnpjDados.qsa||[]).length > 0 && (
-                        <div style={{ marginTop:10, borderTop:'1px solid #bbf7d0', paddingTop:10 }}>
-                          <div style={{ fontSize:11, color:'#166534', fontWeight:700, marginBottom:6 }}>👥 QSA — Quadro de Sócios e Administradores</div>
-                          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                            {(cnpjDados.qsa||[]).map((s,i)=>(
-                              <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 8px', borderRadius:7, background:'rgba(255,255,255,.6)' }}>
-                                <div style={{ width:26, height:26, borderRadius:'50%', background:'#166534', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:11, flexShrink:0 }}>
-                                  {s.nome_socio?.charAt(0)||'?'}
+                      {/* QSA Visual - cnpjDados (busca) ou form.socios (salvo) */}
+                      {(()=>{
+                        const qsaItems = cnpjDados
+                          ? (cnpjDados.qsa||[])
+                          : (form.socios||[]).map(s=>({nome_socio:s.nome||s.nome_socio, qualificacao_socio:s.qualificacao||s.qualificacao_socio}))
+                        if(!qsaItems.length) return null
+                        return (
+                          <div style={{ marginTop:10, borderTop:'1px solid #bbf7d0', paddingTop:10 }}>
+                            <div style={{ fontSize:11, color:'#166534', fontWeight:700, marginBottom:6 }}>👥 QSA — Quadro de Sócios e Administradores</div>
+                            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                              {qsaItems.map((s,i)=>(
+                                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 8px', borderRadius:7, background:'rgba(255,255,255,.6)' }}>
+                                  <div style={{ width:26, height:26, borderRadius:'50%', background:'#166534', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:11, flexShrink:0 }}>
+                                    {(s.nome_socio||'?').charAt(0)}
+                                  </div>
+                                  <div style={{ flex:1 }}>
+                                    <div style={{ fontWeight:700, color:'#166534', fontSize:12 }}>{s.nome_socio}</div>
+                                    <div style={{ fontSize:10, color:'#4ade80' }}>{s.qualificacao_socio}{s.faixa_etaria?' · '+s.faixa_etaria:''}</div>
+                                  </div>
+                                  {s.pais_socio && s.pais_socio !== 'Brasil' && (
+                                    <span style={{ fontSize:10, background:'#fef9c3', color:'#854d0e', borderRadius:6, padding:'2px 6px' }}>🌍 {s.pais_socio}</span>
+                                  )}
                                 </div>
-                                <div style={{ flex:1 }}>
-                                  <div style={{ fontWeight:700, color:'#166534', fontSize:12 }}>{s.nome_socio}</div>
-                                  <div style={{ fontSize:10, color:'#4ade80' }}>{s.qualificacao_socio}{s.faixa_etaria?' · '+s.faixa_etaria:''}</div>
-                                </div>
-                                {s.pais_socio && s.pais_socio !== 'Brasil' && (
-                                  <span style={{ fontSize:10, background:'#fef9c3', color:'#854d0e', borderRadius:6, padding:'2px 6px' }}>🌍 {s.pais_socio}</span>
-                                )}
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )
+                      })()}
                     </div>
                   )}
 
