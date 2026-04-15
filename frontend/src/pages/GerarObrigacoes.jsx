@@ -4,6 +4,7 @@
 // <GerarObrigacoes cliente={cli} onClose={()=>...} onGerado={(qtd)=>...} />
 // ══════════════════════════════════════════════════════════════════════════════
 import { useState } from 'react'
+import { gerarObrigacoesCliente } from './ConfiguracoesTarefas'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -47,29 +48,20 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
   const [gerado, setGerado] = useState(false)
   const [qtdGerada, setQtdGerada] = useState(0)
 
-  // Carrega catálogo de obrigações do cliente
+  // Catálogo via Config. Tarefas (gerarObrigacoesCliente usa ep_obrigacoes_catalogo_v2 + fallback padrão)
   const getCatalogo = () => {
     try {
-      // 1. Tenta catálogo v2 (ConfiguracoesTarefas) filtrado pelo regime do cliente
-      const mapa = {
-        'Simples Nacional':'Simples Nacional','MEI':'MEI',
-        'Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real',
-        'RET':'RET/Imobiliário','RET/Imobiliário':'RET/Imobiliário',
-        'Imune/Isento':'Imune/Isento','Produtor Rural':'Produtor Rural',
-        'Social/IRH':'Social/IRH','Social/RH':'Social/IRH','Social':'Social/IRH',
-        'Condomínio':'Condomínio','Autônomo':'Autônomo',
-      }
       const regime = cliente.tributacao || cliente.regime || ''
-      const chave = mapa[regime] || regime
-      const catV2 = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2') || 'null')
-      if (catV2?.[chave]) {
-        const lista = catV2[chave].filter(o => !apenasAtivas || o.ativo)
-        if (lista.length > 0) return lista
-      }
-      // 2. Fallback: obrigações_catalogo salvas no cliente
+      const lista = gerarObrigacoesCliente(regime).filter(o => !apenasAtivas || o.ativo !== false)
+      if (lista.length > 0) return lista
       if (cliente.obrigacoes_catalogo?.length) return cliente.obrigacoes_catalogo
       return []
     } catch { return [] }
+  }
+  const getFonteInfo = () => {
+    const regime = cliente.tributacao || cliente.regime || ''
+    const catV2 = (() => { try { return JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'null') } catch { return null } })()
+    return { personalizada: !!catV2?.[regime]?.length, total: getCatalogo().length, regime }
   }
 
   const gerarPreview = () => {
@@ -217,6 +209,24 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
                   <span>Substituir se já existir <span style={{ fontSize:11,color:'#e53935' }}>(retroativo)</span></span>
                 </label>
               </div>
+
+              {/* Fonte das obrigações */}
+              {!preview && (()=>{
+                const {personalizada,total,regime} = getFonteInfo()
+                return (
+                  <div style={{marginBottom:14,padding:'10px 14px',borderRadius:8,background:personalizada?'#F0FDF4':'#FFF3E0',border:'1px solid '+(personalizada?'#86efac':'#FFB74D')}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
+                      <div style={{fontSize:12,color:personalizada?'#166534':'#E65100'}}>
+                        {personalizada
+                          ? <><b>⚙️ Config. Tarefas personalizada</b> — {total} obrigações · regime: <b>{regime}</b></>
+                          : <><b>📋 Catálogo padrão</b> — {total > 0 ? `${total} obrigações para ${regime}` : `Nenhuma para "${regime}"`}</>}
+                      </div>
+                      <a href="/configuracoes-tarefas" style={{fontSize:11,color:'#1976D2',fontWeight:700,textDecoration:'none'}}>✏️ Editar Config. Tarefas →</a>
+                    </div>
+                    {total===0&&<div style={{fontSize:11,color:'#e53935',marginTop:4}}>⚠️ Configure em <b>Config. Tarefas → Obrigações por Regime</b></div>}
+                  </div>
+                )
+              })()}
 
               {/* Botão gerar preview */}
               {!preview && (
