@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Send, X, Eye, CheckCircle, Clock, AlertTriangle, MessageSquare,
          Users, Briefcase, Building2, Bot, Settings, Mail, Phone, Filter,
-         ChevronDown, Edit2, Archive, RefreshCw, Zap } from 'lucide-react'
+         ChevronDown, Edit2, Archive, RefreshCw, Zap, Download, UploadCloud } from 'lucide-react'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -57,6 +57,10 @@ export default function Comunicados() {
   // Config SMTP
   const [smtp, setSmtp] = useState({ host:'smtp.gmail.com', port:587, user:'', pass:'', from_name:'EPimentel Auditoria & Contabilidade', from_email:'', assinatura_html:'' })
   const [smtpSalvo, setSmtpSalvo] = useState(false)
+
+  // Sync / Backup
+  const [ultimoSync, setUltimoSync] = useState('')
+  const [sincronizando, setSincronizando] = useState(false)
 
   // Detalhe do comunicado
   const [detalhe, setDetalhe]     = useState(null)
@@ -195,6 +199,44 @@ export default function Comunicados() {
     await carregarComunicados()
   }
 
+
+  // ── Sync: mescla localStorage ↔ API ─────────────────────────────────────
+  const sincronizarDados = async () => {
+    setSincronizando(true)
+    try {
+      const r = await fetch(`${API}/comunicados/listar`)
+      const doBanco = r.ok ? await r.json() : []
+      let doLocal = []
+      try { doLocal = JSON.parse(localStorage.getItem('ep_comunicados') || '[]') } catch {}
+      const idsLocais = new Set(doLocal.map(c => String(c.id)))
+      const novosDB   = doBanco.filter(c => !idsLocais.has(String(c.id)))
+      const mesclados = [...doLocal, ...novosDB]
+      localStorage.setItem('ep_comunicados', JSON.stringify(mesclados))
+      setComunicados(mesclados)
+      const agora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+      setUltimoSync(agora)
+    } catch (e) { console.error('Erro ao sincronizar:', e) }
+    setSincronizando(false)
+  }
+
+  // ── Backup: baixa JSON com todos os dados ────────────────────────────────
+  const backupDados = () => {
+    const dados = {
+      data_backup: new Date().toISOString(),
+      modulo: 'Comunicados — EPimentel Auditoria & Contabilidade',
+      comunicados,
+      clientes_vinculados: clientes,
+      config_smtp: smtp,
+    }
+    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `backup_comunicados_${new Date().toISOString().slice(0,10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const salvarSmtp = async () => {
     await fetch(`${API}/comunicados/config-smtp`, {
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(smtp)
@@ -300,6 +342,16 @@ export default function Comunicados() {
           </button>
           <button onClick={()=>setAba(aba==='config_smtp'?'lista':'config_smtp')} style={{ ...btn('#f5f5f5','#555'), padding:'9px 12px' }}>
             <Settings size={14}/>
+          </button>
+          <button onClick={sincronizarDados} disabled={sincronizando}
+            title={ultimoSync ? `Último sync: ${ultimoSync}` : 'Sincronizar dados'}
+            style={{ ...btn(sincronizando?'#e0f2fe':'#EBF5FF', sincronizando?'#0369a1':'#1D6FA4'), border:'1px solid #93c5fd', opacity:sincronizando?0.7:1 }}>
+            <UploadCloud size={13}/> {sincronizando ? 'Sincronizando...' : ultimoSync ? `Sync ✓ ${ultimoSync}` : '🔄 Sync'}
+          </button>
+          <button onClick={backupDados}
+            title="Baixar backup JSON dos comunicados"
+            style={{ ...btn('#f0fdf4','#166534'), border:'1px solid #86efac' }}>
+            <Download size={13}/> 💾 Backup
           </button>
         </div>
       </div>
