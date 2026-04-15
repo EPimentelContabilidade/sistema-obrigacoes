@@ -1108,6 +1108,24 @@ export default function Comunicados() {
                   </label>
                 </div>
               </div>
+
+              {/* WhatsApps avulsos */}
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
+                  💬 WhatsApps Avulsos
+                </label>
+                <div style={{display:'flex',gap:6,marginBottom:6}}>
+                  <input value={whatsappAvulso} onChange={e=>setWhatsappAvulso(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addWhatsApp()} placeholder="(62) 99999-9999" style={{...inp,flex:1}}/>
+                  <button onClick={addWhatsApp} style={{...btn(NAVY),padding:'9px 12px',flexShrink:0}}><Plus size={13}/></button>
+                </div>
+                {(form.whatsapps_extra||[]).map((wpp,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:8,background:'#f0fdf4',marginBottom:4}}>
+                    <span style={{fontSize:13}}>💬</span>
+                    <span style={{flex:1,fontSize:12}}>{wpp}</span>
+                    <button onClick={()=>setF('whatsapps_extra',(form.whatsapps_extra||[]).filter((_,j)=>j!==i))} style={{background:'none',border:'none',cursor:'pointer',color:'#dc2626',padding:0}}><X size={12}/></button>
+                  </div>
+                ))}
+              </div>
               )}
             </>
 
