@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
-import { Plus, Send, X, Eye, CheckCircle, Clock, AlertTriangle, MessageSquare,
-         Users, Briefcase, Building2, Bot, Settings, Mail, Phone, Filter,
-         ChevronDown, Edit2, Archive, RefreshCw, Zap, Download, UploadCloud } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Plus, Send, X, Eye, CheckCircle, Clock, MessageSquare,
+         Briefcase, Building2, Bot, Settings, Mail, Filter,
+         Archive, RefreshCw, Paperclip, Download, Trash2, Bell,
+         Save, Edit2, Users, Lock, UploadCloud } from 'lucide-react'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -11,26 +12,254 @@ const URGENCIAS = [
   { id:'baixa',         label:'Baixa',         cor:'#1A7A3C', bg:'#EDFBF1', emoji:'🟢', border:'#86efac' },
   { id:'normal',        label:'Normal',        cor:'#1D6FA4', bg:'#EBF5FF', emoji:'🔵', border:'#93c5fd' },
   { id:'alta',          label:'Alta',          cor:'#854D0E', bg:'#FEF9C3', emoji:'🟡', border:'#fcd34d' },
-  { id:'muito_urgente', label:'Muito Urgente', cor:'#dc2626', bg:'#FEF2F2', emoji :'🔴', border:'#fca5a5' },
+  { id:'muito_urgente', label:'Muito Urgente', cor:'#dc2626', bg:'#FEF2F2', emoji:'🔴', border:'#fca5a5' },
 ]
 const DEPARTAMENTOS = ['Geral','Fiscal','Contábil','Pessoal','Financeiro','Jurídico','Diretoria']
-const CANAIS = [
-  { id:'email',     label:'📧 E-mail' },
-  { id:'whatsapp',  label:'💬 WhatsApp' },
-  { id:'ambos',     label:'📲 E-mail + WhatsApp' },
-  { id:'interno',   label:'🏢 Interno (sem envio)' },
+
+const CANAIS_EXTERNO = [
+  { id:'email',    label:'📧 E-mail' },
+  { id:'whatsapp', label:'💬 WhatsApp' },
+  { id:'ambos',    label:'📲 E-mail + WhatsApp' },
 ]
+const CANAIS_INTERNO = [
+  { id:'interno_sistema', label:'🏢 Somente no sistema' },
+  { id:'email',           label:'📧 E-mail interno' },
+  { id:'whatsapp',        label:'💬 WhatsApp interno' },
+]
+
 const STATUS_CFG = {
-  pendente:   { label:'Pendente',  cor:'#854D0E', bg:'#FEF9C3' },
-  enviado:    { label:'Enviado',   cor:'#1D6FA4', bg:'#EBF5FF' },
-  respondido: { label:'Respondido',cor:'#1A7A3C', bg:'#EDFBF1' },
-  encerrado:  { label:'Encerrado', cor:'#6B7280', bg:'#f5f5f5' },
+  salvo:      { label:'Salvo',      cor:'#6B7280', bg:'#f0f0f0' },
+  pendente:   { label:'Pendente',   cor:'#854D0E', bg:'#FEF9C3' },
+  enviado:    { label:'Enviado',    cor:'#1D6FA4', bg:'#EBF5FF' },
+  respondido: { label:'Respondido', cor:'#1A7A3C', bg:'#EDFBF1' },
+  encerrado:  { label:'Encerrado',  cor:'#6B7280', bg:'#f5f5f5' },
+}
+const STATUS_CORES_PROC = {
+  'Em Andamento':'#2196F3','Aguardando Cliente':'#FF9800',
+  'Concluído':'#4CAF50','Cancelado':'#F44336','Pendente':'#9C27B0',
 }
 
-const inp  = { padding:'9px 12px', borderRadius:8, border:'1px solid #e0e0e0', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', fontFamily:'inherit', color:'#333' }
-const sel  = { ...inp, cursor:'pointer' }
-const btn  = (bg='#1B2A4A', c='#fff') => ({ padding:'9px 16px', borderRadius:8, background:bg, color:c, fontWeight:700, fontSize:13, border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6 })
+const inp = { padding:'9px 12px', borderRadius:8, border:'1px solid #e0e0e0', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', fontFamily:'inherit', color:'#333' }
+const sel = { ...inp, cursor:'pointer' }
+const btn = (bg='#1B2A4A', c='#fff') => ({ padding:'9px 16px', borderRadius:8, background:bg, color:c, fontWeight:700, fontSize:13, border:'none', cursor:'pointer', display:'flex', alignItems:'center', gap:6 })
 
+function fmtBytes(b) {
+  if (!b) return ''
+  if (b < 1024) return `${b} B`
+  if (b < 1024*1024) return `${(b/1024).toFixed(1)} KB`
+  return `${(b/1024/1024).toFixed(1)} MB`
+}
+function iconeDoc(tipo='') {
+  if ((tipo||'').includes('pdf'))   return '📄'
+  if ((tipo||'').includes('image')) return '🖼️'
+  return '📎'
+}
+
+const FORM_VAZIO = {
+  titulo:'', conteudo:'', resumo:'', urgencia:'normal', departamento:'Geral',
+  responsavel:'', canal:'email', tipo:'externo',
+  cliente_ids:[], emails_extra:[], processo_ids:[],
+  usa_dominio_proprio:false, assinatura_personalizada:'',
+}
+
+function Toast({ toasts, fechar }) {
+  if (!toasts.length) return null
+  return (
+    <div style={{ position:'fixed', top:20, right:20, zIndex:99999, display:'flex', flexDirection:'column', gap:10, maxWidth:390, pointerEvents:'none' }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          background: t.tipo==='alerta'?'#fff9e6':t.tipo==='erro'?'#FEF2F2':'#f0fdf4',
+          border:`1.5px solid ${t.tipo==='alerta'?GOLD:t.tipo==='erro'?'#fca5a5':'#86efac'}`,
+          borderLeft:`5px solid ${t.tipo==='alerta'?GOLD:t.tipo==='erro'?'#dc2626':'#22c55e'}`,
+          borderRadius:10, padding:'13px 15px', boxShadow:'0 8px 24px rgba(0,0,0,.13)',
+          display:'flex', alignItems:'flex-start', gap:10, pointerEvents:'all', animation:'slideIn .22s ease',
+        }}>
+          <span style={{ fontSize:20, flexShrink:0, marginTop:1 }}>{t.tipo==='alerta'?'🔔':t.tipo==='erro'?'❌':'✅'}</span>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontWeight:800, fontSize:13, color:NAVY, marginBottom:2 }}>{t.titulo}</div>
+            <div style={{ fontSize:12, color:'#555', lineHeight:1.5 }}>{t.msg}</div>
+            {t.canais?.length>0 && (
+              <div style={{ marginTop:5, display:'flex', gap:5, flexWrap:'wrap' }}>
+                {t.canais.map((c,i)=><span key={i} style={{ fontSize:10, padding:'2px 7px', borderRadius:6, background:`${NAVY}11`, color:NAVY, fontWeight:700 }}>{c}</span>)}
+              </div>
+            )}
+          </div>
+          <button onClick={()=>fechar(t.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#aaa', padding:0, flexShrink:0 }}><X size={13}/></button>
+        </div>
+      ))}
+      <style>{`@keyframes slideIn{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}`}</style>
+    </div>
+  )
+}
+
+function ModalAlerta({ comunicados, onClose }) {
+  if (!comunicados.length) return null
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9998, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={onClose}>
+      <div style={{ background:'#fff', borderRadius:16, overflow:'hidden', maxWidth:520, width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ background:`linear-gradient(135deg,${NAVY},#2d4a7a)`, padding:'20px 24px', display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:GOLD, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Bell size={22} style={{ color:NAVY }}/></div>
+          <div>
+            <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>🔔 Comunicado Importante!</div>
+            <div style={{ color:GOLD, fontSize:12, marginTop:2 }}>Vocà tem {comunicados.length} comunicado(s) aguardando atenção</div>
+          </div>
+        </div>
+        <div style={{ padding:20, maxHeight:320, overflowY:'auto' }}>
+          {comunicados.map(com => {
+            const urg = URGENCIAS.find(u=>u.id===com.urgencia)||URGENCIAS[1]
+            return (
+              <div key={com.id} style={{ border:`1px solid ${urg.border}`, borderRadius:10, padding:'12px 14px', marginBottom:10, background:urg.bg }}>
+                <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:5 }}>
+                  <span style={{ fontWeight:800, fontSize:12, color:urg.cor }}>{urg.emoji} {urg.label}</span>
+                  <span style={{ fontSize:11, color:'#888' }}>{com.departamento}</span>
+                </div>
+                <div style={{ fontWeight:700, fontSize:14, color:NAVY, marginBottom:3 }}>{com.titulo}</div>
+                {com.resumo && <div style={{ fontSize:12, color:'#555', fontStyle:'italic' }}>{com.resumo}</div>}
+              </div>
+            )
+          })}
+        </div>
+        <div style={{ padding:'14px 20px', borderTop:'1px solid #e8e8e8', display:'flex', justifyContent:'flex-end' }}>
+          <button onClick={onClose} style={btn(NAVY)}><CheckCircle size={14}/> Entendido</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ModalPreview({ doc, onClose }) {
+  const url = `${API}/comunicados/docs/arquivo/${doc.id}`
+  const isPdf = (doc.tipo||'').includes('pdf')
+  const isImg = (doc.tipo||'').includes('image')
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.78)', zIndex:9999, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }} onClick={onClose}>
+      <div style={{ background:'#1a1a2e', borderRadius:14, overflow:'hidden', maxWidth:'93vw', maxHeight:'93vh', width:920, display:'flex', flexDirection:'column' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ background:NAVY, padding:'11px 18px', display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:18 }}>{iconeDoc(doc.tipo)}</span>
+          <span style={{ color:'#fff', fontWeight:700, fontSize:14, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{doc.nome}</span>
+          <a href={url} download={doc.nome} style={{ ...btn('#f0f0f0','#333'), padding:'5px 10px', fontSize:11, textDecoration:'none' }} onClick={e=>e.stopPropagation()}><Download size={12}/> Baixar</a>
+          <button onClick={onClose} style={{ ...btn('#dc2626'), padding:'5px 10px' }}><X size={13}/></button>
+        </div>
+        <div style={{ flex:1, overflow:'auto', background:'#f0f0f0', display:'flex', alignItems:'center', justifyContent:'center', minHeight:400 }}>
+          {isPdf && <iframe src={`${url}#toolbar=1&navpanes=0`} title={doc.nome} style={{ width:'100%', height:'82vh', border:'none' }}/>}
+          {isImg && <img src={url} alt={doc.nome} style={{ maxWidth:'100%', maxHeight:'82vh', objectFit:'contain' }}/>}
+          {!isPdf && !isImg && (
+            <div style={{ textAlign:'center', padding:40 }}>
+              <div style={{ fontSize:56, marginBottom:12 }}>{iconeDoc(doc.tipo)}</div>
+              <div style={{ color:'#555', fontSize:14, marginBottom:16 }}>{doc.nome}</div>
+              <a href={url} download={doc.nome} style={{ ...btn(NAVY), textDecoration:'none', display:'inline-flex' }}><Download size={14}/> Baixar</a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SecaoDocumentos({ comId, modoLeitura }) {
+  const [docs, setDocs]       = useState([])
+  const [preview, setPreview] = useState(null)
+  const [drag, setDrag]       = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const inputRef = useRef()
+  const carregar = useCallback(async () => {
+    if (!comId) return
+    try { const r = await fetch(`${API}/comunicados/${comId}/docs`); if (r.ok) setDocs(await r.json()) } catch {}
+  }, [comId])
+  useEffect(() => { carregar() }, [carregar])
+  const uploadArqs = async (arqs) => {
+    if (!comId || !arqs.length) return
+    setUploading(true)
+    for (const a of arqs) { const fd=new FormData(); fd.append('file',a); try{ await fetch(`${API}/comunicados/${comId}/docs`,{method:'POST',body:fd}) }catch{} }
+    await carregar(); setUploading(false)
+  }
+  const excluir = async (id) => {
+    if (!confirm('Excluir documento?')) return
+    await fetch(`${API}/comunicados/${comId}/docs/${id}`,{method:'DELETE'}); await carregar()
+  }
+  return (
+    <div>
+      {preview && <ModalPreview doc={preview} onClose={()=>setPreview(null)}/>}
+      {!modoLeitura && (
+        <div onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
+          onDrop={e=>{e.preventDefault();setDrag(false);uploadArqs(Array.from(e.dataTransfer.files))}}
+          onClick={()=>inputRef.current?.click()}
+          style={{ border:`2px dashed ${drag?GOLD:'#d0d7e6'}`, borderRadius:10, padding:'14px 18px', textAlign:'center', cursor:'pointer', background:drag?'#fffbeb':'#fafbfc', marginBottom:10 }}>
+          <input ref={inputRef} type="file" multiple style={{display:'none'}} onChange={e=>uploadArqs(Array.from(e.target.files))}/>
+          <Paperclip size={16} style={{color:'#bbb',marginBottom:4}}/>
+          <div style={{fontSize:12,color:'#888',fontWeight:600}}>{uploading?'⏳ Enviando...':'Arraste arquivos ou clique para selecionar'}</div>
+          <div style={{fontSize:10,color:'#bbb',marginTop:2}}>PDF, imagens, Word, Excel…</div>
+        </div>
+      )}
+      {docs.length > 0 ? docs.map(doc=>(
+        <div key={doc.id} style={{ display:'flex',alignItems:'center',gap:10,padding:'8px 12px',borderRadius:8,border:'1px solid #e8e8e8',background:'#fff',marginBottom:6 }}>
+          <span style={{fontSize:20}}>{iconeDoc(doc.tipo)}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:600,color:NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{doc.nome}</div>
+            <div style={{fontSize:10,color:'#aaa'}}>{fmtBytes(doc.tamanho)} · {doc.criado_em?.slice(0,16)}</div>
+          </div>
+          <button onClick={()=>setPreview(doc)} style={{...btn('#EBF5FF','#1D6FA4'),padding:'5px 10px',fontSize:11}}><Eye size={12}/> Ver</button>
+          {!modoLeitura && <button onClick={()=>excluir(doc.id)} style={{...btn('#FEF2F2','#dc2626'),padding:'5px 8px'}}><Trash2 size={12}/></button>}
+        </div>
+      )) : modoLeitura && (
+        <div style={{padding:'16px 0',textAlign:'center',color:'#ccc',fontSize:12}}><Paperclip size={16} style={{display:'block',margin:'0 auto 6px'}}/> Nenhum documento anexado</div>
+      )}
+    </div>
+  )
+}
+
+function SeletorProcessos({ selectedIds, onChange }) {
+  const [processos, setProcessos] = useState([])
+  const [busca, setBusca] = useState('')
+  useEffect(()=>{ try{ setProcessos(JSON.parse(localStorage.getItem('ep_processos')||'[]')) }catch{} },[])
+  const filtrados = processos.filter(p=>{ const q=busca.toLowerCase(); return !q||(p.titulo||''). toLowerCase().includes(q)||(p.cliente||''). toLowerCase().includes(q) })
+  const toggle = id => onChange(selectedIds.includes(id)?selectedIds.filter(x=>x!==id):[...selectedIds,id])
+  return (
+    <div>
+      <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar processo..." style={{...inp,marginBottom:6}}/>
+      <div style={{maxHeight:160,overflowY:'auto',border:'1px solid #e8e8e8',borderRadius:8}}>
+        {filtrados.slice(0,30).map(p=>{
+          const cor=STATUS_CORES_PROC[p.status]||'#888'; const sel2=selectedIds.includes(p.id)
+          return (
+            <div key={p.id} onClick={()=>toggle(p.id)} style={{padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid #f5f5f5',display:'flex',alignItems:'center',gap:8,background:sel2?'#EBF5FF':'#fff'}}>
+              <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${sel2?NAVY:'#ddd'}`,background:sel2?NAVY:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                {sel2&&<CheckCircle size={10} style={{color:'#fff'}}/>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:600,color:NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.titulo}</div>
+                <div style={{fontSize:10,color:'#aaa'}}>{p.cliente} · <span style={{color:cor,fontWeight:700}}>{p.status}</span></div>
+              </div>
+            </div>
+          )
+        })}
+        {filtrados.length===0&&<div style={{padding:16,textAlign:'center',color:'#ccc',fontSize:12}}>{processos.length===0?'Nenhum processo':'Nenhum resultado'}</div>}
+      </div>
+    </div>
+  )
+}
+
+function TagsProcessos({ processo_ids }) {
+  const [processos, setProcessos] = useState([])
+  useEffect(()=>{ try{ setProcessos(JSON.parse(localStorage.getItem('ep_processos')||'[]')) }catch{} },[])
+  const ids = (() => { try{ return JSON.parse(processo_ids||'[]') }catch{ return [] } })()
+  if (!ids.length) return null
+  const vins = ids.map(id=>processos.find(p=>String(p.id)===String(id))).filter(Boolean)
+  if (!vins.length) return <div style={{fontSize:12,color:'#aaa'}}>{ids.length} processo(s) (não encontrado no dispositivo)</div>
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+      {vins.map(p=>{ const cor=STATUS_CORES_PROC[p.status]||'#888'; return (
+        <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderRadius:10,border:`1px solid ${cor}33`,background:`${cor}08`}}>
+          <Briefcase size={14} style={{color:cor,flexShrink:0}}/>
+          <div><div style={{fontSize:13,fontWeight:700,color:NAVY}}>{p.titulo}</div><div style={{fontSize:11,color:'#888'}}>{p.cliente} · <span style={{color:cor,fontWeight:700}}>{p.status}</span></div></div>
+        </div>
+      )})}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Componente principal
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Comunicados() {
   const [aba, setAba]             = useState('lista')   // lista | novo | config_smtp
   const [comunicados, setComunicados] = useState([])
