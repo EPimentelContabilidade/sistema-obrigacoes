@@ -98,6 +98,7 @@ const FORM_VAZIO = {
   cep:'', logradouro:'', numero:'', complemento:'', bairro:'', cidade:'', estado:'',
   responsaveis:[], contatos:[],
   canal_padrao:'whatsapp', valor_honorario:0,
+  email_nfe:'', email_folha:'', socios:[],
   obrigacoes_vinculadas:[], obrigacoes_catalogo:[], observacoes:'', ativo:true,
   credenciais:{ ...CREDS_VAZIO }
 }
@@ -507,36 +508,35 @@ export default function Clientes() {
                           </div>
                         ))}
                       </div>
-                      {/* QSA Visual - cnpjDados (busca) ou form.socios (salvo) */}
-                      {(()=>{
-                        const qsaItems = cnpjDados
-                          ? (cnpjDados.qsa||[])
-                          : (form.socios||[]).map(s=>({nome_socio:s.nome||s.nome_socio, qualificacao_socio:s.qualificacao||s.qualificacao_socio}))
-                        if(!qsaItems.length) return null
-                        return (
-                          <div style={{ marginTop:10, borderTop:'1px solid #bbf7d0', paddingTop:10 }}>
-                            <div style={{ fontSize:11, color:'#166534', fontWeight:700, marginBottom:6 }}>👥 QSA — Quadro de Sócios e Administradores</div>
-                            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                              {qsaItems.map((s,i)=>(
-                                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 8px', borderRadius:7, background:'rgba(255,255,255,.6)' }}>
-                                  <div style={{ width:26, height:26, borderRadius:'50%', background:'#166534', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:11, flexShrink:0 }}>
-                                    {(s.nome_socio||'?').charAt(0)}
-                                  </div>
-                                  <div style={{ flex:1 }}>
-                                    <div style={{ fontWeight:700, color:'#166534', fontSize:12 }}>{s.nome_socio}</div>
-                                    <div style={{ fontSize:10, color:'#4ade80' }}>{s.qualificacao_socio}{s.faixa_etaria?' · '+s.faixa_etaria:''}</div>
-                                  </div>
-                                  {s.pais_socio && s.pais_socio !== 'Brasil' && (
-                                    <span style={{ fontSize:10, background:'#fef9c3', color:'#854d0e', borderRadius:6, padding:'2px 6px' }}>🌍 {s.pais_socio}</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })()}
+
                     </div>
                   )}
+
+                  {/* QSA — mostra sempre (busca recente ou dados salvos) */}
+                  {(()=>{
+                    const qsaItems = cnpjDados
+                      ? (cnpjDados.qsa||[])
+                      : (form.socios||[]).map(s=>({nome_socio:s.nome||s.nome_socio, qualificacao_socio:s.qualificacao||s.qualificacao_socio}))
+                    if(!qsaItems.length) return null
+                    return (
+                      <div style={{ marginBottom:14, padding:'12px 16px', borderRadius:10, background:'#F0FDF4', border:'1px solid #bbf7d0' }}>
+                        <div style={{ fontSize:11, color:'#166534', fontWeight:700, marginBottom:8 }}>👥 QSA — Quadro de Sócios e Administradores</div>
+                        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                          {qsaItems.map((s,i)=>(
+                            <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 10px', borderRadius:8, background:'rgba(255,255,255,.7)', border:'1px solid #bbf7d0' }}>
+                              <div style={{ width:30, height:30, borderRadius:'50%', background:'#166534', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:12, flexShrink:0 }}>
+                                {(s.nome_socio||'?').charAt(0)}
+                              </div>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontWeight:700, color:'#166534', fontSize:13 }}>{s.nome_socio}</div>
+                                <div style={{ fontSize:11, color:'#166534', opacity:.7 }}>{s.qualificacao_socio}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   {/* CNAEs */}
                   {(form.cnae_principal || form.cnae_secundarios?.length > 0) && (
@@ -725,16 +725,10 @@ export default function Clientes() {
                               else if(nome.includes('cnpj')||nome.includes('ecnpj')) setC('cert_tipo','e-CNPJ')
                               const reader = new FileReader()
                               reader.onload = ev => {
-                                const bytes = new Uint8Array(ev.target.result)
-                                // Converter para base64 em chunks para evitar stack overflow em arquivos grandes
-                                let b64 = ''
-                                const chunk = 8192
-                                for(let i=0; i<bytes.length; i+=chunk) {
-                                  b64 += String.fromCharCode(...bytes.subarray(i, i+chunk))
-                                }
-                                setC('cert_b64', btoa(b64))
+                                const dataUrl = ev.target.result
+                                setC('cert_b64', dataUrl.split(',')[1]||'')
                               }
-                              reader.readAsArrayBuffer(f2)
+                              reader.readAsDataURL(f2)
                               // Reset input para permitir reselecionar o mesmo arquivo
                               e.target.value = ''
                             }}
