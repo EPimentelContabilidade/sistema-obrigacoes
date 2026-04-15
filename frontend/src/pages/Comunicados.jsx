@@ -139,7 +139,7 @@ function ModalAlerta({ comunicados, onClose }) {
 }
 
 function ModalPreview({ doc, onClose }) {
-  const url = `${API}/comunicados/docs/arquivo/${doc.id}`
+  const url = doc.dataUrl || `${API}/comunicados/docs/arquivo/${doc.id}`
   const isPdf = (doc.tipo||'').includes('pdf')
   const isImg = (doc.tipo||'').includes('image')
   return (
@@ -176,6 +176,12 @@ function SecaoDocumentos({ comId, modoLeitura }) {
 
   const carregar = useCallback(async () => {
     if (!comId) return
+    // Docs locais (quando ID começa com local_)
+    if (String(comId).startsWith('local_')) {
+      try { const locais = JSON.parse(localStorage.getItem(`ep_docs_${comId}`)||'[]'); setDocs(locais) } catch {}
+      return
+    }
+    // Docs da API
     try { const r = await fetch(`${API}/comunicados/${comId}/docs`); if (r.ok) setDocs(await r.json()) } catch {}
   }, [comId])
 
@@ -184,12 +190,32 @@ function SecaoDocumentos({ comId, modoLeitura }) {
   const uploadArqs = async (arqs) => {
     if (!comId || !arqs.length) return
     setUploading(true)
+    if (String(comId).startsWith('local_')) {
+      // Salvar localmente em base64
+      const docsExist = JSON.parse(localStorage.getItem(`ep_docs_${comId}`)||'[]')
+      for (const a of arqs) {
+        try {
+          const b64 = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(a) })
+          docsExist.push({ id:`doc_${Date.now()}`, nome:a.name, tipo:a.type, tamanho:a.size, dataUrl:b64, criado_em:new Date().toISOString() })
+        } catch {}
+      }
+      localStorage.setItem(`ep_docs_${comId}`, JSON.stringify(docsExist))
+      await carregar(); setUploading(false); return
+    }
     for (const a of arqs) { const fd=new FormData(); fd.append('file',a); try{ await fetch(`${API}/comunicados/${comId}/docs`,{method:'POST',body:fd}) }catch{} }
     await carregar(); setUploading(false)
   }
 
   const excluir = async (id) => {
     if (!confirm('Excluir documento?')) return
+    if (String(comId).startsWith('local_')) {
+      try {
+        let docs = JSON.parse(localStorage.getItem(`ep_docs_${comId}`)||'[]')
+        docs = docs.filter(d=>d.id!==id)
+        localStorage.setItem(`ep_docs_${comId}`, JSON.stringify(docs))
+      } catch {}
+      await carregar(); return
+    }
     await fetch(`${API}/comunicados/${comId}/docs/${id}`,{method:'DELETE'}); await carregar()
   }
 
@@ -388,12 +414,24 @@ export default function Comunicados() {
   const excluirComunicado = async (id, titulo) => {
     if (!confirm(`Excluir "${titulo}"? Esta ação não pode ser desfeita.`)) return
     try {
-      const r = await fetch(`${API}/comunicados/${id}`,{method:'DELETE'})
-      if (r.ok) {
-        addToast('🗑️ Excluído',`"${titulo}" foi removido.`,'info',null,4000)
-        setDetalhe(null)
-        await carregarComunicados()
+      // Remover do localStorage (local ou sincronizado)
+      try {
+        let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
+        const antes = lista.length
+        lista = lista.filter(c => String(c.id) !== String(id))
+        if (lista.length < antes) localStorage.setItem('ep_comunicados', JSON.stringify(lista))
+        // Remover documentos locais associados
+        localStorage.removeItem(`ep_docs_${id}`)
+      } catch {}
+
+      // Tentar também na API
+      if (!String(id).startsWith('local_')) {
+        try { await fetch(`${API}/comunicados/${id}`,{method:'DELETE'}) } catch {}
       }
+
+      addToast('🗑️ Excluído',`"${titulo}" foi removido.`,'info',null,4000)
+      setDetalhe(null)
+      await carregarComunicados()
     } catch { addToast('Erro','Não foi possível excluir.','erro',null,4000) }
   }
 
@@ -488,7 +526,18 @@ export default function Comunicados() {
       }
       if (ok && id) {
         if (!String(id).startsWith('local_')) {
+          // API disponível: upload normal
           for (const arq of uploadPendente) { const fd=new FormData(); fd.append('file',arq); try{ await fetch(`${API}/comunicados/${id}/docs`,{method:'POST',body:fd}) }catch{} }
+        } else if (uploadPendente.length > 0) {
+          // Sem API: salvar arquivos como base64 no localStorage
+          const docsLocais = []
+          for (const arq of uploadPendente) {
+            try {
+              const b64 = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(arq) })
+              docsLocais.push({ id:`doc_${Date.now()}_${Math.random().toString(36).slice(2)}`, nome:arq.name, tipo:arq.type, tamanho:arq.size, dataUrl:b64, criado_em:new Date().toISOString() })
+            } catch {}
+          }
+          if (docsLocais.length) localStorage.setItem(`ep_docs_${id}`, JSON.stringify(docsLocais))
         }
         // Abrir arquivo automaticamente se houver 1 PDF/imagem
         if (uploadPendente.length === 1) {
