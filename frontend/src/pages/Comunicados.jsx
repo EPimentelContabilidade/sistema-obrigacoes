@@ -562,7 +562,12 @@ export default function Comunicados() {
               docsLocais.push({ id:`doc_${Date.now()}_${Math.random().toString(36).slice(2)}`, nome:arq.name, tipo:arq.type, tamanho:arq.size, dataUrl:b64, criado_em:new Date().toISOString() })
             } catch {}
           }
-          if (docsLocais.length) localStorage.setItem(`ep_docs_${id}`, JSON.stringify(docsLocais))
+          if (docsLocais.length) {
+            // Mesclar com docs já existentes (não sobrescrever)
+            let jaExistem = []
+            try { jaExistem = JSON.parse(localStorage.getItem(`ep_docs_${id}`)||'[]') } catch {}
+            localStorage.setItem(`ep_docs_${id}`, JSON.stringify([...jaExistem, ...docsLocais]))
+          }
         }
         // Abrir arquivo automaticamente se houver 1 PDF/imagem
         if (uploadPendente.length === 1) {
@@ -1199,6 +1204,8 @@ export default function Comunicados() {
           <option value="enviado">Enviado</option>
           <option value="respondido">Respondido</option>
           <option value="encerrado">Encerrado</option>
+          <option value="pausado">⏸️ Pausado</option>
+          <option value="desistido">🚫 Desistido</option>
         </select>
         <button onClick={carregarComunicados} style={{...btn('#f5f5f5','#555'),padding:'5px 10px',marginLeft:'auto'}}><RefreshCw size={12}/></button>
       </div>
@@ -1267,6 +1274,24 @@ export default function Comunicados() {
                       style={{...btn('#f0f4ff',NAVY),padding:'5px 9px',border:`1px solid #c7d2fe`}}>
                       <Edit2 size={12}/>
                     </button>
+                    {!['encerrado','desistido'].includes(com.status) && (
+                      <button onClick={e=>{e.stopPropagation();pausar(com.id,com.titulo)}} title="Pausar"
+                        style={{...btn('#F3EEFF','#7C3AED'),padding:'5px 9px',border:'1px solid #c4b5fd'}}>
+                        <Clock size={12}/>
+                      </button>
+                    )}
+                    {!['encerrado','desistido'].includes(com.status) && (
+                      <button onClick={e=>{e.stopPropagation();desistir(com.id,com.titulo)}} title="Desistir"
+                        style={{...btn('#FEF9C3','#854D0E'),padding:'5px 9px',border:'1px solid #fcd34d'}}>
+                        <Archive size={12}/>
+                      </button>
+                    )}
+                    {['encerrado','pausado','desistido'].includes(com.status) && (
+                      <button onClick={e=>{e.stopPropagation();reabrirComunicado(com.id,com.titulo)}} title="Reabrir"
+                        style={{...btn('#f0fdf4','#16a34a'),padding:'5px 9px',border:'1px solid #86efac'}}>
+                        <RefreshCw size={12}/>
+                      </button>
+                    )}
                     <button onClick={e=>{e.stopPropagation();excluirComunicado(com.id,com.titulo)}} title="Excluir"
                       style={{...btn('#FEF2F2','#dc2626'),padding:'5px 9px'}}>
                       <Trash2 size={12}/>
