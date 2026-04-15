@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Plus, Send, X, Eye, CheckCircle, Clock, MessageSquare,
          Briefcase, Building2, Bot, Settings, Mail, Filter,
          Archive, RefreshCw, Paperclip, Download, Trash2, Bell,
-         Save, Edit2, Users, Lock, UploadCloud } from 'lucide-react'
+         Save, Edit2, Users, Lock } from 'lucide-react'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -16,6 +16,7 @@ const URGENCIAS = [
 ]
 const DEPARTAMENTOS = ['Geral','Fiscal','Contábil','Pessoal','Financeiro','Jurídico','Diretoria']
 
+// Canais separados por tipo
 const CANAIS_EXTERNO = [
   { id:'email',    label:'📧 E-mail' },
   { id:'whatsapp', label:'💬 WhatsApp' },
@@ -62,6 +63,10 @@ const FORM_VAZIO = {
   usa_dominio_proprio:false, assinatura_personalizada:'',
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Subcomponentes
+// ─────────────────────────────────────────────────────────────────────────────
+
 function Toast({ toasts, fechar }) {
   if (!toasts.length) return null
   return (
@@ -71,10 +76,14 @@ function Toast({ toasts, fechar }) {
           background: t.tipo==='alerta'?'#fff9e6':t.tipo==='erro'?'#FEF2F2':'#f0fdf4',
           border:`1.5px solid ${t.tipo==='alerta'?GOLD:t.tipo==='erro'?'#fca5a5':'#86efac'}`,
           borderLeft:`5px solid ${t.tipo==='alerta'?GOLD:t.tipo==='erro'?'#dc2626':'#22c55e'}`,
-          borderRadius:10, padding:'13px 15px', boxShadow:'0 8px 24px rgba(0,0,0,.13)',
-          display:'flex', alignItems:'flex-start', gap:10, pointerEvents:'all', animation:'slideIn .22s ease',
+          borderRadius:10, padding:'13px 15px',
+          boxShadow:'0 8px 24px rgba(0,0,0,.13)',
+          display:'flex', alignItems:'flex-start', gap:10,
+          pointerEvents:'all', animation:'slideIn .22s ease',
         }}>
-          <span style={{ fontSize:20, flexShrink:0, marginTop:1 }}>{t.tipo==='alerta'?'🔔':t.tipo==='erro'?'❌':'✅'}</span>
+          <span style={{ fontSize:20, flexShrink:0, marginTop:1 }}>
+            {t.tipo==='alerta'?'🔔':t.tipo==='erro'?'❌':'✅'}
+          </span>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:800, fontSize:13, color:NAVY, marginBottom:2 }}>{t.titulo}</div>
             <div style={{ fontSize:12, color:'#555', lineHeight:1.5 }}>{t.msg}</div>
@@ -98,10 +107,12 @@ function ModalAlerta({ comunicados, onClose }) {
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9998, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={onClose}>
       <div style={{ background:'#fff', borderRadius:16, overflow:'hidden', maxWidth:520, width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,.3)' }} onClick={e=>e.stopPropagation()}>
         <div style={{ background:`linear-gradient(135deg,${NAVY},#2d4a7a)`, padding:'20px 24px', display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ width:44, height:44, borderRadius:12, background:GOLD, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Bell size={22} style={{ color:NAVY }}/></div>
+          <div style={{ width:44, height:44, borderRadius:12, background:GOLD, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <Bell size={22} style={{ color:NAVY }}/>
+          </div>
           <div>
             <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>🔔 Comunicado Importante!</div>
-            <div style={{ color:GOLD, fontSize:12, marginTop:2 }}>Vocà tem {comunicados.length} comunicado(s) aguardando atenção</div>
+            <div style={{ color:GOLD, fontSize:12, marginTop:2 }}>Você tem {comunicados.length} comunicado(s) aguardando atenção</div>
           </div>
         </div>
         <div style={{ padding:20, maxHeight:320, overflowY:'auto' }}>
@@ -162,26 +173,32 @@ function SecaoDocumentos({ comId, modoLeitura }) {
   const [drag, setDrag]       = useState(false)
   const [uploading, setUploading] = useState(false)
   const inputRef = useRef()
+
   const carregar = useCallback(async () => {
     if (!comId) return
     try { const r = await fetch(`${API}/comunicados/${comId}/docs`); if (r.ok) setDocs(await r.json()) } catch {}
   }, [comId])
+
   useEffect(() => { carregar() }, [carregar])
+
   const uploadArqs = async (arqs) => {
     if (!comId || !arqs.length) return
     setUploading(true)
     for (const a of arqs) { const fd=new FormData(); fd.append('file',a); try{ await fetch(`${API}/comunicados/${comId}/docs`,{method:'POST',body:fd}) }catch{} }
     await carregar(); setUploading(false)
   }
+
   const excluir = async (id) => {
     if (!confirm('Excluir documento?')) return
     await fetch(`${API}/comunicados/${comId}/docs/${id}`,{method:'DELETE'}); await carregar()
   }
+
   return (
     <div>
       {preview && <ModalPreview doc={preview} onClose={()=>setPreview(null)}/>}
       {!modoLeitura && (
-        <div onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
+        <div
+          onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)}
           onDrop={e=>{e.preventDefault();setDrag(false);uploadArqs(Array.from(e.dataTransfer.files))}}
           onClick={()=>inputRef.current?.click()}
           style={{ border:`2px dashed ${drag?GOLD:'#d0d7e6'}`, borderRadius:10, padding:'14px 18px', textAlign:'center', cursor:'pointer', background:drag?'#fffbeb':'#fafbfc', marginBottom:10 }}>
@@ -212,7 +229,7 @@ function SeletorProcessos({ selectedIds, onChange }) {
   const [processos, setProcessos] = useState([])
   const [busca, setBusca] = useState('')
   useEffect(()=>{ try{ setProcessos(JSON.parse(localStorage.getItem('ep_processos')||'[]')) }catch{} },[])
-  const filtrados = processos.filter(p=>{ const q=busca.toLowerCase(); return !q||(p.titulo||''). toLowerCase().includes(q)||(p.cliente||''). toLowerCase().includes(q) })
+  const filtrados = processos.filter(p=>{ const q=busca.toLowerCase(); return !q||(p.titulo||'').toLowerCase().includes(q)||(p.cliente||'').toLowerCase().includes(q) })
   const toggle = id => onChange(selectedIds.includes(id)?selectedIds.filter(x=>x!==id):[...selectedIds,id])
   return (
     <div>
@@ -261,283 +278,407 @@ function TagsProcessos({ processo_ids }) {
 // Componente principal
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Comunicados() {
-  const [aba, setAba]             = useState('lista')   // lista | novo | config_smtp
+  const [aba, setAba]               = useState('lista')
   const [comunicados, setComunicados] = useState([])
-  const [clientes, setClientes]   = useState([])
+  const [clientes, setClientes]     = useState([])
   const [carregando, setCarregando] = useState(false)
-
-  // Filtros
   const [filtroUrg, setFiltroUrg]   = useState('')
   const [filtroDept, setFiltroDept] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
+  const [filtroTipo, setFiltroTipo]  = useState('')
 
-  // Novo comunicado
-  const [form, setForm] = useState({
-    titulo: '', conteudo: '', urgencia: 'normal', departamento: 'Geral',
-    responsavel: 'Carlos Eduardo Pimentel', canal: 'email',
-    cliente_ids: [], emails_extra: [], processo_ids: [],
-    usa_dominio_proprio: false, assinatura_personalizada: '',
-  })
+  const [form, setForm]         = useState({ ...FORM_VAZIO })
+  const [editandoId, setEditandoId] = useState(null)
   const [clienteBusca, setClienteBusca] = useState('')
   const [emailAvulso, setEmailAvulso]   = useState('')
-  const [enviando, setEnviando]         = useState(false)
-  const [sucesso, setSucesso]           = useState('')
+  const [enviando, setEnviando]     = useState(false)
+  const [salvando, setSalvando]     = useState(false)
+  const [gerandoResumo, setGerandoResumo] = useState(false)
+  const [uploadPendente, setUploadPendente] = useState([])
 
-  // Config SMTP
-  const [smtp, setSmtp] = useState({ host:'smtp.gmail.com', port:587, user:'', pass:'', from_name:'EPimentel Auditoria & Contabilidade', from_email:'', assinatura_html:'' })
+  const [smtp, setSmtp]       = useState({ host:'smtp.gmail.com',port:587,user:'',pass:'',from_name:'EPimentel Auditoria & Contabilidade',from_email:'',assinatura_html:'' })
   const [smtpSalvo, setSmtpSalvo] = useState(false)
 
-  // Sync / Backup
-  const [ultimoSync, setUltimoSync] = useState('')
-  const [sincronizando, setSincronizando] = useState(false)
+  const [detalhe, setDetalhe]       = useState(null)
+  const [abaDetalhe, setAbaDetalhe] = useState('conteudo')
+  const [resposta, setResposta]     = useState('')
+  const [enviandoDetalhe, setEnviandoDetalhe] = useState(false)
 
-  // Detalhe do comunicado
-  const [detalhe, setDetalhe]     = useState(null)
-  const [resposta, setResposta]   = useState('')
-
-  // Usuários do painel admin
   const [usuariosAdmin, setUsuariosAdmin] = useState([])
-  // IA de atrasos
-  const [iaAtrasos, setIaAtrasos]   = useState('')
+  const [iaAtrasos, setIaAtrasos]     = useState('')
   const [iaCarregando, setIaCarregando] = useState(false)
-  // Alerta de menção de responsável
-  const [alertaResponsavel, setAlertaResponsavel] = useState('')
 
-  const carregarUsuariosAdmin = () => {
-    try {
-      const raw = localStorage.getItem('epimentel_usuarios')
-      if (raw) {
-        const lista = JSON.parse(raw).filter(u => u.ativo !== false)
-        setUsuariosAdmin(lista)
-      }
-    } catch {}
+  const [toasts, setToasts]         = useState([])
+  const [alertaComs, setAlertaComs] = useState([])
+  const [modalAlerta, setModalAlerta] = useState(false)
+  const toastCnt = useRef(0)
+  const uploadRef = useRef()
+
+  // ── Toast helpers ─────────────────────────────────────────────────────────
+  const addToast = (titulo, msg, tipo='info', canais=null, dur=5000) => {
+    const id = ++toastCnt.current
+    setToasts(t=>[...t,{id,titulo,msg,tipo,canais}])
+    if (dur>0) setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)), dur)
+    return id
   }
+  const fecharToast = id => setToasts(t=>t.filter(x=>x.id!==id))
 
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     carregarComunicados()
-    try { setClientes(JSON.parse(localStorage.getItem('ep_clientes') || '[]')) } catch {}
-    carregarUsuariosAdmin()
+    try{ setClientes(JSON.parse(localStorage.getItem('ep_clientes')||'[]')) }catch{}
+    try{ const raw=localStorage.getItem('epimentel_usuarios'); if(raw) setUsuariosAdmin(JSON.parse(raw).filter(u=>u.ativo!==false)) }catch{}
     fetch(`${API}/comunicados/config-smtp`).then(r=>r.json()).then(d=>setSmtp(s=>({...s,...d}))).catch(()=>{})
   }, [])
+
+  const verificarAlertasUsuario = (lista) => {
+    let nome = ''
+    try{ const s=JSON.parse(localStorage.getItem('epimentel_session')||'{}'); nome=s.nome||s.name||'' }catch{}
+    if (!nome) { try{ const a=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]'); if(a.length) nome=a[0].nome }catch{} }
+    if (!nome) return
+    const meus = lista.filter(c=>c.responsavel?.toLowerCase().includes(nome.toLowerCase())&&['pendente','enviado'].includes(c.status))
+    if (meus.length) { setAlertaComs(meus); setModalAlerta(true) }
+  }
 
   const carregarComunicados = async () => {
     setCarregando(true)
     try {
-      const params = new URLSearchParams()
-      if (filtroUrg)    params.set('urgencia', filtroUrg)
-      if (filtroDept)   params.set('departamento', filtroDept)
-      if (filtroStatus) params.set('status', filtroStatus)
-      const r = await fetch(`${API}/comunicados/listar?${params}`)
-      if (r.ok) setComunicados(await r.json())
+      const p = new URLSearchParams()
+      if (filtroUrg)    p.set('urgencia', filtroUrg)
+      if (filtroDept)   p.set('departamento', filtroDept)
+      if (filtroStatus) p.set('status', filtroStatus)
+      const r = await fetch(`${API}/comunicados/listar?${p}`)
+      if (r.ok) { const lista=await r.json(); setComunicados(lista); verificarAlertasUsuario(lista) }
     } catch {} finally { setCarregando(false) }
   }
+  useEffect(()=>{ carregarComunicados() },[filtroUrg,filtroDept,filtroStatus])
 
-  useEffect(() => { carregarComunicados() }, [filtroUrg, filtroDept, filtroStatus])
+  const setF = (k,v) => setForm(f=>({...f,[k]:v}))
 
-  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  // ── Abrir edição ──────────────────────────────────────────────────────────
+  const abrirEdicao = (com) => {
+    const pids   = (() => { try{ return JSON.parse(com.processo_ids||'[]') }catch{ return [] } })()
+    const cids   = (() => { try{ return JSON.parse(com.cliente_ids||'[]') }catch{ return [] } })()
+    const emails = (() => { try{ return JSON.parse(com.emails_extra||'[]') }catch{ return [] } })()
+    setForm({
+      titulo: com.titulo||'', conteudo: com.conteudo||'', resumo: com.resumo||'',
+      urgencia: com.urgencia||'normal', departamento: com.departamento||'Geral',
+      responsavel: com.responsavel||'', canal: com.canal||'email',
+      tipo: com.tipo||'externo',
+      cliente_ids: cids, emails_extra: emails, processo_ids: pids,
+      usa_dominio_proprio: false, assinatura_personalizada: '',
+    })
+    setEditandoId(com.id)
+    setUploadPendente([])
+    setDetalhe(null)
+    setAba('novo')
+  }
 
-  // Ao selecionar responsável: alerta + prepara notificação
-  const onResponsavelChange = (nome) => {
-    setF('responsavel', nome)
-    if (nome) {
-      const u = usuariosAdmin.find(u => u.nome === nome)
-      if (u) {
-        setAlertaResponsavel(`📣 ${u.nome} será notificado por e-mail: ${u.email}`)
-        setTimeout(() => setAlertaResponsavel(''), 4000)
+  // ── Excluir ───────────────────────────────────────────────────────────────
+  const excluirComunicado = async (id, titulo) => {
+    if (!confirm(`Excluir "${titulo}"? Esta ação não pode ser desfeita.`)) return
+    try {
+      const r = await fetch(`${API}/comunicados/${id}`,{method:'DELETE'})
+      if (r.ok) {
+        addToast('🗑️ Excluído',`"${titulo}" foi removido.`,'info',null,4000)
+        setDetalhe(null)
+        await carregarComunicados()
       }
+    } catch { addToast('Erro','Não foi possível excluir.','erro',null,4000) }
+  }
+
+  // ── Notificar responsável ─────────────────────────────────────────────────
+  const onResp = async (nome) => {
+    setF('responsavel', nome)
+    if (!nome) return
+    const u = usuariosAdmin.find(u=>u.nome===nome)
+    const canais = [u?.email&&'📧 '+u.email, (u?.whatsapp||u?.telefone)&&'💬 '+(u?.whatsapp||u?.telefone)].filter(Boolean)
+    const tid = addToast('🔔 Responsável selecionado',`${nome} — ${form.departamento}`,'alerta',canais,0)
+    if (u && (u.email||u.telefone||u.whatsapp)) {
+      try {
+        await fetch(`${API}/comunicados/notificar-responsavel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+          responsavel:nome, departamento:form.departamento, titulo:form.titulo,
+          urgencia:form.urgencia, usuario_email:u.email||'', usuario_telefone:u.whatsapp||u.telefone||''
+        })})
+        fecharToast(tid)
+        addToast('✅ Notificado',`${nome} foi notificado${canais.length?' via '+canais.join(' e '):'.'}`, canais.length?'info':'alerta', canais, 6000)
+      } catch {
+        fecharToast(tid)
+        addToast('⚠️ Responsável selecionado',`${nome} — notificação automática indisponível`,'alerta',null,5000)
+      }
+    } else {
+      fecharToast(tid)
+      addToast('⚠️ Responsável selecionado',`${nome} — sem e-mail/WhatsApp no Admin para notificação automática.`,'alerta',null,7000)
     }
   }
 
-  // IA verifica atrasos
-  const verificarAtrasos = async () => {
-    setIaCarregando(true); setIaAtrasos('')
-    const pendentes = comunicados.filter(c => c.status === 'pendente')
-    const hoje = new Date()
-    const resumo = pendentes.map(c => {
-      const dias = Math.floor((hoje - new Date(c.criado_em)) / 86400000)
-      return `"${c.titulo}" (${c.urgencia}, ${c.departamento}, ${dias}d atraso, resp: ${c.responsavel||'—'})`
-    }).join('\n')
+  // ── Gerar Resumo com IA ───────────────────────────────────────────────────
+  const gerarResumoIA = async () => {
+    if (!form.titulo.trim() && !form.conteudo.trim()) {
+      addToast('Atenção','Preencha título ou conteúdo antes de gerar o resumo.','alerta',null,4000); return
+    }
+    setGerandoResumo(true)
     try {
-      const r = await fetch(`${API}/ai/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Analise esses comunicados pendentes e identifique os que estão atrasados ou críticos. Dê uma análise objetiva e sugira ações:\n${resumo || 'Nenhum comunicado pendente.'}`,
-          max_tokens: 600
-        })
+      const r = await fetch(`${API}/comunicados/gerar-resumo`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ titulo:form.titulo, conteudo:form.conteudo, departamento:form.departamento, urgencia:form.urgencia, tipo:form.tipo })
       })
       const d = await r.json()
-      setIaAtrasos(d.response || d.content || 'Análise não disponível.')
-    } catch { setIaAtrasos('Erro ao conectar com a IA. Verifique a configuração.') }
+      if (d.resumo) { setF('resumo',d.resumo); addToast('✅ Resumo gerado','Preenchido automaticamente pela IA.','info',null,4000) }
+      else addToast('⚠️ Sem resultado','Verifique a API Key da IA.','alerta',null,5000)
+    } catch { addToast('Erro','Falha ao conectar com a IA.','erro',null,4000) }
+    setGerandoResumo(false)
+  }
+
+  const verificarAtrasos = async () => {
+    setIaCarregando(true); setIaAtrasos('')
+    const hoje = new Date()
+    const resumo = comunicados.filter(c=>c.status==='pendente').map(c=>{
+      const dias=Math.floor((hoje-new Date(c.criado_em))/86400000)
+      return `"${c.titulo}" (${c.urgencia}, ${c.departamento}, ${dias}d, resp: ${c.responsavel||'—'})`
+    }).join('\n')
+    try {
+      const r=await fetch(`${API}/ai/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:`Analise comunicados pendentes e identifique críticos:\n${resumo||'Nenhum.'}`,max_tokens:600})})
+      const d=await r.json(); setIaAtrasos(d.response||d.content||'Análise indisponível.')
+    } catch{ setIaAtrasos('Erro ao conectar com a IA.') }
     setIaCarregando(false)
   }
 
-  const cliFiltrados = clientes.filter(c => {
-    const q = clienteBusca.toLowerCase()
-    return !q || (c.nome||'').toLowerCase().includes(q) || (c.cnpj||'').includes(q)
-  })
-
-  const toggleCliente = (id) => {
-    setF('cliente_ids', form.cliente_ids.includes(id)
-      ? form.cliente_ids.filter(x=>x!==id)
-      : [...form.cliente_ids, id])
-  }
-
   const addEmail = () => {
-    if (emailAvulso && emailAvulso.includes('@')) {
-      setF('emails_extra', [...form.emails_extra, emailAvulso.trim()])
-      setEmailAvulso('')
-    }
+    if (emailAvulso?.includes('@')) { setF('emails_extra',[...form.emails_extra,emailAvulso.trim()]); setEmailAvulso('') }
   }
 
-  const enviarComunicado = async () => {
-    if (!form.titulo.trim() || !form.conteudo.trim()) { alert('Preencha título e conteúdo.'); return }
-    setEnviando(true); setSucesso('')
+  // ── Salvar sem enviar ─────────────────────────────────────────────────────
+  const salvar = async () => {
+    if (!form.titulo.trim()) { addToast('Atenção','Informe o título.','alerta',null,4000); return }
+    setSalvando(true)
     try {
-      const r = await fetch(`${API}/comunicados/criar`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(form)
-      })
-      const data = await r.json()
-      if (r.ok) {
-        setSucesso('✅ Comunicado criado e envio iniciado!')
-        setForm({ titulo:'', conteudo:'', urgencia:'normal', departamento:'Geral',
-                  responsavel:'Carlos Eduardo Pimentel', canal:'email',
-                  cliente_ids:[], emails_extra:[], processo_ids:[],
-                  usa_dominio_proprio:false, assinatura_personalizada:'' })
-        await carregarComunicados()
-        setTimeout(() => { setAba('lista'); setSucesso('') }, 2000)
+      let id, ok
+      if (editandoId) {
+        const r = await fetch(`${API}/comunicados/${editandoId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)})
+        ok=r.ok; id=editandoId
+      } else {
+        const r = await fetch(`${API}/comunicados/criar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...form,salvar:true})})
+        const d = await r.json(); ok=r.ok; id=d.id
       }
-    } catch {} finally { setEnviando(false) }
+      if (ok && id) {
+        for (const arq of uploadPendente) { const fd=new FormData(); fd.append('file',arq); try{ await fetch(`${API}/comunicados/${id}/docs`,{method:'POST',body:fd}) }catch{} }
+        setUploadPendente([])
+        addToast('💾 Salvo', editandoId?`"${form.titulo}" atualizado.`:`"${form.titulo}" salvo.`,'info',null,5000)
+        setForm({...FORM_VAZIO}); setEditandoId(null)
+        await carregarComunicados()
+        setTimeout(()=>setAba('lista'),1200)
+      }
+    } catch{ addToast('Erro','Não foi possível salvar.','erro',null,5000) }
+    finally{ setSalvando(false) }
+  }
+
+  // ── Enviar (criar ou de salvo) ────────────────────────────────────────────
+  const enviar = async () => {
+    if (!form.titulo.trim()||!form.conteudo.trim()) { addToast('Atenção','Preencha título e conteúdo.','alerta',null,4000); return }
+    setEnviando(true)
+    try {
+      let id, ok
+      if (editandoId) {
+        const rUpd = await fetch(`${API}/comunicados/${editandoId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)})
+        ok=rUpd.ok; id=editandoId
+        if (ok) { const rEnv = await fetch(`${API}/comunicados/${editandoId}/enviar`,{method:'POST'}); ok=rEnv.ok }
+      } else {
+        const r = await fetch(`${API}/comunicados/criar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(form)})
+        const d = await r.json(); ok=r.ok; id=d.id
+      }
+      if (ok && id) {
+        for (const arq of uploadPendente) { const fd=new FormData(); fd.append('file',arq); try{ await fetch(`${API}/comunicados/${id}/docs`,{method:'POST',body:fd}) }catch{} }
+        setUploadPendente([])
+        addToast('✅ Comunicado enviado!',`"${form.titulo}" foi enviado.`,'info',null,6000)
+        setForm({...FORM_VAZIO}); setEditandoId(null)
+        await carregarComunicados()
+        setTimeout(()=>setAba('lista'),1200)
+      }
+    } catch{ addToast('Erro','Falha ao enviar.','erro',null,5000) }
+    finally{ setEnviando(false) }
+  }
+
+  // ── Enviar direto da lista/detalhe (status 'salvo') ───────────────────────
+  const enviarSalvo = async (com) => {
+    if (!confirm(`Enviar o comunicado "${com.titulo}" agora?`)) return
+    setEnviandoDetalhe(true)
+    try {
+      const r = await fetch(`${API}/comunicados/${com.id}/enviar`,{method:'POST'})
+      if (r.ok) {
+        addToast('✅ Enviado!',`"${com.titulo}" foi enviado com sucesso.`,'info',null,5000)
+        setDetalhe(null)
+        await carregarComunicados()
+      }
+    } catch{ addToast('Erro','Falha ao enviar.','erro',null,4000) }
+    finally{ setEnviandoDetalhe(false) }
   }
 
   const responder = async (id) => {
     if (!resposta.trim()) return
-    await fetch(`${API}/comunicados/responder/${id}`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ comunicado_id:id, resposta, respondente:'Carlos Eduardo Pimentel' })
-    })
-    setResposta('')
-    await carregarComunicados()
-    setDetalhe(comunicados.find(c=>c.id===id))
+    await fetch(`${API}/comunicados/responder/${id}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({comunicado_id:id,resposta,respondente:'Carlos Eduardo Pimentel'})})
+    setResposta(''); await carregarComunicados()
+    const updated = await fetch(`${API}/comunicados/listar`).then(r=>r.json())
+    setDetalhe(updated.find(c=>c.id===id)||null)
   }
 
-  const encerrar = async (id) => {
+  const encerrar = async (id, titulo) => {
     if (!confirm('Encerrar este comunicado?')) return
-    await fetch(`${API}/comunicados/encerrar/${id}`, { method:'POST' })
-    setDetalhe(null)
-    await carregarComunicados()
-  }
-
-
-  // ── Sync: mescla localStorage ↔ API ─────────────────────────────────────
-  const sincronizarDados = async () => {
-    setSincronizando(true)
-    try {
-      const r = await fetch(`${API}/comunicados/listar`)
-      const doBanco = r.ok ? await r.json() : []
-      let doLocal = []
-      try { doLocal = JSON.parse(localStorage.getItem('ep_comunicados') || '[]') } catch {}
-      const idsLocais = new Set(doLocal.map(c => String(c.id)))
-      const novosDB   = doBanco.filter(c => !idsLocais.has(String(c.id)))
-      const mesclados = [...doLocal, ...novosDB]
-      localStorage.setItem('ep_comunicados', JSON.stringify(mesclados))
-      setComunicados(mesclados)
-      const agora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
-      setUltimoSync(agora)
-    } catch (e) { console.error('Erro ao sincronizar:', e) }
-    setSincronizando(false)
-  }
-
-  // ── Backup: baixa JSON com todos os dados ────────────────────────────────
-  const backupDados = () => {
-    const dados = {
-      data_backup: new Date().toISOString(),
-      modulo: 'Comunicados — EPimentel Auditoria & Contabilidade',
-      comunicados,
-      clientes_vinculados: clientes,
-      config_smtp: smtp,
-    }
-    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `backup_comunicados_${new Date().toISOString().slice(0,10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    await fetch(`${API}/comunicados/encerrar/${id}`,{method:'POST'})
+    addToast('🔒 Encerrado',`"${titulo}" foi encerrado.`,'info',null,4000)
+    setDetalhe(null); await carregarComunicados()
   }
 
   const salvarSmtp = async () => {
-    await fetch(`${API}/comunicados/config-smtp`, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(smtp)
-    })
-    setSmtpSalvo(true)
-    setTimeout(() => setSmtpSalvo(false), 2000)
+    await fetch(`${API}/comunicados/config-smtp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(smtp)})
+    setSmtpSalvo(true); setTimeout(()=>setSmtpSalvo(false),2000)
   }
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
+  const cancelarForm = () => { setForm({...FORM_VAZIO}); setEditandoId(null); setUploadPendente([]); setAba('lista') }
+
   const stats = {
-    total:      comunicados.length,
-    atrasados:  comunicados.filter(c=>c.atrasado).length,
-    urgentes:   comunicados.filter(c=>c.urgencia==='muito_urgente'&&c.status!=='encerrado').length,
-    pendentes:  comunicados.filter(c=>c.status==='pendente').length,
+    total:     comunicados.length,
+    pendentes: comunicados.filter(c=>c.status==='pendente').length,
+    urgentes:  comunicados.filter(c=>c.urgencia==='muito_urgente'&&!['encerrado','salvo'].includes(c.status)).length,
+    atrasados: comunicados.filter(c=>c.atrasado).length,
   }
+  const cliFiltrados = clientes.filter(c=>{ const q=clienteBusca.toLowerCase(); return !q||(c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').includes(q) })
+  const comunicadosFiltrados = filtroTipo ? comunicados.filter(c=>(c.tipo||'externo')===filtroTipo) : comunicados
 
-  const urgSel = URGENCIAS.find(u=>u.id===form.urgencia) || URGENCIAS[1]
+  // canal options baseadas no tipo
+  const canaisDisponiveis = form.tipo==='interno' ? CANAIS_INTERNO : CANAIS_EXTERNO
 
-  // ── DETALHE ───────────────────────────────────────────────────────────────
+  // ── TELA DE DETALHE ───────────────────────────────────────────────────────
   if (detalhe) {
-    const urg = URGENCIAS.find(u=>u.id===detalhe.urgencia) || URGENCIAS[1]
-    const sts = STATUS_CFG[detalhe.status] || STATUS_CFG.pendente
-    const resps = JSON.parse(detalhe.respostas || '[]')
+    const urg = URGENCIAS.find(u=>u.id===detalhe.urgencia)||URGENCIAS[1]
+    const sts = STATUS_CFG[detalhe.status]||STATUS_CFG.pendente
+    const resps = JSON.parse(detalhe.respostas||'[]')
+    const pids  = (() => { try{ return JSON.parse(detalhe.processo_ids||'[]') }catch{ return [] } })()
+    const isInterno  = (detalhe.tipo||'externo')==='interno'
+    const isSalvo    = detalhe.status === 'salvo'
+    const isAberto   = !['encerrado','salvo'].includes(detalhe.status)
+
     return (
-      <div style={{ padding:24, maxWidth:800, margin:'0 auto' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
-          <button onClick={()=>setDetalhe(null)} style={{ ...btn('#f5f5f5','#555'), padding:'7px 12px' }}><X size={14}/> Voltar</button>
-          <span style={{ fontSize:11, color:'#aaa' }}>Comunicados /</span>
-          <span style={{ fontSize:13, fontWeight:700, color:NAVY }}>{detalhe.titulo}</span>
+      <div style={{padding:24,maxWidth:880,margin:'0 auto'}}>
+        <Toast toasts={toasts} fechar={fecharToast}/>
+
+        {/* Breadcrumb + ações */}
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:20,flexWrap:'wrap'}}>
+          <button onClick={()=>{setDetalhe(null);setAbaDetalhe('conteudo')}} style={{...btn('#f5f5f5','#555'),padding:'7px 12px'}}><X size={14}/> Voltar</button>
+          <span style={{fontSize:11,color:'#aaa'}}>Comunicados /</span>
+          <span style={{fontSize:13,fontWeight:700,color:NAVY,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{detalhe.titulo}</span>
+          {/* Enviar direto se salvo */}
+          {isSalvo && (
+            <button onClick={()=>enviarSalvo(detalhe)} disabled={enviandoDetalhe}
+              style={{...btn('#22c55e'),opacity:enviandoDetalhe?.7:1}}>
+              <Send size={13}/> {enviandoDetalhe?'Enviando...':'Enviar Agora'}
+            </button>
+          )}
+          <button onClick={()=>abrirEdicao(detalhe)} style={{...btn('#f0f4ff',NAVY),padding:'7px 12px',border:`1px solid #c7d2fe`}}><Edit2 size={13}/> Editar</button>
+          <button onClick={()=>excluirComunicado(detalhe.id,detalhe.titulo)} style={{...btn('#FEF2F2','#dc2626'),padding:'7px 12px'}}><Trash2 size={13}/> Excluir</button>
         </div>
-        <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8e8e8', overflow:'hidden', boxShadow:'0 2px 12px rgba(0,0,0,.06)' }}>
-          <div style={{ background:`linear-gradient(135deg,${NAVY},#2d4a7a)`, padding:'18px 24px', display:'flex', gap:10, alignItems:'flex-start' }}>
-            <div style={{ flex:1 }}>
-              <div style={{ color:'#fff', fontWeight:800, fontSize:17 }}>{detalhe.titulo}</div>
-              <div style={{ color:GOLD, fontSize:11, marginTop:4 }}>{detalhe.departamento} · {detalhe.criado_em?.slice(0,16)}</div>
+
+        <div style={{background:'#fff',borderRadius:14,border:'1px solid #e8e8e8',overflow:'hidden',boxShadow:'0 2px 12px rgba(0,0,0,.06)'}}>
+          {/* Header card */}
+          <div style={{background:`linear-gradient(135deg,${NAVY},#2d4a7a)`,padding:'18px 24px',display:'flex',gap:10,alignItems:'flex-start',flexWrap:'wrap'}}>
+            <div style={{flex:1,minWidth:200}}>
+              <div style={{color:'#fff',fontWeight:800,fontSize:17,marginBottom:4}}>{detalhe.titulo}</div>
+              <div style={{color:GOLD,fontSize:11}}>{detalhe.departamento} · {detalhe.responsavel&&`👤 ${detalhe.responsavel} · `}{detalhe.criado_em?.slice(0,16)}</div>
             </div>
-            <span style={{ background:urg.bg, color:urg.cor, padding:'4px 12px', borderRadius:12, fontSize:12, fontWeight:800, flexShrink:0 }}>{urg.emoji} {urg.label}</span>
-            <span style={{ background:sts.bg, color:sts.cor, padding:'4px 12px', borderRadius:12, fontSize:12, fontWeight:800, flexShrink:0 }}>{sts.label}</span>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+              <span style={{background:isInterno?'#F3EEFF':'#EBF5FF',color:isInterno?'#6B3EC9':'#1D6FA4',padding:'4px 10px',borderRadius:10,fontSize:11,fontWeight:800}}>
+                {isInterno?'🏢 Interno':'🌐 Externo'}
+              </span>
+              <span style={{background:urg.bg,color:urg.cor,padding:'4px 12px',borderRadius:12,fontSize:12,fontWeight:800}}>{urg.emoji} {urg.label}</span>
+              <span style={{background:sts.bg,color:sts.cor,padding:'4px 12px',borderRadius:12,fontSize:12,fontWeight:800}}>{sts.label}</span>
+              {isSalvo && <span style={{background:'#fff9e6',color:'#854D0E',padding:'4px 10px',borderRadius:10,fontSize:11,fontWeight:700}}>⚠️ Ainda não enviado</span>}
+            </div>
           </div>
-          <div style={{ padding:24 }}>
-            <div style={{ whiteSpace:'pre-wrap', fontSize:14, color:'#333', lineHeight:1.7, marginBottom:20 }}>{detalhe.conteudo}</div>
-            {detalhe.alerta_ia && (
-              <div style={{ background:'#FEF9C3', border:'1px solid #fcd34d', borderRadius:10, padding:'14px 16px', marginBottom:20 }}>
-                <div style={{ fontWeight:700, color:'#854D0E', fontSize:12, marginBottom:6 }}>🤖 Alerta IA Claude ({detalhe.dias_aberto} dias em aberto)</div>
-                <div style={{ fontSize:13, color:'#333', whiteSpace:'pre-wrap' }}>{detalhe.alerta_ia}</div>
-              </div>
-            )}
-            {resps.length > 0 && (
-              <div style={{ marginBottom:20 }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'#888', marginBottom:10, textTransform:'uppercase', letterSpacing:.7 }}>Respostas</div>
-                {resps.map((res, i) => (
-                  <div key={i} style={{ background:'#f8f9fb', borderRadius:10, padding:'12px 16px', marginBottom:8 }}>
-                    <div style={{ fontWeight:700, color:NAVY, fontSize:12 }}>{res.respondente}</div>
-                    <div style={{ fontSize:11, color:'#aaa', marginBottom:6 }}>{new Date(res.data).toLocaleString('pt-BR')}</div>
-                    <div style={{ fontSize:13, color:'#333' }}>{res.texto}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {detalhe.status !== 'encerrado' && (
+
+          {/* Resumo destacado */}
+          {detalhe.resumo && (
+            <div style={{background:'linear-gradient(135deg,#fffef2,#fff9e6)',borderBottom:'1px solid #f5e6c0',padding:'14px 24px',display:'flex',gap:12,alignItems:'flex-start'}}>
+              <span style={{fontSize:22,flexShrink:0}}>📋</span>
               <div>
-                <div style={{ fontSize:12, fontWeight:700, color:'#888', marginBottom:8, textTransform:'uppercase', letterSpacing:.7 }}>Adicionar Resposta</div>
-                <textarea value={resposta} onChange={e=>setResposta(e.target.value)} rows={3} placeholder="Digite sua resposta..."
-                  style={{ ...inp, resize:'vertical', marginBottom:10 }}/>
-                <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={()=>responder(detalhe.id)} style={btn(NAVY)}>
-                    <Send size={13}/> Registrar Resposta
-                  </button>
-                  <button onClick={()=>encerrar(detalhe.id)} style={btn('#6B7280')}>
-                    <Archive size={13}/> Encerrar
-                  </button>
-                </div>
+                <div style={{fontSize:10,fontWeight:800,color:'#854D0E',textTransform:'uppercase',letterSpacing:.8,marginBottom:5}}>Resumo da Solicitação</div>
+                <div style={{fontSize:14,color:'#444',lineHeight:1.7,fontStyle:'italic'}}>{detalhe.resumo}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Abas */}
+          <div style={{display:'flex',borderBottom:'1px solid #e8e8e8',background:'#fafafa'}}>
+            {[
+              {id:'conteudo', label:'💬 Conteúdo'},
+              {id:'docs',     label:'📎 Documentos'},
+              {id:'processos',label:`🔗 Processos${pids.length?` (${pids.length})`:''}`},
+            ].map(ab=>(
+              <button key={ab.id} onClick={()=>setAbaDetalhe(ab.id)}
+                style={{padding:'10px 18px',background:'none',border:'none',cursor:'pointer',fontSize:13,fontWeight:abaDetalhe===ab.id?800:400,color:abaDetalhe===ab.id?NAVY:'#888',borderBottom:abaDetalhe===ab.id?`3px solid ${GOLD}`:'3px solid transparent',transition:'all .15s'}}>
+                {ab.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{padding:24}}>
+            {/* Aba Conteúdo */}
+            {abaDetalhe==='conteudo' && (
+              <>
+                <div style={{whiteSpace:'pre-wrap',fontSize:14,color:'#333',lineHeight:1.8,marginBottom:24}}>{detalhe.conteudo}</div>
+                {detalhe.alerta_ia && (
+                  <div style={{background:'#FEF9C3',border:'1px solid #fcd34d',borderRadius:10,padding:'14px 16px',marginBottom:20}}>
+                    <div style={{fontWeight:700,color:'#854D0E',fontSize:12,marginBottom:6}}>🤖 Alerta IA ({detalhe.dias_aberto} dias em aberto)</div>
+                    <div style={{fontSize:13,color:'#333',whiteSpace:'pre-wrap'}}>{detalhe.alerta_ia}</div>
+                  </div>
+                )}
+                {resps.length>0&&(
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontSize:11,fontWeight:800,color:'#888',marginBottom:12,textTransform:'uppercase',letterSpacing:.8}}>Respostas ({resps.length})</div>
+                    {resps.map((res,i)=>(
+                      <div key={i} style={{background:'#f8f9fb',borderRadius:10,padding:'12px 16px',marginBottom:8,borderLeft:`3px solid ${NAVY}33`}}>
+                        <div style={{fontWeight:700,color:NAVY,fontSize:12}}>{res.respondente}</div>
+                        <div style={{fontSize:11,color:'#aaa',marginBottom:6}}>{new Date(res.data).toLocaleString('pt-BR')}</div>
+                        <div style={{fontSize:13,color:'#333'}}>{res.texto}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Ações: responder / encerrar / enviar agora */}
+                {isSalvo && (
+                  <div style={{padding:'16px 20px',borderRadius:10,background:'#fff9e6',border:`1px solid ${GOLD}55`,marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
+                    <span style={{fontSize:18}}>⚠️</span>
+                    <div style={{flex:1,fontSize:13,color:'#854D0E'}}>Este comunicado está <strong>salvo mas não enviado</strong>. Clique em "Enviar Agora" para disparar para os destinatários.</div>
+                    <button onClick={()=>enviarSalvo(detalhe)} disabled={enviandoDetalhe} style={{...btn('#22c55e'),flexShrink:0}}>
+                      <Send size={13}/> {enviandoDetalhe?'Enviando...':'Enviar Agora'}
+                    </button>
+                  </div>
+                )}
+
+                {isAberto && (
+                  <div>
+                    <div style={{fontSize:11,fontWeight:800,color:'#888',marginBottom:8,textTransform:'uppercase',letterSpacing:.8}}>Adicionar Resposta</div>
+                    <textarea value={resposta} onChange={e=>setResposta(e.target.value)} rows={3} placeholder="Digite sua resposta..." style={{...inp,resize:'vertical',marginBottom:10}}/>
+                    <div style={{display:'flex',gap:8}}>
+                      <button onClick={()=>responder(detalhe.id)} style={btn(NAVY)}><Send size={13}/> Registrar Resposta</button>
+                      <button onClick={()=>encerrar(detalhe.id, detalhe.titulo)} style={btn('#6B7280')}><Archive size={13}/> Encerrar</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {abaDetalhe==='docs' && (
+              <><div style={{fontSize:13,fontWeight:700,color:NAVY,marginBottom:14}}>📎 Documentos do Comunicado</div>
+              <SecaoDocumentos comId={detalhe.id} modoLeitura={false}/></>
+            )}
+
+            {abaDetalhe==='processos' && (
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:NAVY,marginBottom:14}}>🔗 Processos Vinculados</div>
+                {pids.length===0
+                  ? <div style={{padding:24,textAlign:'center',color:'#ccc',background:'#fafafa',borderRadius:10,border:'2px dashed #e8e8e8'}}><Briefcase size={22} style={{opacity:.3,display:'block',margin:'0 auto 8px'}}/><div>Nenhum processo vinculado</div></div>
+                  : <TagsProcessos processo_ids={detalhe.processo_ids}/>}
               </div>
             )}
           </div>
@@ -546,339 +687,433 @@ export default function Comunicados() {
     )
   }
 
+  // ── LISTA PRINCIPAL ───────────────────────────────────────────────────────
   return (
-    <div style={{ padding:24, maxWidth:1100, margin:'0 auto' }}>
+    <div style={{padding:24,maxWidth:1100,margin:'0 auto'}}>
+      <Toast toasts={toasts} fechar={fecharToast}/>
+      {modalAlerta&&alertaComs.length>0&&<ModalAlerta comunicados={alertaComs} onClose={()=>setModalAlerta(false)}/>}
+
       {/* Header */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ width:42, height:42, borderRadius:10, background:`linear-gradient(135deg,${NAVY},#2d4a7a)`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <MessageSquare size={20} style={{ color:GOLD }}/>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20,flexWrap:'wrap',gap:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:42,height:42,borderRadius:10,background:`linear-gradient(135deg,${NAVY},#2d4a7a)`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <MessageSquare size={20} style={{color:GOLD}}/>
           </div>
           <div>
-            <div style={{ fontSize:19, fontWeight:800, color:NAVY }}>Comunicados</div>
-            <div style={{ fontSize:12, color:'#888' }}>Comunicações avulsas com clientes, processos e departamentos</div>
+            <div style={{fontSize:19,fontWeight:800,color:NAVY}}>Comunicados</div>
+            <div style={{fontSize:12,color:'#888'}}>Comunicações avulsas com clientes, processos e departamentos</div>
           </div>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <button onClick={verificarAtrasos} disabled={iaCarregando} style={{ ...btn('#FEF9C3','#854D0E'), border:'1px solid #fcd34d', opacity:iaCarregando?0.7:1 }}>
-            <Bot size={13}/> {iaCarregando?'Analisando...':'🤖 IA: Verificar atrasos'}
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {alertaComs.length>0&&(
+            <button onClick={()=>setModalAlerta(true)} style={{...btn('#FEF9C3','#854D0E'),border:'1px solid #fcd34d',position:'relative'}}>
+              <Bell size={13}/> Alertas
+              <span style={{position:'absolute',top:-5,right:-5,background:'#dc2626',color:'#fff',width:17,height:17,borderRadius:'50%',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900}}>{alertaComs.length}</span>
+            </button>
+          )}
+          <button onClick={verificarAtrasos} disabled={iaCarregando} style={{...btn('#f0f4ff',NAVY),border:`1px solid #c7d2fe`}}>
+            <Bot size={13}/> {iaCarregando?'Analisando...':'🤖 IA Atrasos'}
           </button>
-          <button onClick={()=>setAba(aba==='novo'?'lista':'novo')} style={btn(NAVY)}>
+          <button onClick={()=>{ setForm({...FORM_VAZIO}); setEditandoId(null); setUploadPendente([]); setAba(aba==='novo'?'lista':'novo') }} style={btn(NAVY)}>
             <Plus size={14}/> Novo Comunicado
           </button>
-          <button onClick={()=>setAba(aba==='usuarios'?'lista':'usuarios')} style={{ ...btn(aba==='usuarios'?'#1B2A4A':'#f0f4ff', aba==='usuarios'?'#C5A55A':NAVY), border:`1px solid ${aba==='usuarios'?'#C5A55A':'#c7d2fe'}` }}>
-            <Users size={14}/> Equipe
-          </button>
-          <button onClick={()=>setAba(aba==='config_smtp'?'lista':'config_smtp')} style={{ ...btn('#f5f5f5','#555'), padding:'9px 12px' }}>
+          <button onClick={()=>setAba(aba==='config_smtp'?'lista':'config_smtp')} style={{...btn('#f5f5f5','#555'),padding:'9px 12px'}}>
             <Settings size={14}/>
-          </button>
-          <button onClick={sincronizarDados} disabled={sincronizando}
-            title={ultimoSync ? `Último sync: ${ultimoSync}` : 'Sincronizar dados'}
-            style={{ ...btn(sincronizando?'#e0f2fe':'#EBF5FF', sincronizando?'#0369a1':'#1D6FA4'), border:'1px solid #93c5fd', opacity:sincronizando?0.7:1 }}>
-            <UploadCloud size={13}/> {sincronizando ? 'Sincronizando...' : ultimoSync ? `Sync ✓ ${ultimoSync}` : '🔄 Sync'}
-          </button>
-          <button onClick={backupDados}
-            title="Baixar backup JSON dos comunicados"
-            style={{ ...btn('#f0fdf4','#166534'), border:'1px solid #86efac' }}>
-            <Download size={13}/> 💾 Backup
           </button>
         </div>
       </div>
 
-      {/* Painel IA Atrasos */}
-      {iaAtrasos && (
-        <div style={{ background:'#FFFBF0', border:'1px solid #fcd34d', borderRadius:12, padding:16, marginBottom:20 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-            <div style={{ fontWeight:700, color:'#854D0E', fontSize:13 }}>🤖 Análise IA — Comunicados com Atraso</div>
-            <button onClick={()=>setIaAtrasos('')} style={{ background:'none', border:'none', cursor:'pointer', color:'#aaa' }}><X size={14}/></button>
+      {/* IA Atrasos */}
+      {iaAtrasos&&(
+        <div style={{background:'#FFFBF0',border:'1px solid #fcd34d',borderRadius:12,padding:16,marginBottom:20}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
+            <div style={{fontWeight:700,color:'#854D0E',fontSize:13}}>🤖 Análise IA — Atrasos</div>
+            <button onClick={()=>setIaAtrasos('')} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={14}/></button>
           </div>
-          <div style={{ fontSize:13, color:'#333', whiteSpace:'pre-wrap', lineHeight:1.7 }}>{iaAtrasos}</div>
+          <div style={{fontSize:13,color:'#333',whiteSpace:'pre-wrap',lineHeight:1.7}}>{iaAtrasos}</div>
         </div>
       )}
 
       {/* KPIs */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
-        {[
-          { l:'Total', n:stats.total,      c:NAVY,     bg:'#EBF5FF' },
-          { l:'Pendentes', n:stats.pendentes, c:'#854D0E', bg:'#FEF9C3' },
-          { l:'Muito Urgentes', n:stats.urgentes, c:'#dc2626', bg:'#FEF2F2' },
-          { l:'Atrasados (+30d)', n:stats.atrasados, c:'#6B3EC9', bg:'#F3EEFF' },
-        ].map(s=>(
-          <div key={s.l} style={{ background:s.bg, borderRadius:12, padding:'14px 16px', border:`1px solid ${s.c}20` }}>
-            <div style={{ fontSize:24, fontWeight:800, color:s.c }}>{s.n}</div>
-            <div style={{ fontSize:11, color:'#888', marginTop:2 }}>{s.l}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+        {[{l:'Total',n:stats.total,c:NAVY,bg:'#EBF5FF'},{l:'Pendentes',n:stats.pendentes,c:'#854D0E',bg:'#FEF9C3'},{l:'Muito Urgentes',n:stats.urgentes,c:'#dc2626',bg:'#FEF2F2'},{l:'Atrasados (+30d)',n:stats.atrasados,c:'#6B3EC9',bg:'#F3EEFF'}].map(s=>(
+          <div key={s.l} style={{background:s.bg,borderRadius:12,padding:'14px 16px',border:`1px solid ${s.c}20`}}>
+            <div style={{fontSize:24,fontWeight:800,color:s.c}}>{s.n}</div>
+            <div style={{fontSize:11,color:'#888',marginTop:2}}>{s.l}</div>
           </div>
         ))}
       </div>
 
-      {/* Aba Equipe / Usuários */}
-      {aba === 'usuarios' && (
-        <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8e8e8', padding:24, marginBottom:20 }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
-            <div>
-              <div style={{ fontSize:15, fontWeight:800, color:NAVY }}>👥 Equipe EPimentel</div>
-              <div style={{ fontSize:12, color:'#888', marginTop:2 }}>Usuários cadastrados no sistema</div>
-            </div>
-            <button onClick={()=>setAba('lista')} style={{ ...btn('#f5f5f5','#555'), fontSize:12 }}>✕ Fechar</button>
-          </div>
-          {(()=>{
-            // Buscar usuários cadastrados no painel Admin
-            const CORES = ['#C5A55A','#3b82f6','#f59e0b','#22c55e','#a855f7','#ec4899','#14b8a6']
-            const lista = usuariosAdmin.length > 0 ? usuariosAdmin : []
-            if (lista.length === 0) {
-              return (
-                <div style={{ padding:30, textAlign:'center', color:'#aaa', background:'#fafafa', borderRadius:10, border:'2px dashed #e8e8e8' }}>
-                  <div style={{ fontSize:28, marginBottom:8 }}>👥</div>
-                  <div style={{ fontWeight:600, marginBottom:4 }}>Nenhum usuário cadastrado ainda</div>
-                  <div style={{ fontSize:12 }}>Acesse <b>Admin → Usuários</b> para cadastrar a equipe.</div>
-                </div>
-              )
-            }
-            return (
-              <div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:14 }}>
-                  {lista.map((u,i)=>{
-                    const cor = CORES[i % CORES.length]
-                    const perfilLabel = {admin:'Administrador', contador:'Contador', assistente:'Assistente', gerente:'Gerente'}[u.perfil] || u.perfil
-                    return (
-                      <div key={u.id||i} style={{ border:`1.5px solid ${cor}33`, borderRadius:12, padding:16, background:`${cor}08`, position:'relative' }}>
-                        <div style={{ position:'absolute', top:12, right:12 }}>
-                          <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:8, background:u.ativo!==false?'#f0fdf4':'#f5f5f5', color:u.ativo!==false?'#166534':'#888' }}>
-                            {u.ativo!==false?'● Ativo':'○ Inativo'}
-                          </span>
-                        </div>
-                        <div style={{ width:44, height:44, borderRadius:12, background:cor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:900, color:'#fff', marginBottom:10 }}>
-                          {(u.nome||'?').split(' ').map(n=>n[0]).slice(0,2).join('')}
-                        </div>
-                        <div style={{ fontWeight:700, fontSize:14, color:NAVY }}>{u.nome}</div>
-                        <div style={{ fontSize:11, color:'#888', margin:'2px 0' }}>{u.email || u.usuario}</div>
-                        {u.cargo && <div style={{ fontSize:11, color:'#aaa', marginBottom:4 }}>{u.cargo}</div>}
-                        <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
-                          <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:`${cor}22`, color:cor }}>{perfilLabel}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <div style={{ marginTop:16, padding:14, background:'#f8f9fb', borderRadius:10, border:'1px solid #e8e8e8', fontSize:12, color:'#888' }}>
-                  💡 Para gerenciar usuários, acessos e permissões, utilize o menu <b>Admin → Usuários</b>.
-                </div>
-              </div>
-            )
-          })()}
-        </div>
-      )}
-
       {/* Config SMTP */}
-      {aba === 'config_smtp' && (
-        <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8e8e8', padding:24, marginBottom:20 }}>
-          <div style={{ fontSize:15, fontWeight:800, color:NAVY, marginBottom:16 }}>⚙️ Configurção de E-mail — Domínio Próprio</div>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>Servidor SMTP</label>
-              <input value={smtp.host} onChange={e=>setSmtp(s=>({...s,host:e.target.value}))} placeholder="smtp.seuprovedor.com.br" style={inp}/></div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>Porta</label>
-              <input value={smtp.port} onChange={e=>setSmtp(s=>({...s,port:Number(e.target.value)}))} placeholder="587" style={inp}/></div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>Usuário / E-mail</label>
-              <input value={smtp.user} onChange={e=>setSmtp(s=>({...s,user:e.target.value}))} placeholder="contato@epimentel.com.br" style={inp}/></div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>Senha</label>
-              <input type="password" value={smtp.pass||''} onChange={e=>setSmtp(s=>({...s,pass:e.target.value}))} placeholder="••••••••" style={inp}/></div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>Nome do Remetente</label>
-              <input value={smtp.from_name||''} onChange={e=>setSmtp(s=>({...s,from_name:e.target.value}))} placeholder="EPimentel Auditoria & Contabilidade" style={inp}/></div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>E-mail Remetente</label>
-              <input value={smtp.from_email||''} onChange={e=>setSmtp(s=>({...s,from_email:e.target.value}))} placeholder="contato@epimentel.com.br" style={inp}/></div>
+      {aba==='config_smtp'&&(
+        <div style={{background:'#fff',borderRadius:14,border:'1px solid #e8e8e8',padding:24,marginBottom:20}}>
+          <div style={{fontSize:15,fontWeight:800,color:NAVY,marginBottom:16}}>⚙️ Configuração de E-mail</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+            {[{k:'host',lb:'Servidor SMTP',ph:'smtp.gmail.com'},{k:'port',lb:'Porta',ph:'587',tp:'number'},{k:'user',lb:'Usuário',ph:'contato@epimentel.com.br'},{k:'pass',lb:'Senha',ph:'••••••••',tp:'password'},{k:'from_name',lb:'Nome Remetente',ph:'EPimentel'},{k:'from_email',lb:'E-mail Remetente',ph:'contato@epimentel.com.br'}].map(f=>(
+              <div key={f.k}>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>{f.lb}</label>
+                <input type={f.tp||'text'} value={smtp[f.k]||''} placeholder={f.ph} onChange={e=>setSmtp(s=>({...s,[f.k]:f.tp==='number'?Number(e.target.value):e.target.value}))} style={inp}/>
+              </div>
+            ))}
           </div>
-          <div style={{ marginTop:14 }}>
-            <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase' }}>Assinatura HTML do E-mail</label>
-            <textarea value={smtp.assinatura_html||''} onChange={e=>setSmtp(s=>({...s,assinatura_html:e.target.value}))} rows={6} placeholder="Cole aqui o HTML da sua assinatura..." style={{ ...inp, resize:'vertical', fontFamily:'monospace', fontSize:11 }}/>
+          <div style={{marginTop:14}}>
+            <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>Assinatura HTML</label>
+            <textarea value={smtp.assinatura_html||''} onChange={e=>setSmtp(s=>({...s,assinatura_html:e.target.value}))} rows={4} style={{...inp,resize:'vertical',fontFamily:'monospace',fontSize:11}}/>
           </div>
-          <div style={{ display:'flex', gap:8, marginTop:14 }}>
-            <button onClick={salvarSmtp} style={btn(NAVY)}><CheckCircle size={13}/> {smtpSalvo?'Salvo!':'Salvar Configuração'}</button>
+          <div style={{display:'flex',gap:8,marginTop:14}}>
+            <button onClick={salvarSmtp} style={btn(NAVY)}><CheckCircle size={13}/> {smtpSalvo?'Salvo!':'Salvar'}</button>
             <button onClick={()=>setAba('lista')} style={btn('#f5f5f5','#555')}><X size={13}/> Fechar</button>
           </div>
-          <div style={{ marginTop:14, padding:'10px 14px', borderRadius:8, background:'#EBF5FF', fontSize:12, color:'#1D6FA4' }}>
-            💡 <strong>Variáveis de ambiente alternativas:</strong> Configure <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code>, <code>SMTP_FROM_NAME</code> e <code>SMTP_FROM</code> no Railway para persistência permanente.
-          </div>
         </div>
       )}
 
-      {/* Novo Comunicado */}
-      {aba === 'novo' && (
-        <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8e8e8', padding:24, marginBottom:20, boxShadow:'0 2px 12px rgba(0,0,0,.06)' }}>
-          <div style={{ fontSize:15, fontWeight:800, color:NAVY, marginBottom:18 }}>✉️ Novo Comunicado</div>
-          {sucesso && <div style={{ padding:'10px 14px', borderRadius:8, background:'#EDFBF1', border:'1px solid #86efac', color:'#166534', fontWeight:700, fontSize:13, marginBottom:16 }}>{sucesso}</div>}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-            <div style={{ gridColumn:'1/-1' }}>
-              <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Título *</label>
+      {/* ── FORMULÁRIO ───────────────────────────────────────────────────────── */}
+      {aba==='novo'&&(
+        <div style={{background:'#fff',borderRadius:14,border:`2px solid ${editandoId?GOLD:'#e8e8e8'}`,padding:24,marginBottom:20,boxShadow:'0 2px 14px rgba(0,0,0,.07)'}}>
+          {/* Cabeçalho */}
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:22}}>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:NAVY}}>
+                {editandoId ? <><Edit2 size={15} style={{display:'inline',verticalAlign:'middle',marginRight:7}}/> Editando Comunicado #{editandoId}</> : '✉️ Novo Comunicado'}
+              </div>
+              {editandoId && <div style={{fontSize:11,color:GOLD,marginTop:3,fontWeight:600}}>As alterações são salvas ao clicar em 💾 Salvar ou Enviar</div>}
+            </div>
+            <button onClick={cancelarForm} style={{...btn('#f5f5f5','#888'),padding:'6px 10px'}}><X size={14}/></button>
+          </div>
+
+          {/* Toggle Interno / Externo */}
+          <div style={{marginBottom:22}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#888',marginBottom:10,textTransform:'uppercase',letterSpacing:.7}}>Tipo de Comunicado</div>
+            <div style={{display:'inline-flex',borderRadius:12,overflow:'hidden',border:'2px solid #e0e0e0'}}>
+              {[
+                {id:'externo', label:'🌐 Externo', sub:'Clientes e parceiros',   cor:'#1D6FA4', bg:'#EBF5FF'},
+                {id:'interno', label:'🏢 Interno', sub:'Equipe e departamento',  cor:'#6B3EC9', bg:'#F3EEFF'},
+              ].map((t,i)=>(
+                <button key={t.id}
+                  onClick={()=>{
+                    setF('tipo',t.id)
+                    if (t.id==='interno') { setF('cliente_ids',[]); setF('emails_extra',[]); setF('canal','interno_sistema') }
+                    else setF('canal','email')
+                  }}
+                  style={{
+                    padding:'12px 30px', border:'none', cursor:'pointer', transition:'background .15s',
+                    background: form.tipo===t.id ? t.bg : '#fff',
+                    borderRight: i===0 ? '2px solid #e0e0e0' : 'none',
+                  }}>
+                  <div style={{fontSize:15,fontWeight:800,color:form.tipo===t.id?t.cor:'#aaa'}}>{t.label}</div>
+                  <div style={{fontSize:10,color:form.tipo===t.id?t.cor+'aa':'#ccc',marginTop:2}}>{t.sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid do formulário */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
+
+            {/* Título - full width */}
+            <div style={{gridColumn:'1/-1'}}>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Título *</label>
               <input value={form.titulo} onChange={e=>setF('titulo',e.target.value)} placeholder="Ex: Prazo de entrega da Folha de Março" style={inp}/>
             </div>
+
             {/* Urgência */}
             <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:8, textTransform:'uppercase', letterSpacing:.7 }}>Urgência</label>
-              <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>Urgência</label>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {URGENCIAS.map(u=>(
                   <button key={u.id} onClick={()=>setF('urgencia',u.id)}
-                    style={{ padding:'6px 14px', borderRadius:20, border:`2px solid ${form.urgencia===u.id?u.cor:u.border}`, background:form.urgencia===u.id?u.bg:'#fff', color:u.cor, fontSize:12, fontWeight:700, cursor:'pointer', transition:'all .15s' }}>
+                    style={{padding:'6px 14px',borderRadius:20,border:`2px solid ${form.urgencia===u.id?u.cor:u.border}`,background:form.urgencia===u.id?u.bg:'#fff',color:u.cor,fontSize:12,fontWeight:700,cursor:'pointer',transition:'all .12s'}}>
                     {u.emoji} {u.label}
                   </button>
                 ))}
               </div>
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
+
+            {/* Dept + Canal + Responsável */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
               <div>
-                <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Departamento</label>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Departamento</label>
                 <select value={form.departamento} onChange={e=>setF('departamento',e.target.value)} style={sel}>
                   {DEPARTAMENTOS.map(d=><option key={d}>{d}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Canal</label>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Canal</label>
                 <select value={form.canal} onChange={e=>setF('canal',e.target.value)} style={sel}>
-                  {(form.tipo==='interno'?CANAIS_INTERNO:CANAIS_EXTERNO).map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  {canaisDisponiveis.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Responsável</label>
-                <select value={form.responsavel} onChange={e=>onResponsavelChange(e.target.value)} style={sel}>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>
+                  Responsável
+                  <span style={{marginLeft:5,fontSize:9,color:GOLD,padding:'1px 5px',borderRadius:5,background:'#fff9e6',border:`1px solid ${GOLD}44`,fontWeight:700}}>notifica</span>
+                </label>
+                <select value={form.responsavel} onChange={e=>onResp(e.target.value)} style={sel}>
                   <option value=''>— Selecionar —</option>
-                  {usuariosAdmin.length > 0
-                    ? usuariosAdmin.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)
-                    : ['Carlos Eduardo Pimentel','Eduardo Pimentel','Gleidson Tavares','Luciene Alves','Yasmin Larissa'].map(n => <option key={n} value={n}>{n}</option>)
-                  }
+                  {(usuariosAdmin.length>0
+                    ? usuariosAdmin.map(u=>u.nome)
+                    : ['Carlos Eduardo Pimentel','Eduardo Pimentel','Gleidson Tavares','Luciene Alves','Yasmin Larissa']
+                  ).map(n=><option key={n} value={n}>{n}</option>)}
                 </select>
-                {alertaResponsavel && (
-                  <div style={{ marginTop:5, padding:'5px 10px', borderRadius:7, background:'#EBF5FF', border:'1px solid #93c5fd', fontSize:11, color:'#1D6FA4', fontWeight:600 }}>
-                    {alertaResponsavel}
-                  </div>
+              </div>
+            </div>
+
+            {/* Conteúdo - full width */}
+            <div style={{gridColumn:'1/-1'}}>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Conteúdo *</label>
+              <textarea value={form.conteudo} onChange={e=>setF('conteudo',e.target.value)} rows={6} placeholder="Escreva o comunicado..." style={{...inp,resize:'vertical',lineHeight:1.6}}/>
+            </div>
+
+            {/* Resumo - full width */}
+            <div style={{gridColumn:'1/-1'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',letterSpacing:.7}}>
+                  📋 Resumo da Solicitação
+                  <span style={{marginLeft:8,fontSize:10,color:'#bbb',fontWeight:400,textTransform:'none',letterSpacing:0}}>gerado por IA ou preenchido manualmente</span>
+                </label>
+                <button onClick={gerarResumoIA} disabled={gerandoResumo}
+                  style={{...btn(gerandoResumo?'#e8e8e8':NAVY,gerandoResumo?'#999':'#fff'),padding:'6px 14px',fontSize:12,flexShrink:0}}>
+                  <Bot size={13}/>
+                  {gerandoResumo ? '⏳ Gerando...' : '🤖 Gerar com IA'}
+                </button>
+              </div>
+              <div style={{position:'relative'}}>
+                <textarea value={form.resumo} onChange={e=>setF('resumo',e.target.value)} rows={2}
+                  placeholder="Clique em '🤖 Gerar com IA' ou escreva um resumo objetivo aqui..."
+                  style={{...inp,resize:'vertical',lineHeight:1.6,background:form.resumo?'#fffef8':'#fafafa',border:`1px solid ${form.resumo?GOLD+'66':'#e0e0e0'}`,paddingRight:38}}/>
+                {form.resumo && (
+                  <button onClick={()=>setF('resumo','')} title="Limpar"
+                    style={{position:'absolute',top:10,right:10,background:'none',border:'none',cursor:'pointer',color:'#ccc',padding:0}}><X size={13}/></button>
                 )}
               </div>
+              {form.resumo && (
+                <div style={{marginTop:5,padding:'7px 12px',borderRadius:7,background:'#fffef0',border:`1px solid ${GOLD}33`,display:'flex',gap:8,alignItems:'center'}}>
+                  <span>✨</span><span style={{fontSize:11,color:'#854D0E',fontWeight:600}}>Resumo preenchido — aparecerá em destaque no comunicado e na listagem</span>
+                </div>
+              )}
             </div>
-            {/* Conteúdo */}
-            <div style={{ gridColumn:'1/-1' }}>
-              <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Conteúdo *</label>
-              <textarea value={form.conteudo} onChange={e=>setF('conteudo',e.target.value)} rows={6} placeholder="Escreva o comunicado..." style={{ ...inp, resize:'vertical', lineHeight:1.6 }}/>
-            </div>
-            {/* Selecionar Clientes */}
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:8, textTransform:'uppercase', letterSpacing:.7 }}>
-                <Users size={11} style={{ display:'inline', marginRight:4 }}/>Clientes
-                {form.cliente_ids.length > 0 && <span style={{ marginLeft:6, background:NAVY, color:'#fff', fontSize:9, padding:'1px 6px', borderRadius:8 }}>{form.cliente_ids.length}</span>}
-              </label>
-              <input value={clienteBusca} onChange={e=>setClienteBusca(e.target.value)} placeholder="Buscar cliente..." style={{ ...inp, marginBottom:6 }}/>
-              <div style={{ maxHeight:160, overflowY:'auto', border:'1px solid #e8e8e8', borderRadius:8 }}>
-                {cliFiltrados.slice(0,20).map(c=>(
-                  <div key={c.id} onClick={()=>toggleCliente(c.id)}
-                    style={{ padding:'7px 12px', cursor:'pointer', borderBottom:'1px solid #f5f5f5', display:'flex', alignItems:'center', gap:8, background:form.cliente_ids.includes(c.id)?'#EBF5FF':'#fff' }}>
-                    <div style={{ width:16, height:16, borderRadius:4, border:`2px solid ${form.cliente_ids.includes(c.id)?NAVY:'#ddd'}`, background:form.cliente_ids.includes(c.id)?NAVY:'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      {form.cliente_ids.includes(c.id) && <CheckCircle size={10} style={{ color:'#fff' }}/>}
-                    </div>
-                    <div>
-                      <div style={{ fontSize:12, fontWeight:600, color:NAVY }}>{c.nome}</div>
-                      <div style={{ fontSize:10, color:'#aaa' }}>{c.cnpj} · {c.tributacao||'—'}</div>
-                    </div>
+
+            {/* ── EXTERNO: Clientes + E-mails ── */}
+            {form.tipo==='externo' && <>
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
+                  <Users size={11} style={{display:'inline',marginRight:4}}/>Clientes
+                  {form.cliente_ids.length>0&&<span style={{marginLeft:6,background:NAVY,color:'#fff',fontSize:9,padding:'1px 6px',borderRadius:8}}>{form.cliente_ids.length}</span>}
+                </label>
+                <input value={clienteBusca} onChange={e=>setClienteBusca(e.target.value)} placeholder="Buscar cliente..." style={{...inp,marginBottom:6}}/>
+                <div style={{maxHeight:160,overflowY:'auto',border:'1px solid #e8e8e8',borderRadius:8}}>
+                  {cliFiltrados.slice(0,20).map(c=>{
+                    const s2=form.cliente_ids.includes(c.id)
+                    return (
+                      <div key={c.id} onClick={()=>setF('cliente_ids',s2?form.cliente_ids.filter(x=>x!==c.id):[...form.cliente_ids,c.id])}
+                        style={{padding:'7px 12px',cursor:'pointer',borderBottom:'1px solid #f5f5f5',display:'flex',alignItems:'center',gap:8,background:s2?'#EBF5FF':'#fff'}}>
+                        <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${s2?NAVY:'#ddd'}`,background:s2?NAVY:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          {s2&&<CheckCircle size={10} style={{color:'#fff'}}/>}
+                        </div>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:600,color:NAVY}}>{c.nome}</div>
+                          <div style={{fontSize:10,color:'#aaa'}}>{c.cnpj} · {c.tributacao||'—'}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {cliFiltrados.length===0&&<div style={{padding:12,textAlign:'center',color:'#ccc',fontSize:12}}>Nenhum cliente</div>}
+                </div>
+              </div>
+
+              <div>
+                <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
+                  <Mail size={11} style={{display:'inline',marginRight:4}}/>E-mails Avulsos
+                </label>
+                <div style={{display:'flex',gap:6,marginBottom:6}}>
+                  <input value={emailAvulso} onChange={e=>setEmailAvulso(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addEmail()} placeholder="email@dominio.com.br" style={{...inp,flex:1}}/>
+                  <button onClick={addEmail} style={{...btn(NAVY),padding:'9px 12px',flexShrink:0}}><Plus size={13}/></button>
+                </div>
+                {form.emails_extra.map((em,i)=>(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:8,background:'#f8f9fb',marginBottom:4}}>
+                    <Mail size={11} style={{color:'#888'}}/><span style={{flex:1,fontSize:12}}>{em}</span>
+                    <button onClick={()=>setF('emails_extra',form.emails_extra.filter((_,j)=>j!==i))} style={{background:'none',border:'none',cursor:'pointer',color:'#dc2626',padding:0}}><X size={12}/></button>
                   </div>
                 ))}
-                {cliFiltrados.length===0&&<div style={{ padding:12, textAlign:'center', color:'#ccc', fontSize:12 }}>Nenhum cliente</div>}
+                <div style={{marginTop:10,padding:'10px 12px',borderRadius:8,background:'#f8f9fb',border:'1px solid #e8e8e8'}}>
+                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
+                    <input type="checkbox" checked={form.usa_dominio_proprio} onChange={e=>setF('usa_dominio_proprio',e.target.checked)}/>
+                    <span style={{fontSize:12,color:'#555'}}>Usar domínio próprio (config. SMTP)</span>
+                  </label>
+                </div>
               </div>
-            </div>
-            {/* E-mails avulsos */}
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:8, textTransform:'uppercase', letterSpacing:.7 }}>
-                <Mail size={11} style={{ display:'inline', marginRight:4 }}/>E-mails Avulsos
+            </>}
+
+            {/* ── INTERNO: banner informativo ── */}
+            {form.tipo==='interno' && (
+              <div style={{gridColumn:'1/-1',display:'flex',alignItems:'center',gap:14,padding:'16px 20px',borderRadius:10,background:'#F3EEFF',border:'1.5px solid #d8b4fe'}}>
+                <Lock size={22} style={{color:'#6B3EC9',flexShrink:0}}/>
+                <div>
+                  <div style={{fontWeight:700,fontSize:13,color:'#6B3EC9',marginBottom:3}}>Comunicado Interno</div>
+                  <div style={{fontSize:12,color:'#7c3aed'}}>Não envolve clientes externos. O envio vai para o responsável interno selecionado acima, via canal configurado.</div>
+                </div>
+              </div>
+            )}
+
+            {/* Processos - full width quando interno, meia quando externo */}
+            <div style={form.tipo==='interno' ? {gridColumn:'1/-1'} : {}}>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
+                <Briefcase size={11} style={{display:'inline',marginRight:4}}/>Processos
+                {form.processo_ids.length>0&&<span style={{marginLeft:6,background:'#3b82f6',color:'#fff',fontSize:9,padding:'1px 6px',borderRadius:8}}>{form.processo_ids.length}</span>}
               </label>
-              <div style={{ display:'flex', gap:6, marginBottom:6 }}>
-                <input value={emailAvulso} onChange={e=>setEmailAvulso(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addEmail()} placeholder="email@dominio.com.br" style={{ ...inp, flex:1 }}/>
-                <button onClick={addEmail} style={{ ...btn(NAVY), padding:'9px 12px', flexShrink:0 }}><Plus size={13}/></button>
+              <SeletorProcessos selectedIds={form.processo_ids} onChange={ids=>setF('processo_ids',ids)}/>
+            </div>
+
+            {/* Documentos */}
+            <div style={form.tipo==='interno' ? {gridColumn:'1/-1'} : {}}>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
+                <Paperclip size={11} style={{display:'inline',marginRight:4}}/>Documentos
+                {uploadPendente.length>0&&<span style={{marginLeft:6,background:'#22c55e',color:'#fff',fontSize:9,padding:'1px 6px',borderRadius:8}}>{uploadPendente.length}</span>}
+              </label>
+              <div
+                onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=GOLD}}
+                onDragLeave={e=>{e.currentTarget.style.borderColor='#d0d7e6'}}
+                onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor='#d0d7e6';setUploadPendente(p=>[...p,...Array.from(e.dataTransfer.files)])}}
+                onClick={()=>uploadRef.current?.click()}
+                style={{border:'2px dashed #d0d7e6',borderRadius:10,padding:'14px 18px',textAlign:'center',cursor:'pointer',background:'#fafbfc',marginBottom:8,transition:'border-color .2s'}}>
+                <input ref={uploadRef} type="file" multiple style={{display:'none'}} onChange={e=>setUploadPendente(p=>[...p,...Array.from(e.target.files)])}/>
+                <Paperclip size={16} style={{color:'#bbb',marginBottom:4}}/>
+                <div style={{fontSize:12,color:'#888',fontWeight:600}}>Arraste ou clique para anexar</div>
+                <div style={{fontSize:10,color:'#bbb',marginTop:2}}>PDF, imagens, Word, Excel…</div>
               </div>
-              {form.emails_extra.map((em,i)=>(
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, background:'#f8f9fb', marginBottom:4 }}>
-                  <Mail size={11} style={{ color:'#888' }}/>
-                  <span style={{ flex:1, fontSize:12 }}>{em}</span>
-                  <button onClick={()=>setF('emails_extra',form.emails_extra.filter((_,j)=>j!==i))} style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626', padding:0 }}><X size={12}/></button>
+              {uploadPendente.map((arq,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderRadius:7,border:'1px solid #e8e8e8',background:'#fff',marginBottom:4}}>
+                  <span style={{fontSize:16}}>{iconeDoc(arq.type)}</span>
+                  <span style={{flex:1,fontSize:12,color:NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{arq.name}</span>
+                  <span style={{fontSize:10,color:'#aaa'}}>{fmtBytes(arq.size)}</span>
+                  <button onClick={()=>setUploadPendente(p=>p.filter((_,j)=>j!==i))} style={{background:'none',border:'none',cursor:'pointer',color:'#dc2626',padding:0}}><X size={12}/></button>
                 </div>
               ))}
-              {/* Domínio próprio */}
-              <div style={{ marginTop:12, padding:'10px 12px', borderRadius:8, background:'#f8f9fb', border:'1px solid #e8e8e8' }}>
-                <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
-                  <input type="checkbox" checked={form.usa_dominio_proprio} onChange={e=>setF('usa_dominio_proprio',e.target.checked)}/>
-                  <span style={{ fontSize:12, color:'#555' }}>Usar domínio próprio (config acima)</span>
-                </label>
-              </div>
             </div>
           </div>
-          <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
-            <button onClick={()=>setAba('lista')} style={btn('#f5f5f5','#555')}><X size={13}/> Cancelar</button>
-            <button onClick={enviarComunicado} disabled={enviando} style={btn(enviando?'#aaa':NAVY)}>
+
+          {/* Botões */}
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end',borderTop:'1px solid #f0f0f0',paddingTop:16,marginTop:4}}>
+            <button onClick={cancelarForm} style={btn('#f5f5f5','#666')}><X size={13}/> Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{...btn('#f0f4ff',NAVY),border:`1px solid #c7d2fe`,opacity:salvando?.7:1}}>
+              <Save size={13}/> {salvando?'Salvando...':'💾 Salvar'}
+            </button>
+            <button onClick={enviar} disabled={enviando} style={{...btn(enviando?'#aaa':NAVY),minWidth:160}}>
               <Send size={13}/> {enviando?'Enviando...':'Enviar Comunicado'}
             </button>
           </div>
         </div>
       )}
 
-      {/* Filtros */}
-      <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e8e8e8', padding:'12px 16px', marginBottom:16, display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
-        <Filter size={13} style={{ color:'#aaa' }}/>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+      {/* ── FILTROS ───────────────────────────────────────────────────────────── */}
+      <div style={{background:'#fff',borderRadius:12,border:'1px solid #e8e8e8',padding:'12px 16px',marginBottom:16,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+        <Filter size={13} style={{color:'#aaa',flexShrink:0}}/>
+        {/* Tipo */}
+        <div style={{display:'flex',gap:5}}>
+          {[{id:'',lb:'Todos'},{id:'externo',lb:'🌐 Externo'},{id:'interno',lb:'🏢 Interno'}].map(t=>(
+            <button key={t.id} onClick={()=>setFiltroTipo(t.id)}
+              style={{padding:'4px 12px',borderRadius:16,border:`1px solid ${filtroTipo===t.id?NAVY:'#e0e0e0'}`,background:filtroTipo===t.id?NAVY:'#fff',color:filtroTipo===t.id?'#fff':'#555',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+              {t.lb}
+            </button>
+          ))}
+        </div>
+        {/* Urgência */}
+        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
           {URGENCIAS.map(u=>(
             <button key={u.id} onClick={()=>setFiltroUrg(filtroUrg===u.id?'':u.id)}
-              style={{ padding:'4px 12px', borderRadius:16, border:`1px solid ${filtroUrg===u.id?u.cor:u.border}`, background:filtroUrg===u.id?u.bg:'#fff', color:u.cor, fontSize:11, fontWeight:700, cursor:'pointer' }}>
+              style={{padding:'4px 12px',borderRadius:16,border:`1px solid ${filtroUrg===u.id?u.cor:u.border}`,background:filtroUrg===u.id?u.bg:'#fff',color:u.cor,fontSize:11,fontWeight:700,cursor:'pointer'}}>
               {u.emoji} {u.label}
             </button>
           ))}
         </div>
-        <select value={filtroDept} onChange={e=>setFiltroDept(e.target.value)} style={{ ...sel, width:'auto', fontSize:12, padding:'5px 10px' }}>
+        <select value={filtroDept} onChange={e=>setFiltroDept(e.target.value)} style={{...sel,width:'auto',fontSize:12,padding:'5px 10px'}}>
           <option value="">Todos departamentos</option>
           {DEPARTAMENTOS.map(d=><option key={d}>{d}</option>)}
         </select>
-        <select value={filtroStatus} onChange={e=>setFiltroStatus(e.target.value)} style={{ ...sel, width:'auto', fontSize:12, padding:'5px 10px' }}>
+        <select value={filtroStatus} onChange={e=>setFiltroStatus(e.target.value)} style={{...sel,width:'auto',fontSize:12,padding:'5px 10px'}}>
           <option value="">Todos status</option>
+          <option value="salvo">💾 Salvo</option>
           <option value="pendente">Pendente</option>
           <option value="enviado">Enviado</option>
           <option value="respondido">Respondido</option>
           <option value="encerrado">Encerrado</option>
         </select>
-        <button onClick={carregarComunicados} style={{ ...btn('#f5f5f5','#555'), padding:'5px 10px', marginLeft:'auto' }}>
-          <RefreshCw size={12}/>
-        </button>
+        <button onClick={carregarComunicados} style={{...btn('#f5f5f5','#555'),padding:'5px 10px',marginLeft:'auto'}}><RefreshCw size={12}/></button>
       </div>
 
-      {/* Lista */}
+      {/* ── LISTA ─────────────────────────────────────────────────────────────── */}
       {carregando ? (
-        <div style={{ textAlign:'center', padding:40, color:'#aaa', fontSize:14 }}>Carregando...</div>
-      ) : comunicados.length === 0 ? (
-        <div style={{ textAlign:'center', padding:48, color:'#ccc' }}>
-          <MessageSquare size={40} style={{ opacity:.3, marginBottom:12 }}/>
-          <div style={{ fontSize:14 }}>Nenhum comunicado encontrado</div>
-          <button onClick={()=>setAba('novo')} style={{ ...btn(NAVY), margin:'12px auto 0' }}><Plus size={13}/> Criar primeiro comunicado</button>
+        <div style={{textAlign:'center',padding:40,color:'#aaa',fontSize:14}}>Carregando...</div>
+      ) : comunicadosFiltrados.length===0 ? (
+        <div style={{textAlign:'center',padding:48,color:'#ccc'}}>
+          <MessageSquare size={40} style={{opacity:.3,marginBottom:12}}/>
+          <div style={{fontSize:14}}>Nenhum comunicado encontrado</div>
+          <button onClick={()=>setAba('novo')} style={{...btn(NAVY),margin:'12px auto 0'}}><Plus size={13}/> Criar primeiro comunicado</button>
         </div>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {comunicados.map(com=>{
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {comunicadosFiltrados.map(com=>{
             const urg = URGENCIAS.find(u=>u.id===com.urgencia)||URGENCIAS[1]
             const sts = STATUS_CFG[com.status]||STATUS_CFG.pendente
+            const pids = (() => { try{ return JSON.parse(com.processo_ids||'[]') }catch{ return [] } })()
+            const isInterno = (com.tipo||'externo')==='interno'
+            const isSalvo   = com.status==='salvo'
             return (
-              <div key={com.id} onClick={()=>setDetalhe(com)}
-                style={{ background:'#fff', borderRadius:12, border:`1px solid ${com.atrasado?'#fcd34d':'#e8e8e8'}`, padding:'14px 18px', cursor:'pointer', boxShadow: com.urgencia==='muito_urgente'?`0 0 0 2px ${urg.border}`:'0 1px 6px rgba(0,0,0,.04)', transition:'box-shadow .15s' }}
-                onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,.1)'}
+              <div key={com.id}
+                style={{background:'#fff',borderRadius:12,border:`1px solid ${isSalvo?'#d1d5db':com.atrasado?'#fcd34d':'#e8e8e8'}`,padding:'14px 18px',boxShadow:com.urgencia==='muito_urgente'?`0 0 0 2px ${urg.border}`:'0 1px 6px rgba(0,0,0,.04)',transition:'box-shadow .15s'}}
+                onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 18px rgba(0,0,0,.1)'}
                 onMouseLeave={e=>e.currentTarget.style.boxShadow=com.urgencia==='muito_urgente'?`0 0 0 2px ${urg.border}`:'0 1px 6px rgba(0,0,0,.04)'}>
-                <div style={{ display:'flex', alignItems:'flex-start', gap:10 }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5, flexWrap:'wrap' }}>
-                      <span style={{ fontSize:14, fontWeight:700, color:NAVY }}>{com.titulo}</span>
-                      <span style={{ background:urg.bg, color:urg.cor, padding:'2px 10px', borderRadius:10, fontSize:11, fontWeight:700 }}>{urg.emoji} {urg.label}</span>
-                      <span style={{ background:sts.bg, color:sts.cor, padding:'2px 10px', borderRadius:10, fontSize:11, fontWeight:700 }}>{sts.label}</span>
-                      {com.atrasado && <span style={{ background:'#FEF9C3', color:'#854D0E', padding:'2px 10px', borderRadius:10, fontSize:11, fontWeight:800 }}>⚠️ {com.dias_aberto}d em aberto</span>}
-                      {com.alerta_ia && <span style={{ background:'#F3EEFF', color:'#6B3EC9', padding:'2px 10px', borderRadius:10, fontSize:11, fontWeight:700 }}>🤖 IA</span>}
+                <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                  {/* Conteúdo clicável */}
+                  <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>{setDetalhe(com);setAbaDetalhe('conteudo')}}>
+                    <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,flexWrap:'wrap'}}>
+                      <span style={{fontSize:14,fontWeight:700,color:NAVY}}>{com.titulo}</span>
+                      <span style={{background:isInterno?'#F3EEFF':'#EBF5FF',color:isInterno?'#6B3EC9':'#1D6FA4',padding:'2px 8px',borderRadius:8,fontSize:10,fontWeight:700}}>
+                        {isInterno?'🏢 Interno':'🌐 Externo'}
+                      </span>
+                      {isSalvo
+                        ? <span style={{background:'#f0f0f0',color:'#6B7280',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>💾 Salvo</span>
+                        : <span style={{background:urg.bg,color:urg.cor,padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>{urg.emoji} {urg.label}</span>}
+                      <span style={{background:sts.bg,color:sts.cor,padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>{sts.label}</span>
+                      {com.atrasado&&<span style={{background:'#FEF9C3',color:'#854D0E',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:800}}>⚠️ {com.dias_aberto}d</span>}
+                      {com.alerta_ia&&<span style={{background:'#F3EEFF',color:'#6B3EC9',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>🤖 IA</span>}
+                      {pids.length>0&&<span style={{background:'#EBF5FF',color:'#1D6FA4',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>🔗 {pids.length}</span>}
                     </div>
-                    <div style={{ fontSize:12, color:'#888', display:'flex', gap:12, flexWrap:'wrap' }}>
-                      <span><Building2 size={10} style={{ display:'inline', marginRight:2 }}/>{com.departamento}</span>
-                      <span><Clock size={10} style={{ display:'inline', marginRight:2 }}/>{com.criado_em?.slice(0,16)}</span>
-                      {com.responsavel && <span>👤 {com.responsavel}</span>}
+                    <div style={{fontSize:12,color:'#888',display:'flex',gap:12,flexWrap:'wrap',marginBottom:4}}>
+                      <span><Building2 size={10} style={{display:'inline',marginRight:2}}/>{com.departamento}</span>
+                      <span><Clock size={10} style={{display:'inline',marginRight:2}}/>{com.criado_em?.slice(0,16)}</span>
+                      {com.responsavel&&<span>👤 {com.responsavel}</span>}
                     </div>
-                    <div style={{ fontSize:12, color:'#666', marginTop:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'80%' }}>
-                      {com.conteudo?.slice(0,100)}...
+                    {/* Resumo ou trecho do conteúdo */}
+                    <div style={{fontSize:12,color: com.resumo?'#555':'#999',fontStyle:com.resumo?'italic':'normal',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'90%'}}>
+                      {com.resumo
+                        ? <><span style={{color:GOLD,fontWeight:700,marginRight:5,fontStyle:'normal'}}>📋</span>{com.resumo}</>
+                        : com.conteudo?.slice(0,110)+'...'}
                     </div>
                   </div>
-                  <Eye size={16} style={{ color:'#ccc', flexShrink:0, marginTop:2 }}/>
+
+                  {/* Ações rápidas */}
+                  <div style={{display:'flex',gap:5,flexShrink:0,alignItems:'center',flexWrap:'wrap'}}>
+                    {/* Enviar agora quando salvo */}
+                    {isSalvo && (
+                      <button onClick={e=>{e.stopPropagation();enviarSalvo(com)}} title="Enviar agora"
+                        style={{...btn('#22c55e'),padding:'5px 10px',fontSize:11}}>
+                        <Send size={11}/> Enviar
+                      </button>
+                    )}
+                    <button onClick={e=>{e.stopPropagation();abrirEdicao(com)}} title="Editar"
+                      style={{...btn('#f0f4ff',NAVY),padding:'5px 9px',border:`1px solid #c7d2fe`}}>
+                      <Edit2 size={12}/>
+                    </button>
+                    <button onClick={e=>{e.stopPropagation();excluirComunicado(com.id,com.titulo)}} title="Excluir"
+                      style={{...btn('#FEF2F2','#dc2626'),padding:'5px 9px'}}>
+                      <Trash2 size={12}/>
+                    </button>
+                    <button onClick={()=>{setDetalhe(com);setAbaDetalhe('conteudo')}} title="Ver detalhes"
+                      style={{...btn('#f5f5f5','#555'),padding:'5px 9px'}}>
+                      <Eye size={12}/>
+                    </button>
+                  </div>
                 </div>
               </div>
             )
