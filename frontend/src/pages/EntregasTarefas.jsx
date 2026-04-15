@@ -409,7 +409,10 @@ export default function EntregasTarefas() {
           </div>
         </div>
         <div style={{flex:1,overflowY:'auto'}}>
-          {clientes.filter(c=>c.nome?.toLowerCase().includes(buscaCli.toLowerCase())).map(c=>(
+          {clientes.filter(c=>{
+            if(buscaCli&&!c.nome?.toLowerCase().includes(buscaCli.toLowerCase()))return false
+            try{const todas=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]');const excl=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]');return todas.some(t=>String(t.cliente_id)===String(c.id)&&!excl.includes(String(t.id)))}catch{return true}
+          }).map(c=>(
             <div key={c.id} onClick={()=>{
               const fresh=JSON.parse(localStorage.getItem('ep_clientes')||'[]')
               const cFresh=fresh.find(x=>String(x.id)===String(c.id))||c
