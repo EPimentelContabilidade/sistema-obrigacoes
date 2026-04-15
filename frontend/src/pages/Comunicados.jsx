@@ -1086,7 +1086,7 @@ export default function Comunicados() {
                 </div>
               </div>
 
-              {form.tipo === 'externo' && (
+              {form.tipo === 'externo' && (<>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
                   <Mail size={11} style={{display:'inline',marginRight:4}}/>E-mails Avulsos
@@ -1126,7 +1126,7 @@ export default function Comunicados() {
                   </div>
                 ))}
               </div>
-              )}
+              </>)}
             </>
 
             {/* ── INTERNO: banner informativo ── */}
