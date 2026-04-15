@@ -52,6 +52,10 @@ const PERFIS = [
   { id:'estagiario', label:'Estagiário',    cor:'#f59e0b' },
 ]
 
+const DEPARTAMENTOS_ESCRITORIO = [
+  'Geral','Fiscal','Contábil','Pessoal','Financeiro','Jurídico','Diretoria','TI','Comercial'
+]
+
 const STORAGE_KEY = 'epimentel_usuarios'
 
 const USUARIOS_PADRAO = [
@@ -102,7 +106,7 @@ async function verificarVinculosCliente(clienteId) {
   return vinculos
 }
 
-const emptyUser = { nome:'', usuario:'', senha:'', email:'', cargo:'', perfil:'assistente', ativo:true, abas:PERFIS_PADRAO.assistente.abas, perms:PERFIS_PADRAO.assistente.perms, clientes_permitidos:null }
+const emptyUser = { nome:'', usuario:'', senha:'', email:'', whatsapp:'', cargo:'', departamento:'', perfil:'assistente', perfis_extras:[], ativo:true, abas:PERFIS_PADRAO.assistente.abas, perms:PERFIS_PADRAO.assistente.perms, clientes_permitidos:null }
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -488,15 +492,49 @@ export default function Admin() {
                     </div>
                   </div>
                   <div style={{ marginBottom:12 }}>
+                    <label style={{ fontSize:12, fontWeight:600, color:'#555', display:'block', marginBottom:4 }}>WhatsApp</label>
+                    <input value={form.whatsapp||''} onChange={e=>setForm(f=>({...f,whatsapp:e.target.value}))} placeholder="(62) 99999-9999"
+                      style={{ width:'100%', padding:'8px 10px', border:'1px solid #e2e8f0', borderRadius:7, fontSize:13, boxSizing:'border-box' }}/>
+                  </div>
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ fontSize:12, fontWeight:600, color:'#555', display:'block', marginBottom:4 }}>Departamento</label>
+                    <select value={form.departamento||''} onChange={e=>setForm(f=>({...f,departamento:e.target.value}))}
+                      style={{ width:'100%', padding:'8px 10px', border:'1px solid #e2e8f0', borderRadius:7, fontSize:13, boxSizing:'border-box', background:'#fff' }}>
+                      <option value=''>— Selecionar —</option>
+                      {DEPARTAMENTOS_ESCRITORIO.map(d=><option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ marginBottom:8 }}>
                     <label style={{ fontSize:12, fontWeight:600, color:'#555', display:'block', marginBottom:8 }}>Perfil base</label>
-                    <div style={{ display:'flex', gap:8 }}>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                       {PERFIS.map(p => (
                         <button key={p.id} onClick={() => aplicarPerfil(p.id)} style={{
                           flex:1, padding:'9px', border:`2px solid ${form.perfil===p.id?p.cor:'#e2e8f0'}`,
                           borderRadius:8, background:form.perfil===p.id?p.cor+'15':'#fff',
-                          color:form.perfil===p.id?p.cor:'#64748b', cursor:'pointer', fontSize:12, fontWeight:form.perfil===p.id?600:400,
+                          color:form.perfil===p.id?p.cor:'#64748b', cursor:'pointer', fontSize:12, fontWeight:form.perfil===p.id?600:400, minWidth:80,
                         }}>{p.label}</button>
                       ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ fontSize:12, fontWeight:600, color:'#555', display:'block', marginBottom:6 }}>
+                      Perfis adicionais <span style={{fontWeight:400,color:'#aaa',fontSize:11}}>(opcional)</span>
+                    </label>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                      {PERFIS.filter(p=>p.id!==form.perfil).map(p => {
+                        const ativo = (form.perfis_extras||[]).includes(p.id)
+                        return (
+                          <label key={p.id} style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px',
+                            border:`1px solid ${ativo?p.cor:'#e2e8f0'}`, borderRadius:20,
+                            background:ativo?p.cor+'15':'#f8fafc', cursor:'pointer', fontSize:12, color:ativo?p.cor:'#64748b' }}>
+                            <input type="checkbox" checked={ativo} style={{margin:0}}
+                              onChange={e=>setForm(f=>({...f,perfis_extras:e.target.checked
+                                ?[...(f.perfis_extras||[]),p.id]
+                                :(f.perfis_extras||[]).filter(x=>x!==p.id)}))}/>
+                            {p.label}
+                          </label>
+                        )
+                      })}
                     </div>
                   </div>
                   <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13 }}>
