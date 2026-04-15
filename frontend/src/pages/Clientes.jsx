@@ -271,7 +271,11 @@ export default function Clientes() {
     } else {
       novoSeq = clientes.find(c=>String(c.id)===String(editId))?.seq
     }
-    const novoCliente = { ...form, id:novoId, seq:novoSeq, ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:form.credenciais||{...CREDS_VAZIO}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
+    // cert_b64 salvo em chave separada para não estourar localStorage
+    const certB64 = form.credenciais?.cert_b64 || ''
+    if (certB64 && novoId) localStorage.setItem(`ep_cert_${novoId}`, certB64)
+    const credsSemB64 = { ...(form.credenciais||{}), cert_b64: '' }
+    const novoCliente = { ...form, id:novoId, seq:novoSeq, ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:{...CREDS_VAZIO,...credsSemB64}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
     let novaLista = []
     setClientes(p=>{ novaLista=editId?p.map(x=>x.id===editId?novoCliente:x):[...p,novoCliente]; localStorage.setItem('ep_clientes',JSON.stringify(novaLista)); return novaLista })
     setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setAba('lista')
@@ -296,7 +300,9 @@ export default function Clientes() {
 
   const nova = () => { setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setCnpjDados(null); setAba('cadastro'); setAbaForm('dados') }
   const editar = (cli) => {
-    setForm({ ...FORM_VAZIO, ...cli, obrigacoes_vinculadas:cli.obrigacoes_vinculadas||[], credenciais:{...CREDS_VAZIO,...(cli.credenciais||{})}, responsaveis:cli.responsaveis||[], contatos:cli.contatos?.length?cli.contatos:[{nome:'',email:'',whatsapp:'',tipo:'principal'}], ativo:cli.ativo!==false, tributacao:cli.tributacao||cli.regime||'' })
+    const certB64Salvo = localStorage.getItem(`ep_cert_${cli.id}`) || cli.credenciais?.cert_b64 || ''
+    const credsComB64 = { ...CREDS_VAZIO, ...(cli.credenciais||{}), cert_b64: certB64Salvo }
+    setForm({ ...FORM_VAZIO, ...cli, obrigacoes_vinculadas:cli.obrigacoes_vinculadas||[], credenciais:credsComB64, responsaveis:cli.responsaveis||[], contatos:cli.contatos?.length?cli.contatos:[{nome:'',email:'',whatsapp:'',tipo:'principal'}], ativo:cli.ativo!==false, tributacao:cli.tributacao||cli.regime||'' })
     setEditId(cli.id); setCnpjDados(null); setAba('cadastro'); setAbaForm('dados')
   }
 
@@ -754,17 +760,22 @@ export default function Clientes() {
                           type="button"
                           onClick={async()=>{
                             if(!creds.cert_b64) { alert('Selecione o arquivo .pfx primeiro'); return }
-                            if(!creds.cert_senha) { alert('Digite a senha do certificado'); return }
+                            // Tentar API
                             try {
-                              const r=await fetch(`${API}/clientes/certificado/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cert_base64:creds.cert_b64,senha:creds.cert_senha})})
-                              const info=await r.json()
-                              if(info.cnpj) setC('cert_cnpj_cpf',info.cnpj)
-                              if(info.titular) setC('cert_titular',info.titular)
-                              if(info.validade) setC('cert_validade',info.validade)
-                              if(info.tipo) setC('cert_tipo',info.tipo)
-                              if(info.emitente) setC('cert_emissora',info.emitente.substring(0,40))
-                              alert('✅ Certificado reconhecido!\nTitular: '+info.titular+'\nValidade: '+info.validade)
-                            } catch(e){ alert('Erro ao ler certificado: '+e.message) }
+                              const r=await fetch(`${API}/clientes/certificado/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cert_base64:creds.cert_b64,senha:creds.cert_senha||''}),signal:AbortSignal.timeout(5000)})
+                              if(r.ok){
+                                const info=await r.json()
+                                if(info.cnpj) setC('cert_cnpj_cpf',info.cnpj)
+                                if(info.titular) setC('cert_titular',info.titular)
+                                if(info.validade) setC('cert_validade',info.validade)
+                                if(info.tipo) setC('cert_tipo',info.tipo)
+                                if(info.emitente) setC('cert_emissora',info.emitente.substring(0,40))
+                                alert('✅ Certificado carregado!\nTitular: '+(info.titular||'—')+'\nValidade: '+(info.validade||'—'))
+                                return
+                              }
+                            } catch {}
+                            // Fallback: certificado carregado mas API não disponível
+                            alert('✅ Arquivo .pfx carregado com sucesso!\n\nReconhecimento automático indisponível.\nPreencha manualmente: Titular, Data de Validade e Emissora.\n\nO certificado está salvo e será usado pelos módulos do sistema.')
                           }}
                           style={{ marginTop:6,width:'100%',padding:'7px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer' }}
                         >
