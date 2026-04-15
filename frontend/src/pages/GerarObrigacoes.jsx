@@ -55,7 +55,9 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
         'Simples Nacional':'Simples Nacional','MEI':'MEI',
         'Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real',
         'RET':'RET/Imobiliário','RET/Imobiliário':'RET/Imobiliário',
-        'Imune/Isento':'Simples Nacional','Produtor Rural':'Produtor Rural',
+        'Imune/Isento':'Imune/Isento','Produtor Rural':'Produtor Rural',
+        'Social/IRH':'Social/IRH','Social/RH':'Social/IRH','Social':'Social/IRH',
+        'Condomínio':'Condomínio','Autônomo':'Autônomo',
       }
       const regime = cliente.tributacao || cliente.regime || ''
       const chave = mapa[regime] || regime
