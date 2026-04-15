@@ -11,7 +11,7 @@ const DEPARTAMENTOS_PADRAO = [
   { id:5, nome:"Legalização", cor:"#E91E63", responsavel:"" },
 ];
 
-const REGIMES = ["MEI","Simples Nacional","Lucro Presumido","Lucro Real","RET/Imobiliário","Produtor Rural"];
+const REGIMES = ["MEI","Simples Nacional","Lucro Presumido","Lucro Real","RET/Imobiliário","Produtor Rural","Social/IRH","Imune/Isento","Condomínio","Autônomo"];
 const TODOS_REGIMES = REGIMES;
 
 const DIAS_MES = ["Todo dia 1","Todo dia 2","Todo dia 3","Todo dia 4","Todo dia 5","Todo dia 6","Todo dia 7","Todo dia 8","Todo dia 9","Todo dia 10","Todo dia 11","Todo dia 12","Todo dia 13","Todo dia 14","Todo dia 15","Todo dia 16","Todo dia 17","Todo dia 18","Todo dia 19","Todo dia 20","Todo dia 21","Todo dia 22","Todo dia 23","Todo dia 24","Todo dia 25","Todo dia 26","Todo dia 27","Todo dia 28","Último dia útil","Último dia do mês"];
@@ -49,7 +49,10 @@ function getClientesRegime(regime) {
   try {
     const mapa = {'Simples Nacional':'Simples Nacional','MEI':'MEI','Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real','RET/Imobiliário':'RET','Produtor Rural':'Produtor Rural'}
     const chave = Object.entries(mapa).find(([k])=>k===regime)?.[1] || regime
-    return JSON.parse(localStorage.getItem('ep_clientes')||'[]').filter(c=>(c.tributacao||c.regime)===regime||(c.tributacao||c.regime)===chave)
+    return JSON.parse(localStorage.getItem('ep_clientes')||'[]').filter(c=>{
+      const trib=c.tributacao||c.regime||''
+      return trib===regime||trib===chave||(regime==='Social/IRH'&&(trib==='Social/RH'||trib==='Social'))
+    })
   } catch { return [] }
 }
 
@@ -94,6 +97,35 @@ const OBRIGACOES_CATALOGO_INICIAL = {
     obrigacaoPadrao({ codigo:"DIMOB", nome:"DIMOB", periodicidade:"Anual", regimes_vinculados:["RET/Imobiliário"] }),
     obrigacaoPadrao({ codigo:"CPC47", nome:"Apuração CPC 47 / POC", periodicidade:"Mensal", regimes_vinculados:["RET/Imobiliário"] }),
     obrigacaoPadrao({ codigo:"SPED-CONT-RET", nome:"SPED Contábil", periodicidade:"Anual", regimes_vinculados:["RET/Imobiliário"] }),
+  ],
+  "Social/IRH": [
+    obrigacaoPadrao({ codigo:"FOLHA-PAG", nome:"Folha de Pagamento", periodicidade:"Mensal", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"HOLERITE", nome:"Holerite / Recibo de Salário", periodicidade:"Mensal", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"FGTS-SOCIAL", nome:"FGTS Mensal", periodicidade:"Mensal", passivel_multa:"Sim", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"INSS-GPS", nome:"INSS / GPS", periodicidade:"Mensal", passivel_multa:"Sim", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"ESOCIAL-RH", nome:"eSocial Mensal", periodicidade:"Mensal", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"DCTFWEB-RH", nome:"DCTFWeb", periodicidade:"Mensal", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"CAGED-RH", nome:"CAGED (admissão/demissão)", periodicidade:"Mensal", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"RAIS-RH", nome:"RAIS Anual", periodicidade:"Anual", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"IRRF-FUNC", nome:"IRRF / DIRF", periodicidade:"Mensal", passivel_multa:"Sim", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"13-SAL", nome:"13º Salário (1ª e 2ª parcela)", periodicidade:"Anual", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"FERIAS", nome:"Controle de Férias", periodicidade:"Mensal", regimes_vinculados:["Social/IRH"] }),
+    obrigacaoPadrao({ codigo:"EFD-REINF-RH", nome:"EFD-REINF", periodicidade:"Mensal", ativo:false, regimes_vinculados:["Social/IRH"] }),
+  ],
+  "Imune/Isento": [
+    obrigacaoPadrao({ codigo:"DCTF-IMUNE", nome:"DCTF", periodicidade:"Mensal", regimes_vinculados:["Imune/Isento"] }),
+    obrigacaoPadrao({ codigo:"SPED-IMUNE", nome:"SPED Contábil", periodicidade:"Anual", regimes_vinculados:["Imune/Isento"] }),
+    obrigacaoPadrao({ codigo:"RAIS-IMUNE", nome:"RAIS", periodicidade:"Anual", regimes_vinculados:["Imune/Isento"] }),
+  ],
+  "Condomínio": [
+    obrigacaoPadrao({ codigo:"BALANCETE-COND", nome:"Balancete Mensal", periodicidade:"Mensal", regimes_vinculados:["Condomínio"] }),
+    obrigacaoPadrao({ codigo:"IRRF-COND", nome:"IRRF (prestadores)", periodicidade:"Mensal", regimes_vinculados:["Condomínio"] }),
+    obrigacaoPadrao({ codigo:"DCTF-COND", nome:"DCTF", periodicidade:"Mensal", regimes_vinculados:["Condomínio"] }),
+  ],
+  "Autônomo": [
+    obrigacaoPadrao({ codigo:"CARNE-LEAO", nome:"Carnê Leão Mensal", periodicidade:"Mensal", passivel_multa:"Sim", regimes_vinculados:["Autônomo"] }),
+    obrigacaoPadrao({ codigo:"IRPF-AUT", nome:"IRPF Anual", periodicidade:"Anual", regimes_vinculados:["Autônomo"] }),
+    obrigacaoPadrao({ codigo:"INSS-AUT", nome:"GPS / INSS Autônomo", periodicidade:"Mensal", passivel_multa:"Sim", regimes_vinculados:["Autônomo"] }),
   ],
   "Produtor Rural": [
     obrigacaoPadrao({ codigo:"FUNRURAL", nome:"Funrural (2,1%)", periodicidade:"Mensal", passivel_multa:"Sim", regimes_vinculados:["Produtor Rural"] }),
