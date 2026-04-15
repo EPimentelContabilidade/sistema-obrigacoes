@@ -733,7 +733,7 @@ export default function Comunicados() {
               <div>
                 <label style={{ fontSize:11, fontWeight:700, color:'#888', display:'block', marginBottom:5, textTransform:'uppercase', letterSpacing:.7 }}>Canal</label>
                 <select value={form.canal} onChange={e=>setF('canal',e.target.value)} style={sel}>
-                  {CANAIS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  {(form.tipo==='interno'?CANAIS_INTERNO:CANAIS_EXTERNO).map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </div>
               <div>
