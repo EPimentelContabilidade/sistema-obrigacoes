@@ -34,6 +34,8 @@ const STATUS_CFG = {
   enviado:    { label:'Enviado',    cor:'#1D6FA4', bg:'#EBF5FF' },
   respondido: { label:'Respondido', cor:'#1A7A3C', bg:'#EDFBF1' },
   encerrado:  { label:'Encerrado',  cor:'#6B7280', bg:'#f5f5f5' },
+  pausado:    { label:'Pausado',    cor:'#7C3AED', bg:'#F3EEFF' },
+  desistido:  { label:'Desistido',  cor:'#dc2626', bg:'#FEF2F2' },
 }
 const STATUS_CORES_PROC = {
   'Em Andamento':'#2196F3','Aguardando Cliente':'#FF9800',
@@ -132,6 +134,29 @@ function ModalAlerta({ comunicados, onClose }) {
         </div>
         <div style={{ padding:'14px 20px', borderTop:'1px solid #e8e8e8', display:'flex', justifyContent:'flex-end' }}>
           <button onClick={onClose} style={btn(NAVY)}><CheckCircle size={14}/> Entendido</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+/* ─── ModalConfirmacao ─────────────────────────────────────────────────────── */
+function ModalConfirmacao({ aberto, titulo, mensagem, onConfirmar, onCancelar, corBotao='#dc2626', labelBotao='Confirmar' }) {
+  if (!aberto) return null
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9997, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={onCancelar}>
+      <div style={{ background:'#fff', borderRadius:16, overflow:'hidden', maxWidth:420, width:'100%', boxShadow:'0 20px 60px rgba(0,0,0,.25)' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ background:'linear-gradient(135deg,#1B2A4A,#2d4a7a)', padding:'16px 20px', display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:36, height:36, borderRadius:10, background:'rgba(255,255,255,.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>
+            {corBotao==='#dc2626'?'\uD83D\uDDD1\uFE0F':corBotao==='#7C3AED'?'\u23F8\uFE0F':corBotao==='#6B7280'?'\uD83D\uDD12':'\u26A0\uFE0F'}
+          </div>
+          <div style={{ color:'#fff', fontWeight:800, fontSize:15 }}>{titulo}</div>
+        </div>
+        <div style={{ padding:'20px 24px', fontSize:14, color:'#444', lineHeight:1.6 }}>{mensagem}</div>
+        <div style={{ padding:'14px 20px', borderTop:'1px solid #e8e8e8', display:'flex', gap:10, justifyContent:'flex-end' }}>
+          <button onClick={onCancelar} style={{ padding:'9px 18px', borderRadius:8, border:'1px solid #e0e0e0', background:'#f5f5f5', color:'#555', fontWeight:600, fontSize:13, cursor:'pointer' }}>Cancelar</button>
+          <button onClick={onConfirmar} style={{ padding:'9px 18px', borderRadius:8, border:'none', background:corBotao, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>{labelBotao}</button>
         </div>
       </div>
     </div>
@@ -337,6 +362,12 @@ export default function Comunicados() {
   const [toasts, setToasts]         = useState([])
   const [alertaComs, setAlertaComs] = useState([])
   const [modalAlerta, setModalAlerta] = useState(false)
+  const [modalConfirm, setModalConfirm] = useState({ aberto:false, titulo:'', mensagem:'', onConfirmar:()=>{}, onCancelar:()=>{}, corBotao:'#dc2626', labelBotao:'Confirmar' })
+  const confirmar = (titulo, mensagem, onConfirmarFn, corBotao='#dc2626', labelBotao='Confirmar') => {
+    setModalConfirm({ aberto:true, titulo, mensagem, corBotao, labelBotao,
+      onConfirmar:()=>{ setModalConfirm(m=>({...m,aberto:false})); onConfirmarFn() },
+      onCancelar:()=>setModalConfirm(m=>({...m,aberto:false})) })
+  }
   const toastCnt = useRef(0)
   const uploadRef = useRef()
 
@@ -411,31 +442,25 @@ export default function Comunicados() {
   }
 
   // ── Excluir ───────────────────────────────────────────────────────────────
-  const excluirComunicado = async (id, titulo) => {
-    if (!confirm(`Excluir "${titulo}"? Esta ação não pode ser desfeita.`)) return
-    try {
-      // Remover do localStorage (local ou sincronizado)
+  const excluirComunicado = (id, titulo) => {
+    confirmar('Excluir Comunicado', `Tem certeza que deseja excluir "${titulo}"?`, async () => {
       try {
-        let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
-        const antes = lista.length
-        lista = lista.filter(c => String(c.id) !== String(id))
-        if (lista.length < antes) localStorage.setItem('ep_comunicados', JSON.stringify(lista))
-        // Remover documentos locais associados
-        localStorage.removeItem(`ep_docs_${id}`)
-      } catch {}
-
-      // Tentar também na API
-      if (!String(id).startsWith('local_')) {
-        try { await fetch(`${API}/comunicados/${id}`,{method:'DELETE'}) } catch {}
-      }
-
-      addToast('🗑️ Excluído',`"${titulo}" foi removido.`,'info',null,4000)
-      setDetalhe(null)
-      await carregarComunicados()
-    } catch { addToast('Erro','Não foi possível excluir.','erro',null,4000) }
+        try {
+          let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
+          lista = lista.filter(x => String(x.id) !== String(id))
+          localStorage.setItem('ep_comunicados', JSON.stringify(lista))
+          localStorage.removeItem(`ep_docs_${id}`)
+        } catch {}
+        if (!String(id).startsWith('local_')) {
+          try { await fetch(`${API}/comunicados/${id}`,{method:'DELETE'}) } catch {}
+        }
+        addToast('🗑️ Excluído',`"${titulo}" foi removido.`,'info',null,4000)
+        setDetalhe(null); await carregarComunicados()
+      } catch { addToast('Erro','Não foi possível excluir.','erro',null,4000) }
+    }, '#dc2626', '🗑️ Excluir')
   }
 
-  // ── Notificar responsável ─────────────────────────────────────────────────
+    // ── Notificar responsável ─────────────────────────────────────────────────
   const onResp = async (nome) => {
     setF('responsavel', nome)
     if (!nome) return
@@ -605,14 +630,57 @@ export default function Comunicados() {
     setDetalhe(updated.find(c=>c.id===id)||null)
   }
 
-  const encerrar = async (id, titulo) => {
-    if (!confirm('Encerrar este comunicado?')) return
-    await fetch(`${API}/comunicados/encerrar/${id}`,{method:'POST'})
-    addToast('🔒 Encerrado',`"${titulo}" foi encerrado.`,'info',null,4000)
+  const encerrar = (id, titulo) => {
+    confirmar('Encerrar Comunicado', `Encerrar "${titulo}"?`, async () => {
+      try { await fetch(`${API}/comunicados/encerrar/${id}`,{method:'POST'}) } catch {}
+      try {
+        let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
+        lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'encerrado'}:x)
+        localStorage.setItem('ep_comunicados', JSON.stringify(lista))
+      } catch {}
+      addToast('🔒 Encerrado',`"${titulo}" foi encerrado.`,'info',null,4000)
+      setDetalhe(null); await carregarComunicados()
+    }, '#6B7280', '🔒 Encerrar')
+  }
+
+  const pausar = (id, titulo) => {
+    confirmar('Pausar Comunicado', `Pausar "${titulo}"? O comunicado ficará aguardando.`, async () => {
+      try { await fetch(`${API}/comunicados/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'pausado'})}) } catch {}
+      try {
+        let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
+        lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'pausado'}:x)
+        localStorage.setItem('ep_comunicados', JSON.stringify(lista))
+      } catch {}
+      addToast('⏸️ Pausado',`"${titulo}" foi pausado.`,'info',null,4000)
+      setDetalhe(null); await carregarComunicados()
+    }, '#7C3AED', '⏸️ Pausar')
+  }
+
+  const desistir = (id, titulo) => {
+    confirmar('Desistir', `Marcar "${titulo}" como desistido?`, async () => {
+      try { await fetch(`${API}/comunicados/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'desistido'})}) } catch {}
+      try {
+        let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
+        lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'desistido'}:x)
+        localStorage.setItem('ep_comunicados', JSON.stringify(lista))
+      } catch {}
+      addToast('🚫 Desistido',`"${titulo}" marcado como desistido.`,'alerta',null,4000)
+      setDetalhe(null); await carregarComunicados()
+    }, '#dc2626', '🚫 Desistir')
+  }
+
+  const reabrirComunicado = async (id, titulo) => {
+    try { await fetch(`${API}/comunicados/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'pendente'})}) } catch {}
+    try {
+      let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
+      lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'pendente'}:x)
+      localStorage.setItem('ep_comunicados', JSON.stringify(lista))
+    } catch {}
+    addToast('🔓 Reaberto',`"${titulo}" foi reaberto.`,'info',null,4000)
     setDetalhe(null); await carregarComunicados()
   }
 
-  const salvarSmtp = async () => {
+    const salvarSmtp = async () => {
     await fetch(`${API}/comunicados/config-smtp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(smtp)})
     setSmtpSalvo(true); setTimeout(()=>setSmtpSalvo(false),2000)
   }
@@ -644,6 +712,7 @@ export default function Comunicados() {
     return (
       <div style={{padding:24,maxWidth:880,margin:'0 auto'}}>
         <Toast toasts={toasts} fechar={fecharToast}/>
+      <ModalConfirmacao {...modalConfirm}/>
 
         {/* Breadcrumb + ações */}
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:20,flexWrap:'wrap'}}>
@@ -744,7 +813,10 @@ export default function Comunicados() {
                     <textarea value={resposta} onChange={e=>setResposta(e.target.value)} rows={3} placeholder="Digite sua resposta..." style={{...inp,resize:'vertical',marginBottom:10}}/>
                     <div style={{display:'flex',gap:8}}>
                       <button onClick={()=>responder(detalhe.id)} style={btn(NAVY)}><Send size={13}/> Registrar Resposta</button>
-                      <button onClick={()=>encerrar(detalhe.id, detalhe.titulo)} style={btn('#6B7280')}><Archive size={13}/> Encerrar</button>
+                      {!['encerrado','desistido'].includes(detalhe.status) && <button onClick={()=>pausar(detalhe.id,detalhe.titulo)} style={{...btn('#F3EEFF','#7C3AED'),border:'1px solid #c4b5fd'}}><Clock size={13}/> Pausar</button>}
+                      {!['encerrado','desistido'].includes(detalhe.status) && <button onClick={()=>desistir(detalhe.id,detalhe.titulo)} style={{...btn('#FEF2F2','#dc2626'),border:'1px solid #fca5a5'}}><X size={13}/> Desistir</button>}
+                      {['encerrado','pausado','desistido'].includes(detalhe.status) && <button onClick={()=>reabrirComunicado(detalhe.id,detalhe.titulo)} style={{...btn('#f0fdf4','#16a34a'),border:'1px solid #86efac'}}><RefreshCw size={13}/> Reabrir</button>}
+                      {!['encerrado','desistido'].includes(detalhe.status) && <button onClick={()=>encerrar(detalhe.id, detalhe.titulo)} style={btn('#6B7280')}><Archive size={13}/> Encerrar</button>}
                     </div>
                   </div>
                 )}
@@ -803,6 +875,11 @@ export default function Comunicados() {
           <button onClick={()=>setAba(aba==='config_smtp'?'lista':'config_smtp')} style={{...btn('#f5f5f5','#555'),padding:'9px 12px'}}>
             <Settings size={14}/>
           </button>
+          {aba !== 'lista' && (
+            <button onClick={()=>{ cancelarForm(); setAba('lista') }} style={{...btn('#f5f5f5','#555'),padding:'9px 12px',border:'1px solid #e0e0e0'}} title="Voltar">
+              ← Voltar
+            </button>
+          )}
         </div>
       </div>
 
@@ -976,8 +1053,8 @@ export default function Comunicados() {
               )}
             </div>
 
-            {/* ── EXTERNO: Clientes + E-mails ── */}
-            {form.tipo==='externo' && <>
+            {/* ── Clientes (externo e interno) + E-mails (só externo) ── */}
+            <>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
                   <Users size={11} style={{display:'inline',marginRight:4}}/>Clientes
@@ -1004,6 +1081,7 @@ export default function Comunicados() {
                 </div>
               </div>
 
+              {form.tipo === 'externo' && (
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
                   <Mail size={11} style={{display:'inline',marginRight:4}}/>E-mails Avulsos
@@ -1025,7 +1103,8 @@ export default function Comunicados() {
                   </label>
                 </div>
               </div>
-            </>}
+              )}
+            </>
 
             {/* ── INTERNO: banner informativo ── */}
             {form.tipo==='interno' && (
