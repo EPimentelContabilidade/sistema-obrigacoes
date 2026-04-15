@@ -343,12 +343,22 @@ export default function Comunicados() {
   const carregarComunicados = async () => {
     setCarregando(true)
     try {
+      let locais = []
+      try { locais = JSON.parse(localStorage.getItem('ep_comunicados')||'[]').filter(c=>c.origem==='local') } catch {}
       const p = new URLSearchParams()
       if (filtroUrg)    p.set('urgencia', filtroUrg)
       if (filtroDept)   p.set('departamento', filtroDept)
       if (filtroStatus) p.set('status', filtroStatus)
-      const r = await fetch(`${API}/comunicados/listar?${p}`)
-      if (r.ok) { const lista=await r.json(); setComunicados(lista); verificarAlertasUsuario(lista) }
+      try {
+        const r = await fetch(`${API}/comunicados/listar?${p}`)
+        if (r.ok) {
+          const apiLista = await r.json()
+          const apiIds = new Set(apiLista.map(x=>x.id))
+          const merged = [...locais.filter(l=>!apiIds.has(l.id)), ...apiLista]
+          setComunicados(merged); verificarAlertasUsuario(merged); return
+        }
+      } catch {}
+      setComunicados(locais); verificarAlertasUsuario(locais)
     } catch {} finally { setCarregando(false) }
   }
   useEffect(()=>{ carregarComunicados() },[filtroUrg,filtroDept,filtroStatus])
