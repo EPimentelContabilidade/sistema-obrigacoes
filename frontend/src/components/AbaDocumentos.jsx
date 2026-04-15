@@ -21,8 +21,8 @@ function formatData(iso){if(!iso)return '';return new Date(iso).toLocaleDateStri
 function PreviewModal({doc,onClose}){
   const[zoom,setZoom]=useState(1)
   if(!doc)return null
-  const isImg=/\.(png|jpe?g|gif|webp|svg)$/i.test(doc.nome_arquivo)
-  const isPdf=/\.pdf$/i.test(doc.nome_arquivo)
+  const isImg=/\.(png|jpe?g|gif|webp|svg)$/i.test(doc.nome_arquivo)||String(doc.url||'').startsWith('data:image')
+  const isPdf=/\.pdf$/i.test(doc.nome_arquivo)||String(doc.url||'').startsWith('data:application/pdf')
   return(<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.75)',zIndex:9999,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}} onClick={onClose}><div style={{background:'#fff',borderRadius:12,overflow:'hidden',width:'90vw',maxWidth:900,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,.4)'}} onClick={e=>e.stopPropagation()}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 16px',background:NAVY,color:'#fff'}}><div style={{display:'flex',alignItems:'center',gap:8}}><FileText size={16}/><span style={{fontWeight:600,fontSize:13}}>{doc.nome_original||doc.nome_arquivo}</span><span style={{fontSize:11,opacity:.6}}>({formatBytes(doc.tamanho||0)})</span></div><div style={{display:'flex',gap:8,alignItems:'center'}}>{(isImg||isPdf)&&<><button onClick={()=>setZoom(z=>Math.max(.3,z-.2))} style={{background:'rgba(255,255,255,.2)',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:'#fff'}}><ZoomOut size={14}/></button><span style={{fontSize:12,minWidth:40,textAlign:'center'}}>{Math.round(zoom*100)}%</span><button onClick={()=>setZoom(z=>Math.min(3,z+.2))} style={{background:'rgba(255,255,255,.2)',border:'none',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:'#fff'}}><ZoomIn size={14}/></button></>}<a href={doc.url} download={doc.nome_original||doc.nome_arquivo} style={{background:GOLD,border:'none',borderRadius:6,padding:'5px 10px',cursor:'pointer',color:NAVY,fontWeight:600,fontSize:12,textDecoration:'none',display:'flex',alignItems:'center',gap:4}}><Download size={13}/> Baixar</a><button onClick={onClose} style={{background:'rgba(255,255,255,.2)',border:'none',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'#fff'}}><X size={15}/></button></div></div><div style={{flex:1,overflow:'auto',padding:16,display:'flex',justifyContent:'center',background:'#f1f5f9'}}>{isImg?(<img src={doc.url} alt={doc.nome_original} style={{maxWidth:'100%',transform:`scale(${zoom})`,transformOrigin:'top center',transition:'transform .2s'}}/>):isPdf?(<iframe src={doc.url+'#toolbar=0'} style={{width:'100%',height:'70vh',transform:`scale(${zoom})`,transformOrigin:'top center',border:'none',borderRadius:8,background:'#fff'}} title={doc.nome_original}/>):(<div style={{textAlign:'center',padding:40,color:'#888'}}><FileText size={48} style={{marginBottom:12,opacity:.4}}/><p>Pré-visualização não disponível.</p><a href={doc.url} download style={{color:NAVY,fontWeight:600}}>Clique aqui para baixar</a></div>)}</div></div></div>)
 }
 export default function AbaDocumentos({clienteId,clienteNome,API}){
@@ -40,7 +40,13 @@ export default function AbaDocumentos({clienteId,clienteNome,API}){
 
   const carregarDocs=async()=>{
     setCarregando(true)
-    try{const r=await fetch(`${base}/clientes/${clienteId}/docs`);if(r.ok)setDocs(await r.json())}catch(e){console.error(e)}
+    try{
+      let locais=[];try{locais=JSON.parse(localStorage.getItem(`ep_cli_docs_${clienteId}`)||'[]')}catch{}
+      let apiDocs=[]
+      try{const r=await fetch(`${base}/clientes/${clienteId}/docs`);if(r.ok){apiDocs=await r.json()}}catch{}
+      const apiIds=new Set(apiDocs.map(d=>d.id))
+      setDocs([...locais.filter(l=>!apiIds.has(l.id)),...apiDocs])
+    }catch(e){console.error(e)}
     finally{setCarregando(false)}
   }
 
@@ -49,11 +55,20 @@ export default function AbaDocumentos({clienteId,clienteNome,API}){
     if(arquivo.size>20*1024*1024){alert('Arquivo muito grande. Máximo: 20 MB');return}
     setEnviando(true)
     try{
-      const fd=new FormData();fd.append('arquivo',arquivo);fd.append('categoria',novoDoc.categoria);fd.append('descricao',novoDoc.descricao)
-      const r=await fetch(`${base}/clientes/${clienteId}/docs`,{method:'POST',body:fd})
-      if(!r.ok)throw new Error('Falha no upload')
-      const doc=await r.json();setDocs(prev=>[doc,...prev]);setNovoDoc({categoria:'outros',descricao:''})
-    }catch(e){alert('Erro ao enviar arquivo: '+e.message)}
+      let apiOk=false
+      try{
+        const fd=new FormData();fd.append('arquivo',arquivo);fd.append('categoria',novoDoc.categoria);fd.append('descricao',novoDoc.descricao)
+        const r=await fetch(`${base}/clientes/${clienteId}/docs`,{method:'POST',body:fd})
+        if(r.ok){const doc=await r.json();setDocs(prev=>[doc,...prev]);setNovoDoc({categoria:'outros',descricao:''});apiOk=true}
+      }catch{}
+      if(!apiOk){
+        const b64=await new Promise((res,rej)=>{const rd=new FileReader();rd.onload=()=>res(rd.result);rd.onerror=rej;rd.readAsDataURL(arquivo)})
+        const nd={id:`local_doc_${Date.now()}`,nome_arquivo:arquivo.name,nome_original:arquivo.name,tamanho:arquivo.size,categoria:novoDoc.categoria,descricao:novoDoc.descricao,dataUrl:b64,url:b64,criado_em:new Date().toISOString(),origem:'local'}
+        let lista=[];try{lista=JSON.parse(localStorage.getItem(`ep_cli_docs_${clienteId}`)||'[]')}catch{}
+        lista=[nd,...lista];localStorage.setItem(`ep_cli_docs_${clienteId}`,JSON.stringify(lista))
+        setDocs(prev=>[nd,...prev]);setNovoDoc({categoria:'outros',descricao:''})
+      }
+    }catch(e){alert('Erro: '+e.message)}
     finally{setEnviando(false)}
   }
 
@@ -62,7 +77,15 @@ export default function AbaDocumentos({clienteId,clienteNome,API}){
 
   const excluirDoc=async(doc)=>{
     if(!window.confirm(`Excluir "${doc.nome_original||doc.nome_arquivo}"?`))return
-    try{await fetch(`${base}/clientes/${clienteId}/docs/${doc.id}`,{method:'DELETE'});setDocs(prev=>prev.filter(d=>d.id!==doc.id))}catch(e){alert('Erro ao excluir: '+e.message)}
+    try{
+      if(String(doc.id).startsWith('local_')){
+        let lista=[];try{lista=JSON.parse(localStorage.getItem(`ep_cli_docs_${clienteId}`)||'[]')}catch{}
+        localStorage.setItem(`ep_cli_docs_${clienteId}`,JSON.stringify(lista.filter(d=>d.id!==doc.id)))
+      }else{
+        try{await fetch(`${base}/clientes/${clienteId}/docs/${doc.id}`,{method:'DELETE'})}catch(e){alert('Erro ao excluir: '+e.message);return}
+      }
+      setDocs(prev=>prev.filter(d=>d.id!==doc.id))
+    }catch(e){alert('Erro: '+e.message)}
   }
 
   const docsFiltrados=catFiltro==='todos'?docs:docs.filter(d=>d.categoria===catFiltro)
