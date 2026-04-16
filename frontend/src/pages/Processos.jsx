@@ -973,7 +973,7 @@ function TabProcessos({ templates }) {
                   style={{background:'#F3EEFF',border:'1px solid #c4b5fd',color:'#7C3AED',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>⏸️ Pausar</button>
               )}
               {!['Concluído','Cancelado','Desistido'].includes(selecionado.status)&&(
-                <button onClick={()=>confirmar('Marcar este processo como desistido?',()=>{const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Desistido',historico:[...(p.historico||[]),{data:hoje(),acao:'Desistido',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
+                <button onClick={()=>confirmar('Marcar este processo como desistido?',()=>{const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Desistido',historico:[...(p.historico||[]),{data:hoje(),acao:'Desistido',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));})}
                   style={{background:'#FEF2F2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🚫 Desistir</button>
               )}
               <button onClick={()=>setSelecionado(null)} style={{background:'#f5f5f5',border:'1px solid #ddd',color:'#555',borderRadius:7,padding:'5px 12px',cursor:'pointer',fontSize:12,fontWeight:700}}>← Voltar</button>
