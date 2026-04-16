@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Users, FileText, Send, Receipt, Shield,
   CreditCard, DollarSign, BarChart2, Award, MessageSquare,
@@ -95,6 +95,62 @@ function getTheme() {
     const t = JSON.parse(localStorage.getItem('ep_tema') || '{}')
     return { navy:t.navy||NAVY, gold:t.gold||GOLD, logo:t.logo||null, nomeEmpresa:t.nomeEmpresa||'EPimentel', slogan:t.slogan||'Auditoria & Contabilidade' }
   } catch { return { navy:NAVY, gold:GOLD, logo:null, nomeEmpresa:'EPimentel', slogan:'Auditoria & Contabilidade' } }
+}
+
+function BotaoNotificacoes({ usuario }) {
+  const [open, setOpen] = React.useState(false)
+  const [notifs, setNotifs] = React.useState([])
+  React.useEffect(() => {
+    const load = () => {
+      try {
+        const todas = JSON.parse(localStorage.getItem('ep_notificacoes')||'[]')
+        setNotifs(todas.filter(n=>!n.para||n.para===usuario.nome))
+      } catch {}
+    }
+    load(); const t=setInterval(load,5000); return ()=>clearInterval(t)
+  }, [usuario.nome])
+  const naolidas = notifs.filter(n=>!n.lida).length
+  const marcarLida = id => {
+    const todas=JSON.parse(localStorage.getItem('ep_notificacoes')||'[]')
+    localStorage.setItem('ep_notificacoes',JSON.stringify(todas.map(n=>String(n.id)===String(id)?{...n,lida:true}:n)))
+    setNotifs(notifs.map(n=>String(n.id)===String(id)?{...n,lida:true}:n))
+  }
+  const marcarTodas = () => {
+    const todas=JSON.parse(localStorage.getItem('ep_notificacoes')||'[]')
+    localStorage.setItem('ep_notificacoes',JSON.stringify(todas.map(n=>n.para===usuario.nome?{...n,lida:true}:n)))
+    setNotifs(notifs.map(n=>({...n,lida:true})))
+  }
+  return (
+    <div style={{position:'relative'}}>
+      <button onClick={()=>setOpen(v=>!v)} style={{position:'relative',background:'none',border:'none',cursor:'pointer',color:'#bbb',padding:5,borderRadius:7}}>
+        <Bell size={15}/>
+        {naolidas>0&&<div style={{position:'absolute',top:1,right:1,minWidth:16,height:16,borderRadius:8,background:'#f87171',border:'2px solid #fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'#fff',padding:'0 3px'}}>{naolidas>9?'9+':naolidas}</div>}
+      </button>
+      {open&&(<>
+        <div style={{position:'fixed',inset:0,zIndex:1998}} onClick={()=>setOpen(false)}/>
+        <div style={{position:'absolute',top:'100%',right:0,width:300,maxHeight:380,overflowY:'auto',background:'#fff',borderRadius:12,boxShadow:'0 8px 32px rgba(0,0,0,.15)',zIndex:1999,border:'1px solid #e8e8e8',marginTop:6}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',borderBottom:'1px solid #f0f0f0'}}>
+            <span style={{fontWeight:700,fontSize:13,color:'#1B2A4A'}}>🔔 Notificações{naolidas>0&&<span style={{background:'#f87171',color:'#fff',borderRadius:8,padding:'1px 6px',fontSize:10,marginLeft:4}}>{naolidas}</span>}</span>
+            {naolidas>0&&<button onClick={marcarTodas} style={{fontSize:11,color:'#1D6FA4',background:'none',border:'none',cursor:'pointer'}}>Marcar lidas</button>}
+          </div>
+          {notifs.length===0
+            ? <div style={{padding:24,textAlign:'center',color:'#ccc',fontSize:13}}>Sem notificações</div>
+            : notifs.slice(0,20).map(n=>(
+              <div key={n.id} onClick={()=>marcarLida(n.id)} style={{padding:'10px 14px',borderBottom:'1px solid #f5f5f5',cursor:'pointer',background:n.lida?'#fff':'#EBF5FF',display:'flex',gap:8}}>
+                <span style={{fontSize:16,flexShrink:0}}>{n.tipo==='processo'?'📋':'🔔'}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:n.lida?400:700,color:'#1B2A4A'}}>{n.titulo}</div>
+                  <div style={{fontSize:11,color:'#666',marginTop:2}}>{n.mensagem}</div>
+                  <div style={{fontSize:10,color:'#aaa',marginTop:2}}>{new Date(n.data).toLocaleString('pt-BR')}</div>
+                </div>
+                {!n.lida&&<div style={{width:7,height:7,borderRadius:'50%',background:'#1D6FA4',flexShrink:0,marginTop:3}}/>}
+              </div>
+            ))
+          }
+        </div>
+      </>)}
+    </div>
+  )
 }
 
 export default function App() {
@@ -398,10 +454,7 @@ export default function App() {
             <span style={{ fontSize:13, fontWeight:700, color:NAVY }}>{pageInfo?.label||'Dashboard'}</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <button style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#bbb', padding:5, borderRadius:7 }}>
-              <Bell size={15}/>
-              <div style={{ position:'absolute', top:3, right:3, width:6, height:6, borderRadius:'50%', background:'#f87171', border:'2px solid #fff' }}/>
-            </button>
+            <BotaoNotificacoes usuario={usuario}/>
             <div style={{ width:1, height:18, background:'#eee' }}/>
             <div style={{ display:'flex', alignItems:'center', gap:7, padding:'4px 10px', borderRadius:8, background:'#f8f9fb' }}>
               <div style={{ width:24, height:24, borderRadius:6, background:NAVY, display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:800, color:GOLD }}>
