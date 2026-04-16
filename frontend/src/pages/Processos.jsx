@@ -554,8 +554,8 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
 
 // ── TAB PROCESSOS ─────────────────────────────────────────────────────────────
 function RespAutocomplete({ value, usuarios, onChange }) {
-  const [busca, setBusca] = React.useState('');
-  const [aberto, setAberto] = React.useState(false);
+  const [busca, setBusca] = useState('');
+  const [aberto, setAberto] = useState(false);
   const filtrados=(usuarios||[]).filter(u=>!busca||u.nome.toLowerCase().includes(busca.toLowerCase())||(u.departamento||'').toLowerCase().includes(busca.toLowerCase()));
   const sel=(usuarios||[]).find(u=>u.nome===value);
   return (
