@@ -631,7 +631,27 @@ function TabProcessos({ templates }) {
     }catch{}
   },[]);
 
-    const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
+  const [filtroStatus, setFiltroStatus] = useState("");
+  const [empresaFiltro, setEmpresaFiltro] = useState('');
+  const [filtroTexto, setFiltroTexto] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [filtroCNPJs, setFiltroCNPJs] = useState([]);
+  const [filtroGrupo, setFiltroGrupo] = useState('');
+  const [dropCNPJ, setDropCNPJ] = useState(false);
+  const [buscaCNPJ, setBuscaCNPJ] = useState('');
+  const [filtroTemplate, setFiltroTemplate] = useState('');
+  const [selecionado, setSelecionado] = useState(null);
+  const [modal, setModal] = useState(false);
+  const [modalIA, setModalIA] = useState(false);
+  const [modalEtapa, setModalEtapa] = useState(null);
+  const [form, setForm] = useState({ titulo:"",cliente:"",clienteId:"",responsavel:"",status:"Em Andamento",prioridade:"Normal",categoria:"",template:"",dataAbertura:hoje(),etapas:[],obs:"" });
+  const [editandoProcesso, setEditandoProcesso] = useState(null);
+  const [buscaTemplate, setBuscaTemplate] = useState('');
+  const [dropTemplate, setDropTemplate] = useState(false);
+  const [buscaCliente, setBuscaCliente] = useState("");
+  const [mostrarBuscaCliente, setMostrarBuscaCliente] = useState(false);
+
+  const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
 
   const abrirNovo = (dadosIA=null) => {
     setEditandoProcesso(null); setDropTemplate(false); setBuscaTemplate("");
