@@ -127,6 +127,10 @@ export default function Admin() {
   const [verificandoVinculos, setVerificandoVinculos] = useState(false)
 
   useEffect(() => {
+    // Garantir que usuários padrão estejam no localStorage no primeiro acesso
+    if (!localStorage.getItem('epimentel_usuarios')) {
+      salvarStorage(USUARIOS_PADRAO);
+    }
     // Carrega clientes do localStorage e também tenta da API
     const clientesLocal = carregarClientes()
     setClientes(clientesLocal)
