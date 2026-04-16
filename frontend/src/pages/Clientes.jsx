@@ -91,7 +91,7 @@ const ABA_TABS = [
 ]
 
 const FORM_VAZIO = {
-  nome:'', cnpj:'', email:'', whatsapp:'', telefone:'',
+  tipoCadastro:'CNPJ', nome:'', cnpj:'', email:'', whatsapp:'', telefone:'',
   regime:'Simples Nacional', tributacao:'Simples Nacional', grupo:'', nome_fantasia:'',
   data_abertura:'', inscricao_municipal:'', inscricao_estadual:'',
   cnaes:[], cnae_principal:'', cnae_secundarios:[],
@@ -115,7 +115,7 @@ function SenhaInput({ value, onChange, placeholder='••••••••', .
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        autoComplete="new-password"
+        autoComplete="off"
         style={{ ...inp, paddingRight:36, ...props.style }}
       />
       <button type="button" onClick={()=>setShow(s=>!s)} style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'#aaa' }}>
@@ -284,6 +284,12 @@ export default function Clientes() {
 
   const excluirCliente = async (id) => {
     try {
+      const procs=JSON.parse(localStorage.getItem('ep_processos')||'[]')
+      const cli=clientes.find(x=>String(x.id)===String(id))
+      const pVinc=procs.filter(p=>String(p.clienteId||p.cliente_id||'')===String(id)||p.cliente===cli?.nome)
+      if(pVinc.length>0){alert(`⛔ Não é possível excluir.\n• ${pVinc.length} processo(s) vinculado(s)\nRemova os vínculos antes de excluir.`);setModalExcluir(null);return}
+    } catch {}
+    try {
       const check = await fetch(`${API}/clientes/${id}/verificar-exclusao`)
       const res = await check.json()
       if (res.bloqueado) {
@@ -315,7 +321,11 @@ export default function Clientes() {
     return true
   }).sort((a,b)=>(a.seq||99999)-(b.seq||99999))
 
+  const [regimeAdicionalSel, setRegimeAdicionalSel] = useState('')
+  const todosRegimes = ['Simples Nacional','MEI','Lucro Real','Lucro Presumido','RET','Imune/Isento']
   const obrigsPorTrib = obrigacoesPorTributacao(form.tributacao)
+  const obrigsAdicionais = regimeAdicionalSel ? obrigacoesPorTributacao(regimeAdicionalSel).filter(o=>!obrigsPorTrib.find(x=>x.id===o.id)) : []
+  const todasObrigsModal = [...obrigsPorTrib, ...obrigsAdicionais]
 
   // ── Seção Credenciais ────────────────────────────────────────────────────
   const creds = form.credenciais || {}
@@ -471,18 +481,28 @@ export default function Clientes() {
               {/* ABA DADOS */}
               {abaForm==='dados' && (
                 <>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:6}}>Tipo de Cadastro</label>
+                    <div style={{display:'flex',gap:8}}>
+                      {[['CNPJ','🏢 CNPJ'],['CPF','👤 CPF'],['CAEPF','🌾 CAEPF']].map(([v,l])=>(
+                        <button key={v} onClick={()=>setF('tipoCadastro',v)} style={{padding:'6px 16px',borderRadius:7,cursor:'pointer',border:`2px solid ${(form.tipoCadastro||'CNPJ')===v?NAVY:'#ddd'}`,background:(form.tipoCadastro||'CNPJ')===v?NAVY+'15':'#fff',color:(form.tipoCadastro||'CNPJ')===v?NAVY:'#888',fontWeight:(form.tipoCadastro||'CNPJ')===v?700:400,fontSize:12}}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
                     <div>
-                      <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>CNPJ *</label>
+                      <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>{form.tipoCadastro||'CNPJ'} *</label>
                       <div style={{ display:'flex', gap:8 }}>
-                        <input value={form.cnpj} onChange={e=>setF('cnpj',e.target.value)} placeholder="00.000.000/0001-00" style={{ ...inp, flex:1 }}/>
-                        <button onClick={buscarCNPJ} disabled={buscandoCNPJ} style={{ padding:'7px 14px', borderRadius:7, background:GOLD, color:NAVY, fontWeight:700, fontSize:12, border:'none', cursor:'pointer', whiteSpace:'nowrap', opacity:buscandoCNPJ?0.6:1 }}>
+                        <input value={form.cnpj} onChange={e=>setF('cnpj',e.target.value)}
+                          placeholder={(form.tipoCadastro||'CNPJ')==='CNPJ'?'00.000.000/0001-00':(form.tipoCadastro||'CNPJ')==='CPF'?'000.000.000-00':'00.000.00000/000-0'}
+                          style={{ ...inp, flex:1 }}/>
+                        {(form.tipoCadastro||'CNPJ')==='CNPJ'&&<button onClick={buscarCNPJ} disabled={buscandoCNPJ} style={{ padding:'7px 14px', borderRadius:7, background:GOLD, color:NAVY, fontWeight:700, fontSize:12, border:'none', cursor:'pointer', whiteSpace:'nowrap', opacity:buscandoCNPJ?0.6:1 }}>
                           {buscandoCNPJ?'Buscando...':'🔍 Buscar Receita'}
-                        </button>
+                        </button>}
                       </div>
                     </div>
                     <div>
-                      <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>Razão Social *</label>
+                      <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>{(form.tipoCadastro||'CNPJ')==='CPF'?'Nome Completo *':'Razão Social *'}</label>
                       <input value={form.nome} onChange={e=>setF('nome',e.target.value)} style={inp}/>
                     </div>
                   </div>
@@ -677,6 +697,30 @@ export default function Clientes() {
                       <div key={k}>
                         <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>{l}</label>
                         <input value={form[k]||''} onChange={e=>setF(k,e.target.value)} style={inp}/>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:16}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                      <label style={{fontSize:11,color:'#888',fontWeight:700,textTransform:'uppercase',letterSpacing:.7}}>📋 Contatos Adicionais</label>
+                      <button onClick={()=>setF('contatos',[...(form.contatos||[]),{nome:'',cargo:'',email:'',whatsapp:''}])} style={{padding:'5px 12px',borderRadius:7,background:NAVY,color:'#fff',fontSize:12,fontWeight:600,border:'none',cursor:'pointer'}}>+ Contato</button>
+                    </div>
+                    {(form.contatos||[]).length===0&&<div style={{padding:18,textAlign:'center',color:'#ccc',background:'#fafafa',borderRadius:10,border:'2px dashed #e8e8e8',fontSize:12}}>Clique em "+ Contato" para adicionar múltiplos contatos</div>}
+                    {(form.contatos||[]).map((ct,ci)=>(
+                      <div key={ci} style={{marginBottom:10,padding:'12px 14px',borderRadius:10,border:'1px solid #e0e0e0',background:'#fafafa',position:'relative'}}>
+                        <button onClick={()=>setF('contatos',form.contatos.filter((_,i)=>i!==ci))} style={{position:'absolute',top:8,right:8,padding:'2px 7px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:8}}>
+                          {[['Nome','nome'],['Cargo','cargo']].map(([l,k])=>(
+                            <div key={k}><label style={{fontSize:10,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>{l}</label>
+                            <input value={ct[k]||''} onChange={e=>{const r=[...form.contatos];r[ci]={...r[ci],[k]:e.target.value};setF('contatos',r)}} style={inp}/></div>
+                          ))}
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                          {[['E-mail','email'],['WhatsApp','whatsapp']].map(([l,k])=>(
+                            <div key={k}><label style={{fontSize:10,color:'#888',fontWeight:600,display:'block',marginBottom:3}}>{l}</label>
+                            <input value={ct[k]||''} onChange={e=>{const r=[...form.contatos];r[ci]={...r[ci],[k]:e.target.value};setF('contatos',r)}} style={inp}/></div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -975,7 +1019,7 @@ export default function Clientes() {
       {/* Modal Obrigações */}
       {modalObrig&&(()=>{
         const DEPTS=['Todos','Fiscal','Pessoal','Contábil','Bancos']
-        const filtObrig=obrigsPorTrib.filter(o=>{
+        const filtObrig=todasObrigsModal.filter(o=>{
           if(buscaObrig&&!o.nome?.toLowerCase().includes(buscaObrig.toLowerCase())&&!(o.mininome||'').toLowerCase().includes(buscaObrig.toLowerCase())) return false
           if(deptSel!=='Todos'&&o.departamento!==deptSel) return false
           return true
@@ -987,7 +1031,7 @@ export default function Clientes() {
               <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 20px',borderBottom:'1px solid #f0f0f0' }}>
                 <div>
                   <div style={{ fontWeight:700,color:NAVY,fontSize:15 }}>✏️ Editar Vínculos de Obrigações</div>
-                  <div style={{ fontSize:11,color:'#aaa',marginTop:2 }}>{form.tributacao} · <b style={{color:NAVY}}>{form.obrigacoes_vinculadas.length}</b> selecionadas de {obrigsPorTrib.length}</div>
+                  <div style={{ fontSize:11,color:'#aaa',marginTop:2 }}>{form.tributacao}{regimeAdicionalSel?' + '+regimeAdicionalSel:''} · <b style={{color:NAVY}}>{form.obrigacoes_vinculadas.length}</b> selecionadas de {todasObrigsModal.length}</div>
                 </div>
                 <button onClick={()=>setModalObrig(false)} style={{ background:'none',border:'none',cursor:'pointer',color:'#aaa' }}><X size={18}/></button>
               </div>
@@ -999,6 +1043,14 @@ export default function Clientes() {
                 {DEPTS.map(d=><button key={d} onClick={()=>setDeptSel(d)} style={{ padding:'4px 10px',borderRadius:20,fontSize:11,cursor:'pointer',border:`1px solid ${deptSel===d?NAVY:'#ddd'}`,background:deptSel===d?NAVY:'#fff',color:deptSel===d?'#fff':'#666',fontWeight:deptSel===d?700:400 }}>{d}</button>)}
                 <button onClick={()=>setF('obrigacoes_vinculadas',filtObrig.map(o=>o.id))} style={{ padding:'4px 10px',borderRadius:7,background:NAVY,color:'#fff',fontSize:11,fontWeight:600,border:'none',cursor:'pointer' }}>Todos</button>
                 <button onClick={()=>setF('obrigacoes_vinculadas',[])} style={{ padding:'4px 10px',borderRadius:7,background:'#f5f5f5',color:'#555',fontSize:11,border:'none',cursor:'pointer' }}>Limpar</button>
+              </div>
+              <div style={{padding:'5px 20px',borderBottom:'1px solid #f0f0f0',display:'flex',gap:8,alignItems:'center'}}>
+                <span style={{fontSize:11,color:'#888'}}>+ Regime adicional:</span>
+                <select value={regimeAdicionalSel} onChange={e=>setRegimeAdicionalSel(e.target.value)} style={{fontSize:11,padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',flex:1}}>
+                  <option value="">-- Incluir obrigações de outro regime --</option>
+                  {todosRegimes.filter(r=>r!==form.tributacao).map(r=><option key={r} value={r}>{r} ({obrigacoesPorTributacao(r).filter(o=>!obrigsPorTrib.find(x=>x.id===o.id)).length} extras)</option>)}
+                </select>
+                {regimeAdicionalSel&&<button onClick={()=>setRegimeAdicionalSel('')} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer'}}>×</button>}
               </div>
               <div style={{ flex:1,overflowY:'auto',padding:'8px 20px' }}>
                 {['Fiscal','Pessoal','Contábil','Bancos'].map(dept=>{
