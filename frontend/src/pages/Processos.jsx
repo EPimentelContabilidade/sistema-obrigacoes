@@ -584,6 +584,7 @@ function TabProcessos({ templates }) {
   const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
 
   const abrirNovo = (dadosIA=null) => {
+    setEditandoProcesso(null); setDropTemplate(false); setBuscaTemplate("");
     setForm({ titulo:dadosIA?.titulo||"",cliente:"",clienteId:"",responsavel:"",status:"Em Andamento",prioridade:"Normal",categoria:"",template:"",dataAbertura:hoje(),etapas:[],obs:dadosIA?.texto||"" });
     setBuscaCliente(""); setMostrarBuscaCliente(false); setModal(true);
   };
@@ -902,10 +903,10 @@ function TabProcessos({ templates }) {
           <Campo label="Título *">
             <div style={{position:'relative'}}>
               <input style={inputStyle} value={form.titulo} placeholder="Digite ou escolha um template..."
-                onChange={e=>{setForm({...form,titulo:e.target.value});setBuscaTemplate(e.target.value);setDropTemplate(true)}}
+                onChange={e=>{setForm(f=>({...f,titulo:e.target.value}));setBuscaTemplate(e.target.value);setDropTemplate(true)}}
                 onFocus={()=>setDropTemplate(true)} autoComplete="off"/>
               {dropTemplate&&templates.filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).length>0&&(
-                <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:99,background:'#fff',border:'1px solid #ddd',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,.12)',maxHeight:200,overflowY:'auto',marginTop:2}}>
+                <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:9999,background:'#fff',border:'1px solid #ddd',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,.12)',maxHeight:200,overflowY:'auto',marginTop:2}}>
                   {templates.filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).map(t=>(
                     <div key={t.id} onClick={()=>{setForm(f=>({...f,titulo:t.nome,template:t.id,categoria:t.categoria||f.categoria}));setDropTemplate(false);setBuscaTemplate('');}}
                       style={{padding:'8px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid #f5f5f5'}}
