@@ -702,6 +702,7 @@ function TabProcessos({ templates }) {
     const notificarResponsavel = async (nomeResp, titulo) => {
     const u = usuarios.find(x=>x.nome===nomeResp);
     if (!u) return;
+    showToast(`📋 ${nomeResp} foi notificado: "${titulo}"`, 'ok');
     try {
       const notifs = JSON.parse(localStorage.getItem('ep_notificacoes')||'[]');
       notifs.unshift({ id:Date.now(), para:u.nome, titulo:'📋 Novo processo atribuído',
@@ -792,6 +793,11 @@ function TabProcessos({ templates }) {
     : new Set();
   const toggleCNPJ = cnpj => setFiltroCNPJs(p => p.includes(cnpj) ? p.filter(x=>x!==cnpj) : [...p, cnpj]);
   const [filtroResponsavel, setFiltroResponsavel] = useState('');
+  const [toast, setToast] = useState(null);
+  const [historicoAberto, setHistoricoAberto] = useState(false);
+  const [hoverAnexoDetalhe, setHoverAnexoDetalhe] = useState(null);
+  const [hoverPosDetalhe, setHoverPosDetalhe] = useState({x:0,y:0});
+  const showToast = (msg, tipo='ok') => { setToast({msg,tipo}); setTimeout(()=>setToast(null),4000); };
   const [hoverAnexoDetalhe, setHoverAnexoDetalhe] = useState(null);
   const [hoverPosDetalhe, setHoverPosDetalhe] = useState({x:0,y:0});
   const limparFiltros = () => {
@@ -970,7 +976,7 @@ function TabProcessos({ templates }) {
                 <button onClick={()=>{if(!window.confirm('Marcar como desistido?'))return;const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Desistido',historico:[...(p.historico||[]),{data:hoje(),acao:'Desistido',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
                   style={{background:'#FEF2F2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🚫 Desistir</button>
               )}
-              <button onClick={()=>setSelecionado(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,color:"#999"}}>×</button>
+              <button onClick={()=>setSelecionado(null)} style={{background:'#f5f5f5',border:'1px solid #ddd',color:'#555',borderRadius:7,padding:'5px 12px',cursor:'pointer',fontSize:12,fontWeight:700}}>← Voltar</button>
             </div>
           </div>
           {/* Card do cliente */}
@@ -1076,14 +1082,19 @@ function TabProcessos({ templates }) {
             })}
           </div>
           {selecionado.historico?.length>0&&(
-            <div style={{ background:"#fff",borderRadius:10,padding:14,border:"1px solid #eee" }}>
-              <h4 style={{ color:NAVY,margin:"0 0 10px" }}>📜 Histórico</h4>
-              {selecionado.historico.slice().reverse().map((h,i)=>(
-                <div key={i} style={{ display:"flex",gap:10,padding:"5px 0",borderBottom:i<selecionado.historico.length-1?"1px solid #F5F5F5":"none" }}>
-                  <span style={{ fontSize:11,color:"#aaa",flexShrink:0 }}>{fmtData(h.data)}</span>
-                  <span style={{ fontSize:12,color:"#555" }}>{h.acao}</span>
-                </div>
-              ))}
+            <div style={{background:"#fff",borderRadius:10,border:"1px solid #eee",overflow:'hidden'}}>
+              <div onClick={()=>setHistoricoAberto(v=>!v)} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',cursor:'pointer',borderBottom:historicoAberto?'1px solid #f0f0f0':'none'}}>
+                <h4 style={{color:NAVY,margin:0,fontSize:13}}>📜 Histórico <span style={{fontSize:11,color:'#aaa',fontWeight:400}}>({selecionado.historico.length} registros)</span></h4>
+                <span style={{fontSize:14,color:'#aaa'}}>{historicoAberto?'▲':'▼'}</span>
+              </div>
+              {historicoAberto&&<div style={{padding:'0 14px 10px'}}>
+                {selecionado.historico.slice().reverse().map((h,i)=>(
+                  <div key={i} style={{display:"flex",gap:10,padding:"5px 0",borderBottom:i<selecionado.historico.length-1?"1px solid #F5F5F5":"none"}}>
+                    <span style={{fontSize:11,color:"#aaa",flexShrink:0}}>{fmtData(h.data)}</span>
+                    <span style={{fontSize:12,color:"#555"}}>{h.acao}</span>
+                  </div>
+                ))}
+              </div>}
             </div>
           )}
         </div>
@@ -1332,6 +1343,8 @@ export default function Processos() {
         {aba==="processos"&&<TabProcessos templates={templates} />}
         {aba==="templates"&&<TabTemplates />}
         {aba==="relatorio"&&<TabRelatorio />}
+      {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:99998,background:toast.tipo==='erro'?'#FEF2F2':'#f0fdf4',border:`1.5px solid ${toast.tipo==='erro'?'#fca5a5':'#86efac'}`,borderLeft:`5px solid ${toast.tipo==='erro'?'#dc2626':'#22c55e'}`,borderRadius:10,padding:'12px 18px',boxShadow:'0 8px 24px rgba(0,0,0,.15)',maxWidth:360,display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:20}}>{toast.tipo==='erro'?'❌':'✅'}</span><span style={{fontSize:13,fontWeight:600,color:toast.tipo==='erro'?'#dc2626':'#166534'}}>{toast.msg}</span></div>}
+
       </div>
     </div>
   );
