@@ -15,7 +15,7 @@ const PERFIS = {
   Assistente:   { editar:false, excluir:false, renomear:false, entregar:true,  enviar:false, anexar:true,  reverter:false },
   Visualizador: { editar:false, excluir:false, renomear:false, entregar:false, enviar:false, anexar:false, reverter:false },
 }
-const USUARIO = (()=>{ try{ const u=JSON.parse(localStorage.getItem('usuario')||'null'); if(u?.nome) return {nome:u.nome,perfil:u.cargo==='Administrador'||u.perfil==='admin'?'Administrador':'Contador'}; const a=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]').find(x=>x.ativo!==false); if(a) return {nome:a.nome,perfil:a.perfil==='admin'?'Administrador':'Contador'}; }catch{} return {nome:'Eduardo Pimentel',perfil:'Administrador'}; })()
+const USUARIO = { nome:'Eduardo Pimentel', perfil:'Administrador' }
 const PERM = PERFIS[USUARIO.perfil]
 
 const DCORES = {
