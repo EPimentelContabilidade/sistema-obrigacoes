@@ -192,7 +192,7 @@ function ModalTemplate({ template, onSave, onClose }) {
   const [form, setForm] = useState({
     ...template,
     etapas: (template.etapas||[]).map(e =>
-      typeof e === "string" ? { desc:e, docs_necessarios:[] } : { desc:e.desc||e, docs_necessarios:e.docs_necessarios||[] }
+      typeof e === "string" ? { desc:e, docs_necessarios:[], subtarefas:[] } : { desc:e.desc||e, docs_necessarios:e.docs_necessarios||[], subtarefas:e.subtarefas||[] }
     )
   });
   const [novaEtapa, setNovaEtapa] = useState("");
@@ -221,6 +221,17 @@ function ModalTemplate({ template, onSave, onClose }) {
   };
   const removeDoc = (ei,di) => {
     const arr=[...form.etapas]; arr[ei]={...arr[ei],docs_necessarios:arr[ei].docs_necessarios.filter((_,idx)=>idx!==di)};
+    setForm(f=>({...f,etapas:arr}));
+  };
+  const [novaSubtarefa, setNovaSubtarefa] = useState("");
+  const [subtarefaEtapa, setSubtarefaEtapa] = useState(null);
+  const addSubtarefa = (ei) => {
+    if(!novaSubtarefa.trim()) return;
+    const arr=[...form.etapas]; arr[ei]={...arr[ei],subtarefas:[...(arr[ei].subtarefas||[]),{desc:novaSubtarefa.trim()}]};
+    setForm(f=>({...f,etapas:arr})); setNovaSubtarefa("");
+  };
+  const removeSubtarefa = (ei,si) => {
+    const arr=[...form.etapas]; arr[ei]={...arr[ei],subtarefas:(arr[ei].subtarefas||[]).filter((_,idx)=>idx!==si)};
     setForm(f=>({...f,etapas:arr}));
   };
 
@@ -284,6 +295,22 @@ function ModalTemplate({ template, onSave, onClose }) {
                     </select>
                     <input style={{ ...inputStyle,flex:1,fontSize:12,padding:"5px 8px" }} value={novoDoc} onChange={e=>setNovoDoc(e.target.value)} placeholder="Ou digitar nome do documento..." onKeyDown={ev=>ev.key==="Enter"&&addDoc(i)} />
                     <button onClick={()=>addDoc(i)} style={{ background:NAVY,color:"#fff",border:"none",borderRadius:7,padding:"0 14px",cursor:"pointer",fontSize:13,fontWeight:700 }}>+</button>
+                  </div>
+                  <div style={{marginTop:10,paddingTop:8,borderTop:"1px dashed #e0e0e0"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:NAVY,marginBottom:5}}>✅ Subtarefas:</div>
+                    {(e.subtarefas||[]).map((s,si)=>(
+                      <div key={si} style={{display:"flex",alignItems:"center",gap:5,padding:"2px 0"}}>
+                        <span style={{fontSize:11,color:"#555",flex:1}}>• {s.desc}</span>
+                        <button onClick={()=>removeSubtarefa(i,si)} style={{background:"none",border:"none",cursor:"pointer",color:"#e53935",fontSize:11,padding:0}}>✕</button>
+                      </div>
+                    ))}
+                    <div style={{display:"flex",gap:6,marginTop:4}}>
+                      <input style={{...inputStyle,flex:1,fontSize:12,padding:"5px 8px"}}
+                        value={subtarefaEtapa===i?novaSubtarefa:""} onFocus={()=>setSubtarefaEtapa(i)}
+                        onChange={ev=>{setSubtarefaEtapa(i);setNovaSubtarefa(ev.target.value)}}
+                        onKeyDown={ev=>ev.key==="Enter"&&addSubtarefa(i)} placeholder="Nova subtarefa..." />
+                      <button onClick={()=>addSubtarefa(i)} style={{background:GOLD,color:NAVY,border:"none",borderRadius:7,padding:"0 12px",cursor:"pointer",fontSize:12,fontWeight:700}}>+</button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -514,6 +541,10 @@ function TabProcessos({ templates }) {
   const [usuarios, setUsuarios] = useState([]);
   const [buscaCliente, setBuscaCliente] = useState("");
   const [mostrarBuscaCliente, setMostrarBuscaCliente] = useState(false);
+  const [buscaTemplate, setBuscaTemplate] = useState('');
+  const [dropTemplate, setDropTemplate] = useState(false);
+  const [editandoProcesso, setEditandoProcesso] = useState(null);
+  const [filtroTemplate, setFiltroTemplate] = useState('');
 
   useEffect(()=>{
     try{setClientes(JSON.parse(localStorage.getItem("ep_clientes")||"[]"));}catch{}
@@ -530,16 +561,30 @@ function TabProcessos({ templates }) {
     const excluirProcesso = (id, e) => { e.stopPropagation(); if(!window.confirm('Excluir este processo?')) return; const l=processos.filter(p=>p.id!==id); salvarProcessos(l); if(selecionado?.id===id) setSelecionado(null); };
     const salvarProcesso = () => {
     if(!form.titulo||!form.cliente) return;
+    if(editandoProcesso){
+      const lista=processos.map(p=>p.id===editandoProcesso.id?{...p,...form,historico:[...(p.historico||[]),{data:hoje(),acao:'Processo editado',usuario:'Usuário'}]}:p);
+      salvarProcessos(lista); setSelecionado(lista.find(p=>p.id===editandoProcesso.id));
+      setEditandoProcesso(null); setModal(false); return;
+    }
     const tpl = templates.find(t=>t.id===form.template);
     const etapas = form.etapas.length ? form.etapas
       : (tpl?.etapas||[]).map((e,i)=>({
-          id:i+1,
-          descricao: typeof e==="string"?e:e.desc,
-          docs_necessarios: typeof e==="string"?[]:e.docs_necessarios||[],
-          concluida:false, anexos:[], dataConclusao:null
+          id:i+1, descricao:typeof e==="string"?e:e.desc,
+          docs_necessarios:typeof e==="string"?[]:e.docs_necessarios||[],
+          subtarefas:(typeof e==="string"?[]:(e.subtarefas||[])).map(s=>({...s,concluida:false})),
+          concluida:false, status:null, anexos:[], dataConclusao:null
         }));
-    const novo={ ...form,id:Date.now(),etapas,historico:[{data:hoje(),acao:"Processo criado",usuario:"Sistema"}] };
+    const novo={...form,id:Date.now(),etapas,historico:[{data:hoje(),acao:"Processo criado",usuario:"Sistema"}]};
     salvarProcessos([...processos,novo]); setModal(false);
+  };
+
+  const mudarStatusEtapa = (proc,etapaId,novoStatus) => {
+    const lista=processos.map(p=>{
+      if(p.id!==proc.id) return p;
+      const etapas=p.etapas.map(e=>e.id===etapaId?{...e,status:novoStatus,concluida:novoStatus==='aceita'||novoStatus==='dispensada'}:e);
+      return {...p,etapas,historico:[...(p.historico||[]),{data:hoje(),acao:`Etapa "${etapas.find(e=>e.id===etapaId)?.descricao}" → ${novoStatus||'reaberta'}`,usuario:'Usuário'}]};
+    });
+    salvarProcessos(lista); setSelecionado(lista.find(p=>p.id===proc.id));
   };
 
   const concluirEtapa = (proc,etapaId) => {
@@ -576,9 +621,9 @@ function TabProcessos({ templates }) {
   const toggleCNPJ = cnpj => setFiltroCNPJs(p => p.includes(cnpj) ? p.filter(x=>x!==cnpj) : [...p, cnpj]);
   const limparFiltros = () => {
     setEmpresaFiltro(''); setFiltroTexto(''); setFiltroCategoria(''); setFiltroStatus('');
-    setFiltroCNPJs([]); setFiltroGrupo('');
+    setFiltroCNPJs([]); setFiltroGrupo(''); setFiltroTemplate('');
   };
-  const temFiltro = empresaFiltro||filtroTexto||filtroCategoria||filtroStatus||filtroCNPJs.length||filtroGrupo;
+  const temFiltro = empresaFiltro||filtroTexto||filtroCategoria||filtroStatus||filtroCNPJs.length||filtroGrupo||filtroTemplate;
 
   const filtrados = processos.filter(p => {
     // Filtro empresa único (legado)
@@ -593,6 +638,7 @@ function TabProcessos({ templates }) {
     if(filtroCNPJs.length > 0 && !filtroCNPJs.includes(String(p.clienteId||p.cliente_id||''))) return false;
     // Filtro grupo
     if(filtroGrupo && idsDoGrupo.size > 0 && !idsDoGrupo.has(String(p.clienteId||p.cliente_id||''))) return false;
+    if(filtroTemplate && p.template !== filtroTemplate) return false;
     return true;
   });
 
@@ -634,6 +680,13 @@ function TabProcessos({ templates }) {
               </select>
             )}
 
+            {templates.length>0&&(
+              <select value={filtroTemplate} onChange={e=>setFiltroTemplate(e.target.value)}
+                style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${filtroTemplate?NAVY:'#ddd'}`,fontSize:11,background:filtroTemplate?'#EBF5FF':'#fff',color:filtroTemplate?NAVY:'#333',cursor:'pointer'}}>
+                <option value="">📋 Template</option>
+                {templates.map(t=><option key={t.id} value={t.id}>{t.icone||'📋'} {t.nome}</option>)}
+              </select>
+            )}
             {/* Multi-CNPJ dropdown */}
             <div style={{ position:'relative' }}>
               <button type="button" onClick={()=>setDropCNPJ(v=>!v)}
@@ -715,7 +768,17 @@ function TabProcessos({ templates }) {
                 <span style={{ fontSize:13,color:"#666" }}>📅 {fmtData(selecionado.dataAbertura)}</span>
               </div>
             </div>
-            <button onClick={()=>setSelecionado(null)} style={{ background:"none",border:"none",cursor:"pointer",fontSize:22,color:"#999" }}>×</button>
+            <div style={{display:'flex',gap:5,alignItems:'center'}}>
+              <button onClick={()=>{setEditandoProcesso(selecionado);setForm({...selecionado});setBuscaCliente(selecionado.cliente||'');setDropTemplate(false);setModal(true);}}
+                style={{background:'#f0f4ff',border:'1px solid #c7d2fe',color:NAVY,borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>✏️ Editar</button>
+              <button onClick={()=>{if(!window.confirm('Excluir este processo?'))return;const l=processos.filter(p=>p.id!==selecionado.id);salvarProcessos(l);setSelecionado(null);}}
+                style={{background:'#fef2f2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🗑️ Excluir</button>
+              {(selecionado.status==='Concluído'||selecionado.status==='Cancelado')&&(
+                <button onClick={()=>{const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Em Andamento',historico:[...(p.historico||[]),{data:hoje(),acao:'Processo reaberto',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
+                  style={{background:'#f0fdf4',border:'1px solid #86efac',color:'#166534',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🔓 Reabrir</button>
+              )}
+              <button onClick={()=>setSelecionado(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,color:"#999"}}>×</button>
+            </div>
           </div>
           {/* Card do cliente */}
           {selecionado.clienteId&&(()=>{ const cli=getClienteById(selecionado.clienteId); return cli?(
@@ -746,8 +809,9 @@ function TabProcessos({ templates }) {
               const docsPendentes=docsNec.filter(d=>!docsAnex.some(a=>a.nome.toLowerCase().includes(d.toLowerCase().split(" ")[0])));
               return (
                 <div key={e.id} style={{ display:"flex",alignItems:"flex-start",gap:10,padding:"9px 0",borderBottom:i<selecionado.etapas.length-1?"1px solid #F5F5F5":"none" }}>
-                  <div onClick={()=>concluirEtapa(selecionado,e.id)} style={{ width:22,height:22,borderRadius:"50%",border:`2px solid ${e.concluida?GOLD:"#CCC"}`,background:e.concluida?GOLD:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1 }}>
-                    {e.concluida&&<span style={{ color:"#fff",fontSize:11,fontWeight:700 }}>✓</span>}
+                  <div onClick={()=>concluirEtapa(selecionado,e.id)} style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${e.status==='aceita'?'#22c55e':e.status==='dispensada'?'#9ca3af':e.concluida?GOLD:"#CCC"}`,background:e.status==='aceita'?'#22c55e':e.status==='dispensada'?'#e5e7eb':e.concluida?GOLD:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}} title="Clique para concluir">
+                    {(e.concluida||e.status==='aceita')&&<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>}
+                    {e.status==='dispensada'&&<span style={{fontSize:9}}>✕</span>}
                   </div>
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:13,color:e.concluida?"#aaa":"#333",textDecoration:e.concluida?"line-through":"none",fontWeight:e.concluida?400:600 }}>{i+1}. {e.descricao}</div>
@@ -771,7 +835,19 @@ function TabProcessos({ templates }) {
                     <button onClick={()=>setModalEtapa({proc:selecionado,etapa:e})} style={{ background:docsAnex.length>0||docsPendentes.length===0?"none":`${GOLD}22`,border:`1px solid ${docsAnex.length>0?GOLD:"#ddd"}`,color:GOLD,borderRadius:6,padding:"2px 7px",cursor:"pointer",fontSize:11 }} title={docsPendentes.length>0?`${docsPendentes.length} docs pendentes`:""}>
                       📎{docsAnex.length>0?` ${docsAnex.length}`:""}
                     </button>
-                    <button onClick={()=>enviarWhatsApp(selecionado,e)} style={{ background:"none",border:"1px solid #25D366",color:"#25D366",borderRadius:6,padding:"2px 7px",cursor:"pointer",fontSize:11 }}>💬</button>
+                    <button onClick={()=>enviarWhatsApp(selecionado,e)} style={{background:"none",border:"1px solid #25D366",color:"#25D366",borderRadius:6,padding:"2px 6px",cursor:"pointer",fontSize:10}}>💬</button>
+                    {!e.concluida&&e.status!=='dispensada'&&e.status!=='aceita'&&(
+                      <button onClick={()=>mudarStatusEtapa(selecionado,e.id,'dispensada')}
+                        style={{background:"#f3f4f6",border:"1px solid #9ca3af",color:"#6b7280",borderRadius:5,padding:"1px 5px",cursor:"pointer",fontSize:9,fontWeight:700}} title="Não se aplica">🚫 N/A</button>
+                    )}
+                    {!e.concluida&&e.status!=='aceita'&&(
+                      <button onClick={()=>mudarStatusEtapa(selecionado,e.id,'aceita')}
+                        style={{background:"#f0fdf4",border:"1px solid #86efac",color:"#166534",borderRadius:5,padding:"1px 5px",cursor:"pointer",fontSize:9,fontWeight:700}} title="Aceito/Aprovado">✅ OK</button>
+                    )}
+                    {(e.status==='dispensada'||e.status==='aceita')&&(
+                      <button onClick={()=>mudarStatusEtapa(selecionado,e.id,null)}
+                        style={{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",borderRadius:5,padding:"1px 5px",cursor:"pointer",fontSize:9,fontWeight:700}}>↩</button>
+                    )}
                   </div>
                 </div>
               );
@@ -791,10 +867,32 @@ function TabProcessos({ templates }) {
         </div>
       )}
 
-      {/* Modal novo processo */}
       {modal&&(
-        <Modal titulo="Novo Processo" onClose={()=>setModal(false)} largura={620}>
-          <Campo label="Título *"><input style={inputStyle} value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} /></Campo>
+        <Modal titulo={editandoProcesso?"Editar Processo":"Novo Processo"} onClose={()=>{setModal(false);setEditandoProcesso(null)}} largura={620}>
+          <Campo label="Título *">
+            <div style={{position:'relative'}}>
+              <input style={inputStyle} value={form.titulo} placeholder="Digite ou escolha um template..."
+                onChange={e=>{setForm({...form,titulo:e.target.value});setBuscaTemplate(e.target.value);setDropTemplate(true)}}
+                onFocus={()=>setDropTemplate(true)} autoComplete="off"/>
+              {dropTemplate&&templates.filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).length>0&&(
+                <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:99,background:'#fff',border:'1px solid #ddd',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,.12)',maxHeight:200,overflowY:'auto',marginTop:2}}>
+                  {templates.filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).map(t=>(
+                    <div key={t.id} onClick={()=>{setForm(f=>({...f,titulo:t.nome,template:t.id,categoria:t.categoria||f.categoria}));setDropTemplate(false);setBuscaTemplate('');}}
+                      style={{padding:'8px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid #f5f5f5'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='#f5f7ff'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <span style={{fontSize:18}}>{t.icone||'📋'}</span>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:NAVY}}>{t.nome}</div>
+                        <div style={{fontSize:11,color:'#888'}}>{t.categoria||''}{t.etapas?.length?` · ${t.etapas.length} etapas`:''}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {dropTemplate&&<div style={{position:'fixed',inset:0,zIndex:98}} onClick={()=>setDropTemplate(false)}/>}
+            </div>
+          </Campo>
 
           {/* Busca de cliente */}
           <Campo label="Cliente *">
