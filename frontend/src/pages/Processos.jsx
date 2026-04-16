@@ -597,7 +597,7 @@ function RespAutocomplete({ value, usuarios, onChange }) {
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13,fontWeight:600,color:NAVY}}>{u.nome}</div>
-                    <div style={{fontSize:10,color:'#888'}}>{u.cargo||u.departamento||u.perfil||'Usuário'}{u.email?` · ${u.email}":''}</div>
+                    <div style={{fontSize:10,color:'#888'}}>{u.cargo||u.departamento||u.perfil||'Usuário'}{u.email?` · ${u.email}`:''}</div>
                   </div>
                   {value===u.nome&&<span style={{color:'#4CAF50',fontWeight:700,fontSize:14}}>✓</span>}
                 </div>
