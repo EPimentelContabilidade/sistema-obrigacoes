@@ -552,41 +552,75 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
 }
 
 // ── TAB PROCESSOS ─────────────────────────────────────────────────────────────
+function RespAutocomplete({ value, usuarios, onChange }) {
+  const [busca, setBusca] = React.useState('');
+  const [aberto, setAberto] = React.useState(false);
+  const filtrados=(usuarios||[]).filter(u=>!busca||u.nome.toLowerCase().includes(busca.toLowerCase())||(u.departamento||'').toLowerCase().includes(busca.toLowerCase()));
+  const sel=(usuarios||[]).find(u=>u.nome===value);
+  return (
+    <div style={{position:'relative'}}>
+      <div style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',borderRadius:8,border:`1.5px solid ${value?'#4CAF50':'#e53935'}`,background:'#fff',cursor:'pointer',minHeight:42}}
+        onClick={()=>setAberto(v=>!v)}>
+        {sel ? (
+          <div style={{flex:1,display:'flex',alignItems:'center',gap:8}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:NAVY,color:GOLD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>
+              {sel.nome.split(' ').map(n=>n[0]).slice(0,2).join('')}
+            </div>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:NAVY}}>{sel.nome}</div>
+              <div style={{fontSize:10,color:'#888'}}>{sel.cargo||sel.departamento||sel.perfil||'Usuário'}</div>
+            </div>
+            <span style={{marginLeft:'auto',color:'#4CAF50',fontWeight:700}}>✓</span>
+          </div>
+        ) : (
+          <div style={{flex:1,color:'#999',fontSize:13}}>👤 Buscar responsável...</div>
+        )}
+        <span style={{color:'#bbb',fontSize:10}}>▼</span>
+      </div>
+      {aberto&&(<>
+        <div style={{position:'fixed',inset:0,zIndex:200}} onClick={()=>setAberto(false)}/>
+        <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:201,background:'#fff',borderRadius:10,boxShadow:'0 8px 24px rgba(0,0,0,.15)',border:'1px solid #e0e0e0',marginTop:4,overflow:'hidden'}}>
+          <div style={{padding:'8px 10px',borderBottom:'1px solid #f0f0f0'}}>
+            <input autoFocus value={busca} onChange={e=>setBusca(e.target.value)} placeholder="🔍 Buscar por nome ou departamento..."
+              style={{width:'100%',border:'1px solid #ddd',borderRadius:6,padding:'6px 10px',fontSize:12,outline:'none',boxSizing:'border-box'}}/>
+          </div>
+          <div style={{maxHeight:200,overflowY:'auto'}}>
+            {filtrados.length===0
+              ? <div style={{padding:'12px 14px',color:'#aaa',fontSize:12,textAlign:'center'}}>Nenhum usuário encontrado. Cadastre em Administração.</div>
+              : filtrados.map(u=>(
+                <div key={u.id||u.nome} onClick={()=>{onChange(u.nome);setBusca('');setAberto(false);}}
+                  style={{padding:'9px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10,borderBottom:'1px solid #f5f5f5',background:value===u.nome?'#EBF5FF':'#fff'}}
+                  onMouseEnter={e=>e.currentTarget.style.background='#f8f9ff'}
+                  onMouseLeave={e=>e.currentTarget.style.background=value===u.nome?'#EBF5FF':'#fff'}>
+                  <div style={{width:32,height:32,borderRadius:'50%',background:NAVY,color:GOLD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,flexShrink:0}}>
+                    {u.nome.split(' ').map(n=>n[0]).slice(0,2).join('')}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:NAVY}}>{u.nome}</div>
+                    <div style={{fontSize:10,color:'#888'}}>{u.cargo||u.departamento||u.perfil||'Usuário'}{u.email?` · ${u.email}":''}</div>
+                  </div>
+                  {value===u.nome&&<span style={{color:'#4CAF50',fontWeight:700,fontSize:14}}>✓</span>}
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      </>)}
+    </div>
+  );
+}
+
 function TabProcessos({ templates }) {
   const API_BASE = '/api/v1';
-  const [processos, setProcessos] = useState(()=>{ try{return JSON.parse(localStorage.getItem("ep_processos")||"[]");}catch{return [];} });
-  const [filtroStatus, setFiltroStatus] = useState("");
-  const [empresaFiltro, setEmpresaFiltro] = useState('');
-  const [filtroTexto, setFiltroTexto] = useState("");
-  const [filtroCategoria, setFiltroCategoria] = useState("");
-  // Novos filtros multi-select
-  const [filtroCNPJs, setFiltroCNPJs] = useState([]);
-  const [filtroGrupo, setFiltroGrupo] = useState('');
-  const [dropCNPJ, setDropCNPJ] = useState(false);
-  const [buscaCNPJ, setBuscaCNPJ] = useState('');
-
-  const [selecionado, setSelecionado] = useState(null);
-  const [modal, setModal] = useState(false);
-  const [modalIA, setModalIA] = useState(false);
-  const [modalEtapa, setModalEtapa] = useState(null);
-  const [form, setForm] = useState({ titulo:"",cliente:"",clienteId:"",responsavel:"",status:"Em Andamento",prioridade:"Normal",categoria:"",template:"",dataAbertura:hoje(),etapas:[],obs:"" });
-  const [clientes, setClientes] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
-  const [buscaCliente, setBuscaCliente] = useState("");
-  const [mostrarBuscaCliente, setMostrarBuscaCliente] = useState(false);
-  const [buscaTemplate, setBuscaTemplate] = useState('');
-  const [dropTemplate, setDropTemplate] = useState(false);
-  const [editandoProcesso, setEditandoProcesso] = useState(null);
-  const [filtroTemplate, setFiltroTemplate] = useState('');
-
-  useEffect(()=>{
-    try{setClientes(JSON.parse(localStorage.getItem("ep_clientes")||"[]"));}catch{}
-    try{
+  const [processos, setProcessos] = useState(()=>{ try{
       const u1=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]');
       const u2=JSON.parse(localStorage.getItem('ep_usuarios')||'[]');
-      const merged=[...u1];
-      u2.forEach(u=>{if(!merged.find(x=>x.nome===u.nome))merged.push(u);});
-      setUsuarios(merged.filter(u=>u.ativo!==false));
+      const merged=[...u1]; u2.forEach(u=>{if(!merged.find(x=>x.nome===u.nome))merged.push(u);});
+      const lista=merged.filter(u=>u.ativo!==false);
+      setUsuarios(lista.length>0?lista:[
+        {id:1,nome:'Eduardo Pimentel',email:'eduardo@epimentel.com.br',whatsapp:'(062) 9 9907-2483',cargo:'Contador Responsável',perfil:'admin',ativo:true},
+        {id:2,nome:'Administrador',email:'admin@epimentel.com.br',whatsapp:'',perfil:'admin',ativo:true}
+      ]);
     }catch{}
   },[]);
 
@@ -1014,14 +1048,8 @@ function TabProcessos({ templates }) {
 
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
             <Campo label="Responsável *">
-              <select style={{...inputStyle,borderColor:!form.responsavel?'#e53935':'#ddd'}}
-                value={form.responsavel}
-                onChange={e=>{const n=e.target.value;setForm(f=>({...f,responsavel:n}));if(n)notificarResponsavel(n,form.titulo||'Novo processo');}}>
-                <option value="">⚠️ Selecione o responsável...</option>
-                {usuarios.filter(u=>u.ativo!==false).map(u=>(
-                  <option key={u.id||u.nome} value={u.nome}>{u.nome}{u.departamento?` · ${u.departamento}`:''}</option>
-                ))}
-              </select>
+              <RespAutocomplete value={form.responsavel} usuarios={usuarios}
+                onChange={(nome)=>{setForm(f=>({...f,responsavel:nome}));if(nome)notificarResponsavel(nome,form.titulo||'Novo processo');}}/>
               {!form.responsavel&&<div style={{fontSize:10,color:'#e53935',marginTop:3}}>⚠️ Obrigatório</div>}
             </Campo>
             <Campo label="Categoria">
