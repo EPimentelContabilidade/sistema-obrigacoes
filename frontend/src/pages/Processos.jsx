@@ -551,6 +551,7 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
 
 // ── TAB PROCESSOS ─────────────────────────────────────────────────────────────
 function TabProcessos({ templates }) {
+  const API_BASE = '/api/v1';
   const [processos, setProcessos] = useState(()=>{ try{return JSON.parse(localStorage.getItem("ep_processos")||"[]");}catch{return [];} });
   const [filtroStatus, setFiltroStatus] = useState("");
   const [empresaFiltro, setEmpresaFiltro] = useState('');
@@ -590,9 +591,39 @@ function TabProcessos({ templates }) {
   };
 
     const excluirProcesso = (id, e) => { e.stopPropagation(); if(!window.confirm('Excluir este processo?')) return; const l=processos.filter(p=>p.id!==id); salvarProcessos(l); if(selecionado?.id===id) setSelecionado(null); };
-    const salvarProcesso = () => {
+    const notificarResponsavel = async (nomeResp, titulo) => {
+    const u = usuarios.find(x=>x.nome===nomeResp);
+    if (!u) return;
+    try {
+      const notifs = JSON.parse(localStorage.getItem('ep_notificacoes')||'[]');
+      notifs.unshift({ id:Date.now(), para:u.nome, titulo:'📋 Novo processo atribuído',
+        mensagem:`Você foi atribuído ao processo: "${titulo}"`,
+        lida:false, data:new Date().toISOString(), tipo:'processo' });
+      localStorage.setItem('ep_notificacoes', JSON.stringify(notifs.slice(0,50)));
+    } catch {}
+    if (u.whatsapp) {
+      try {
+        await fetch(`${API_BASE}/comunicados/enviar-wa`, {method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({telefone:u.whatsapp,texto:`📋 *EPimentel Sistema*\n\nOlá, ${u.nome}!\nVocê foi atribuído ao processo: *"${titulo}"*`})});
+      } catch {}
+    }
+    if (u.email) {
+      try {
+        await fetch(`${API_BASE}/comunicados/enviar-email-simples`, {method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({destinatario:u.email,nome:u.nome,
+            assunto:`[EPimentel] Novo processo: ${titulo}`,
+            html:`<p>Olá, <b>${u.nome}</b>!</p><p>Processo atribuído: <b>"${titulo}"</b></p>`})});
+      } catch {}
+    }
+  };
+
+  const salvarProcesso = () => {
     const _cliente = form.cliente || buscaCliente;
-    if(!form.titulo||!_cliente) { alert('Preencha o Título e o Cliente'); return }
+    if(!form.titulo) { alert('Preencha o Título'); return }
+    if(!_cliente) { alert('Selecione o Cliente'); return }
+    if(!form.responsavel) { alert('Selecione o Responsável (obrigatório)'); return }
     if(!form.cliente && buscaCliente) setForm(f=>({...f,cliente:buscaCliente}));
     if(editandoProcesso){
       const lista=processos.map(p=>p.id===editandoProcesso.id?{...p,...form,historico:[...(p.historico||[]),{data:hoje(),acao:'Processo editado',usuario:'Usuário'}]}:p);
@@ -974,11 +1005,16 @@ function TabProcessos({ templates }) {
           </Campo>
 
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
-            <Campo label="Responsável">
-              <select style={inputStyle} value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})}>
-                <option value="">Selecione...</option>
-                {usuarios.map(u=><option key={u.id} value={u.nome}>{u.nome}</option>)}
+            <Campo label="Responsável *">
+              <select style={{...inputStyle,borderColor:!form.responsavel?'#e53935':'#ddd'}}
+                value={form.responsavel}
+                onChange={e=>{const n=e.target.value;setForm(f=>({...f,responsavel:n}));if(n)notificarResponsavel(n,form.titulo||'Novo processo');}}>
+                <option value="">⚠️ Selecione o responsável...</option>
+                {usuarios.filter(u=>u.ativo!==false).map(u=>(
+                  <option key={u.id||u.nome} value={u.nome}>{u.nome}{u.departamento?` · ${u.departamento}":''}</option>
+                ))}
               </select>
+              {!form.responsavel&&<div style={{fontSize:10,color:'#e53935',marginTop:3}}>⚠️ Obrigatório</div>}
             </Campo>
             <Campo label="Categoria">
               <select style={inputStyle} value={form.categoria} onChange={e=>setForm({...form,categoria:e.target.value})}>
