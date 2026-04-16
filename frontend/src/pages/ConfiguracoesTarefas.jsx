@@ -39,6 +39,7 @@ function obrigacaoPadrao(overrides = {}) {
     notif_email: false,
     caminho_arquivo: "{empresa}/{obrigacao}/{ano}/{mes}",
     regimes_vinculados: [],
+    departamento: "",
     ...overrides
   };
 }
@@ -210,7 +211,21 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
               {["Mensal","Trimestral","Semestral","Anual","Eventual"].map(p=><option key={p}>{p}</option>)}
             </select>
           </Campo>
-        </div>
+        <
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:10 }}>
+          <Campo label="Departamento">
+            <select style={selectStyle} value={form.departamento||""} onChange={e=>set("departamento",e.target.value)}>
+              <option value="">— Selecione —</option>
+              {(()=>{try{const a=JSON.parse(localStorage.getItem('ep_departamentos_admin')||'null');const s=JSON.parse(localStorage.getItem('ep_departamentos')||'[]');const ns=a||s.map(d=>d.nome);return ns.length?ns:["Fiscal","Pessoal","Contábil","Societário"];}catch{return ["Fiscal","Pessoal","Contábil","Societário"];}})().map(d=><option key={d}>{d}</option>)}
+            </select>
+          </Campo>
+          <Campo label="Responsável">
+            <select style={selectStyle} value={form.responsavel||""} onChange={e=>set("responsavel",e.target.value)}>
+              <option value="">— Selecione —</option>
+              {(()=>{try{return JSON.parse(localStorage.getItem('ep_usuarios')||'[]').filter(u=>!form.departamento||u.departamento===form.departamento||!u.departamento);}catch{return [];}})().map(u=><option key={u.id||u.nome} value={u.nome}>{u.nome}</option>)}
+            </select>
+          </Campo>
+        </div>/div>
       </div>
 
       {/* Dias de entrega por mês */}
@@ -458,7 +473,7 @@ function TabObrigacoes() {
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ background:"#F8F9FA" }}>
-              {["Código","Obrigação","Periodicidade","Venc. Padrão","Multa","Robô","Notif.","Ativo",""].map(h=>(
+              {["Código","Obrigação","Depto.","Periodicidade","Multa","Ativo",""].map(h=>(
                 <th key={h} style={{ padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#666",borderBottom:"1px solid #eee" }}>{h}</th>
               ))}
             </tr>
@@ -469,6 +484,7 @@ function TabObrigacoes() {
               <tr key={o.codigo} style={{ background:i%2===0?"#FAFAFA":"#fff",borderBottom:"1px solid #f5f5f5" }}>
                 <td style={{ padding:"8px 12px",fontSize:12,fontFamily:"monospace",color:NAVY,fontWeight:700 }}>{o.codigo}</td>
                 <td style={{ padding:"8px 12px",fontSize:13,color:"#333" }}>{o.nome}</td>
+                <td style={{ padding:"6px 12px" }}>{o.departamento?<span style={{fontSize:11,padding:'1px 8px',borderRadius:10,background:'#EEF2FF',color:'#3730A3',fontWeight:600}}>{o.departamento}</span>:<span style={{color:'#ccc',fontSize:11}}>—</span>}</td>
                 <td style={{ padding:"8px 12px" }}><span style={{ background:"#EEF2FF",color:"#3730A3",borderRadius:10,padding:"2px 8px",fontSize:11 }}>{o.periodicidade}</span></td>
                 <td style={{ padding:"8px 12px",fontSize:11,color:"#666" }}>{o.dias_entrega?.["Janeiro"]||"Dia 20"}</td>
                 <td style={{ padding:"8px 12px",fontSize:12,color:o.passivel_multa==="Sim"?"#e53935":"#999" }}>{o.passivel_multa==="Sim"?"⚠️ Sim":"—"}</td>
@@ -506,7 +522,17 @@ function TabObrigacoes() {
 
 // ── TAB USUÁRIOS ──────────────────────────────────────────────────────────────
 function TabUsuarios({ departamentos }) {
-  const [usuarios, setUsuarios] = useState(() => { try { return JSON.parse(localStorage.getItem("ep_usuarios")||"[]"); } catch { return []; } });
+  const sincronizarUsuarios = () => {
+    try {
+      const admin = JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]');
+      const local = JSON.parse(localStorage.getItem('ep_usuarios')||'[]');
+      const nomes = new Set(local.map(u=>u.nome));
+      const novos = admin.filter(u=>!nomes.has(u.nome)&&u.ativo!==false).map(u=>({id:u.id||Date.now()+Math.random(),nome:u.nome,email:u.email||'',whatsapp:u.whatsapp||'',departamento:u.departamento||'',perfil:u.perfil==='admin'?'admin':'operador',ativo:true,senha:''}));
+      if(novos.length>0){const m=[...local,...novos];localStorage.setItem('ep_usuarios',JSON.stringify(m));return m;}
+      return local;
+    }catch{return [];}
+  };
+  const [usuarios, setUsuarios] = useState(sincronizarUsuarios);
   const [buscaAdmin, setBuscaAdmin] = useState('');
   const [mostrarAdmin, setMostrarAdmin] = useState(false);
   const usuariosAdmin = (()=>{ try{ const u1=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]'); const ids=new Set(usuarios.map(u=>u.nome)); return u1.filter(u=>!ids.has(u.nome)&&u.ativo!==false); }catch{return []} })();
