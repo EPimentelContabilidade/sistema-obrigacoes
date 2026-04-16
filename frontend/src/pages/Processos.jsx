@@ -1011,7 +1011,7 @@ function TabProcessos({ templates }) {
                 onChange={e=>{const n=e.target.value;setForm(f=>({...f,responsavel:n}));if(n)notificarResponsavel(n,form.titulo||'Novo processo');}}>
                 <option value="">⚠️ Selecione o responsável...</option>
                 {usuarios.filter(u=>u.ativo!==false).map(u=>(
-                  <option key={u.id||u.nome} value={u.nome}>{u.nome}{u.departamento?` · ${u.departamento}":''}</option>
+                  <option key={u.id||u.nome} value={u.nome}>{u.nome}{u.departamento?` · ${u.departamento}`:''}</option>
                 ))}
               </select>
               {!form.responsavel&&<div style={{fontSize:10,color:'#e53935',marginTop:3}}>⚠️ Obrigatório</div>}
