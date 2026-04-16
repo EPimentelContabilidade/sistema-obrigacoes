@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react"; // v2.1
 
 
 // ── Helper clientes ──────────────────────────────────────────────────────────
