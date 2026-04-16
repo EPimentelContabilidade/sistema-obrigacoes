@@ -631,7 +631,7 @@ function TabProcessos({ templates }) {
     }catch{}
   },[]);
 
-  const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("Em Andamento");
   const [empresaFiltro, setEmpresaFiltro] = useState('');
   const [filtroTexto, setFiltroTexto] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
@@ -644,7 +644,7 @@ function TabProcessos({ templates }) {
   const [modal, setModal] = useState(false);
   const [modalIA, setModalIA] = useState(false);
   const [modalEtapa, setModalEtapa] = useState(null);
-  const [form, setForm] = useState({ titulo:"",cliente:"",clienteId:"",responsavel:"",status:"Em Andamento",prioridade:"Normal",categoria:"",template:"",dataAbertura:hoje(),etapas:[],obs:"" });
+  const [form, setForm] = useState({ titulo:"",cliente:"",clienteId:"",responsavel:"",status:"Em Andamento",prioridade:"Normal",categoria:"",template:"",dataAbertura:hoje(),prazo:"",etapas:[],obs:"" });
   const [editandoProcesso, setEditandoProcesso] = useState(null);
   const [buscaTemplate, setBuscaTemplate] = useState('');
   const [dropTemplate, setDropTemplate] = useState(false);
@@ -652,6 +652,25 @@ function TabProcessos({ templates }) {
   const [mostrarBuscaCliente, setMostrarBuscaCliente] = useState(false);
 
   const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
+
+  const verificarAtrasos = async () => {
+    const hoje_dt = new Date();
+    const atrasados = processos.filter(p => !['Concluído','Cancelado','Desistido'].includes(p.status) && p.prazo && new Date(p.prazo) < hoje_dt);
+    if(atrasados.length === 0) return 0;
+    for(const p of atrasados) {
+      const dias = Math.ceil((hoje_dt - new Date(p.prazo)) / 86400000);
+      const msg = `⚠️ Processo "${p.titulo}" (${p.cliente}) vencido há ${dias} dia${dias>1?'s':''}. Responsável: ${p.responsavel||'não definido'}.`;
+      try {
+        const notifs = JSON.parse(localStorage.getItem('ep_notificacoes')||'[]');
+        const jaNotif = notifs.find(n=>n.processo_id===p.id&&n.tipo==='atraso'&&new Date(n.data).toDateString()===hoje_dt.toDateString());
+        if(!jaNotif) { notifs.unshift({id:Date.now(),para:p.responsavel||'',titulo:'🔴 Processo em atraso',mensagem:msg,lida:false,data:hoje_dt.toISOString(),tipo:'atraso',processo_id:p.id}); localStorage.setItem('ep_notificacoes',JSON.stringify(notifs.slice(0,50))); }
+      } catch {}
+      const resp = usuarios.find(u=>u.nome===p.responsavel);
+      if(resp?.whatsapp) { try { await fetch(`${API_BASE}/comunicados/enviar-wa`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone:resp.whatsapp,texto:`🔴 *EPimentel - Alerta*\n\n${msg}`})}); } catch {} }
+      if(resp?.email) { try { await fetch(`${API_BASE}/comunicados/enviar-email-simples`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destinatario:resp.email,nome:resp.nome,assunto:`[EPimentel] ⚠️ Atraso: ${p.titulo}`,html:`<h3 style="color:#e53935">Processo em Atraso</h3><p>${msg}</p>`})}); } catch {} }
+    }
+    return atrasados.length;
+  };
 
   const abrirNovo = (dadosIA=null) => {
     setEditandoProcesso(null); setDropTemplate(false); setBuscaTemplate("");
@@ -786,6 +805,7 @@ function TabProcessos({ templates }) {
           <div style={{ display:"flex",gap:8,marginBottom:8 }}>
             <input value={filtroTexto} onChange={e=>setFiltroTexto(e.target.value)} placeholder="🔍 Buscar processo..." style={{ ...inputStyle,flex:1,fontSize:12 }} />
             <button onClick={()=>setModalIA(true)} style={{ background:GOLD,color:NAVY,border:"none",borderRadius:8,padding:"0 12px",cursor:"pointer",fontWeight:700,fontSize:12 }}>🤖 IA</button>
+            <button onClick={async()=>{const n=await verificarAtrasos();alert(n>0?`🔴 ${n} processo(s) em atraso notificados!`:'✅ Nenhum processo em atraso.');}} style={{background:'#FEF2F2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:8,padding:"0 12px",cursor:"pointer",fontWeight:700,fontSize:12}} title="Verificar atrasos">🔴 Atrasos</button>
             <button onClick={()=>abrirNovo()} style={{ background:NAVY,color:"#fff",border:"none",borderRadius:8,padding:"0 14px",cursor:"pointer",fontWeight:700,fontSize:13 }}>+ Novo</button>
           </div>
 
@@ -877,7 +897,7 @@ function TabProcessos({ templates }) {
         <div style={{ flex:1,overflowY:"auto" }}>
           {filtrados.length===0&&<div style={{ padding:32,textAlign:"center",color:"#999",fontSize:13 }}>Nenhum processo.</div>}
           {filtrados.map(p=>(
-            <div key={p.id} onClick={()=>setSelecionado(selecionado?.id===p.id?null:p)} style={{ padding:"12px 14px",borderBottom:"1px solid #F0F0F0",cursor:"pointer",background:selecionado?.id===p.id?"#EEF2FF":"transparent" }}>
+            <div key={p.id} onClick={()=>setSelecionado(selecionado?.id===p.id?null:p)} style={{ padding:"12px 14px",borderBottom:"1px solid #F0F0F0",cursor:"pointer",background:selecionado?.id===p.id?"#EEF2FF":"transparent",borderLeft:p.prazo&&new Date(p.prazo)<new Date()?"4px solid #e53935":p.prazo&&Math.ceil((new Date(p.prazo)-new Date())/86400000)<=3?"4px solid #FF9800":"4px solid transparent" }}>
               <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
                 <span style={{ fontWeight:700,color:NAVY,fontSize:13 }}>{p.titulo}</span>
                 <Badge cor={STATUS_CORES[p.status]||"#999"} texto={p.status} />
@@ -908,6 +928,7 @@ function TabProcessos({ templates }) {
                 <span style={{ fontSize:13,color:"#666" }}>👤 {selecionado.cliente}</span>
                 {selecionado.categoria&&<span style={{ fontSize:13,color:"#666" }}>📂 {selecionado.categoria}</span>}
                 <span style={{ fontSize:13,color:"#666" }}>📅 {fmtData(selecionado.dataAbertura)}</span>
+                {selecionado.prazo&&(()=>{const d=Math.ceil((new Date(selecionado.prazo)-new Date())/86400000);const cor=d<0?'#e53935':d<=3?'#FF9800':'#888';return<span style={{fontSize:12,color:cor,fontWeight:700,marginLeft:8}}>⏰ {d<0?`Vencido ${Math.abs(d)}d`:d===0?'Vence hoje!':d<=7?`${d}d restantes`:fmtData(selecionado.prazo)}</span>;})()} 
               </div>
             </div>
             <div style={{display:'flex',gap:5,alignItems:'center'}}>
@@ -1124,6 +1145,10 @@ function TabProcessos({ templates }) {
             <Campo label="Status"><select style={inputStyle} value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{Object.keys(STATUS_CORES).map(s=><option key={s}>{s}</option>)}</select></Campo>
             <Campo label="Prioridade"><select style={inputStyle} value={form.prioridade} onChange={e=>setForm({...form,prioridade:e.target.value})}>{PRIORIDADES.map(p=><option key={p}>{p}</option>)}</select></Campo>
             <Campo label="Data de Abertura"><input style={inputStyle} type="date" value={form.dataAbertura} onChange={e=>setForm({...form,dataAbertura:e.target.value})} /></Campo>
+            <Campo label="⏰ Prazo / Vencimento">
+              <input style={{...inputStyle,borderColor:form.prazo&&new Date(form.prazo)<new Date()?'#e53935':'#ddd'}} type="date" value={form.prazo||""} onChange={e=>setForm({...form,prazo:e.target.value})}/>
+              {form.prazo&&(()=>{const d=Math.ceil((new Date(form.prazo)-new Date())/86400000);const cor=d<0?'#e53935':d<=3?'#FF9800':'#4CAF50';return<div style={{fontSize:10,color:cor,marginTop:3,fontWeight:700}}>{d<0?`⚠️ Vencido há ${Math.abs(d)}d`:d===0?'🔴 Vence hoje!':d<=3?`🟡 ${d} dias`:`🟢 ${d} dias`}</div>})()}
+            </Campo>
           </div>
           {form.obs&&<div style={{ padding:10,background:"#F0F4FF",borderRadius:8,fontSize:12,color:"#333",marginBottom:8,whiteSpace:"pre-wrap" }}><b>Análise IA:</b><br/>{form.obs.substring(0,300)}{form.obs.length>300?"…":""}</div>}
           <div style={{ display:"flex",gap:12,justifyContent:"flex-end",marginTop:8 }}>
