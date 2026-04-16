@@ -262,7 +262,7 @@ export default function EntregasTarefas() {
           passivel_multa: t.passivel_multa || false,
           vencimento: t.vencimento,
           dia_vencimento: t.vencimento ? parseInt(t.vencimento.split('-')[2]) : 20,
-          competencia: t.competencia),
+          competencia: t.competencia,
           anexos: t.anexos || [],
           historico: t.historico || [],
         }))
