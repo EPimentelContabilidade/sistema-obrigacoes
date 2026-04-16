@@ -613,7 +613,13 @@ function RespAutocomplete({ value, usuarios, onChange }) {
 
 function TabProcessos({ templates }) {
   const API_BASE = '/api/v1';
-  const [processos, setProcessos] = useState(()=>{ try{
+  const [processos, setProcessos] = useState(()=>{ try{return JSON.parse(localStorage.getItem("ep_processos")||"[]");}catch{return [];} });
+  const [clientes, setClientes] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+
+  useEffect(()=>{
+    try{setClientes(JSON.parse(localStorage.getItem("ep_clientes")||"[]"));}catch{}
+    try{
       const u1=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]');
       const u2=JSON.parse(localStorage.getItem('ep_usuarios')||'[]');
       const merged=[...u1]; u2.forEach(u=>{if(!merged.find(x=>x.nome===u.nome))merged.push(u);});
@@ -625,7 +631,7 @@ function TabProcessos({ templates }) {
     }catch{}
   },[]);
 
-  const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
+    const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
 
   const abrirNovo = (dadosIA=null) => {
     setEditandoProcesso(null); setDropTemplate(false); setBuscaTemplate("");
