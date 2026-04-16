@@ -9,7 +9,7 @@ const fmtData = d => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 const hoje = () => new Date().toISOString().split("T")[0];
 
 const CATEGORIAS = ["Contábil","Fiscal","RH / Departamento Pessoal","Paralegal / Societário","Financeiro","Imobiliário / SPE","Outros"];
-const STATUS_CORES = { "Em Andamento":"#2196F3","Aguardando Cliente":"#FF9800","Concluído":"#4CAF50","Cancelado":"#F44336","Pendente":"#9C27B0" };
+const STATUS_CORES = { "Em Andamento":"#2196F3","Aguardando Cliente":"#FF9800","Concluído":"#4CAF50","Cancelado":"#F44336","Pendente":"#9C27B0","Pausado":"#7C3AED","Desistido":"#dc2626" };
 const PRIORIDADES = ["Baixa","Normal","Alta","Urgente"];
 const TIPOS_DOC = ["Contrato Social","Alteração Contratual","Distrato","RG/CNH","CPF","Comprovante de Endereço","Procuração","Nota Fiscal","Guia de Tributo","Holerite","Extrato Bancário","Certidão","Balanço Patrimonial","Foto","Imagem","Outro"];
 
@@ -652,11 +652,12 @@ function TabProcessos({ templates }) {
     ? new Set(clientes.filter(c=>c.grupo===filtroGrupo).map(c=>String(c.id)))
     : new Set();
   const toggleCNPJ = cnpj => setFiltroCNPJs(p => p.includes(cnpj) ? p.filter(x=>x!==cnpj) : [...p, cnpj]);
+  const [filtroResponsavel, setFiltroResponsavel] = useState('');
   const limparFiltros = () => {
     setEmpresaFiltro(''); setFiltroTexto(''); setFiltroCategoria(''); setFiltroStatus('');
-    setFiltroCNPJs([]); setFiltroGrupo(''); setFiltroTemplate('');
+    setFiltroCNPJs([]); setFiltroGrupo(''); setFiltroTemplate(''); setFiltroResponsavel('');
   };
-  const temFiltro = empresaFiltro||filtroTexto||filtroCategoria||filtroStatus||filtroCNPJs.length||filtroGrupo||filtroTemplate;
+  const temFiltro = empresaFiltro||filtroTexto||filtroCategoria||filtroStatus||filtroCNPJs.length||filtroGrupo||filtroTemplate||filtroResponsavel;
 
   const filtrados = processos.filter(p => {
     // Filtro empresa único (legado)
@@ -672,6 +673,7 @@ function TabProcessos({ templates }) {
     // Filtro grupo
     if(filtroGrupo && idsDoGrupo.size > 0 && !idsDoGrupo.has(String(p.clienteId||p.cliente_id||''))) return false;
     if(filtroTemplate && p.template !== filtroTemplate) return false;
+    if(filtroResponsavel && p.responsavel !== filtroResponsavel) return false;
     return true;
   });
 
@@ -718,6 +720,13 @@ function TabProcessos({ templates }) {
                 style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${filtroTemplate?NAVY:'#ddd'}`,fontSize:11,background:filtroTemplate?'#EBF5FF':'#fff',color:filtroTemplate?NAVY:'#333',cursor:'pointer'}}>
                 <option value="">📋 Template</option>
                 {(templates||[]).map(t=><option key={t.id} value={t.id}>{t.icone||'📋'} {t.nome}</option>)}
+              </select>
+            )}
+            {usuarios.length>0&&(
+              <select value={filtroResponsavel} onChange={e=>setFiltroResponsavel(e.target.value)}
+                style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${filtroResponsavel?NAVY:'#ddd'}`,fontSize:11,background:filtroResponsavel?'#EBF5FF':'#fff',color:filtroResponsavel?NAVY:'#333',cursor:'pointer'}}>
+                <option value="">👤 Responsável</option>
+                {usuarios.map(u=><option key={u.id||u.nome} value={u.nome}>{u.nome}</option>)}
               </select>
             )}
             {/* Multi-CNPJ dropdown */}
@@ -806,9 +815,17 @@ function TabProcessos({ templates }) {
                 style={{background:'#f0f4ff',border:'1px solid #c7d2fe',color:NAVY,borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>✏️ Editar</button>
               <button onClick={()=>{if(!window.confirm('Excluir este processo?'))return;const l=processos.filter(p=>p.id!==selecionado.id);salvarProcessos(l);setSelecionado(null);}}
                 style={{background:'#fef2f2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🗑️ Excluir</button>
-              {(selecionado.status==='Concluído'||selecionado.status==='Cancelado')&&(
+              {(['Concluído','Cancelado','Pausado','Desistido'].includes(selecionado.status))&&(
                 <button onClick={()=>{const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Em Andamento',historico:[...(p.historico||[]),{data:hoje(),acao:'Processo reaberto',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
                   style={{background:'#f0fdf4',border:'1px solid #86efac',color:'#166534',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🔓 Reabrir</button>
+              )}
+              {!['Concluído','Cancelado','Pausado','Desistido'].includes(selecionado.status)&&(
+                <button onClick={()=>{const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Pausado',historico:[...(p.historico||[]),{data:hoje(),acao:'Pausado',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
+                  style={{background:'#F3EEFF',border:'1px solid #c4b5fd',color:'#7C3AED',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>⏸️ Pausar</button>
+              )}
+              {!['Concluído','Cancelado','Desistido'].includes(selecionado.status)&&(
+                <button onClick={()=>{if(!window.confirm('Marcar como desistido?'))return;const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Desistido',historico:[...(p.historico||[]),{data:hoje(),acao:'Desistido',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
+                  style={{background:'#FEF2F2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🚫 Desistir</button>
               )}
               <button onClick={()=>setSelecionado(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:22,color:"#999"}}>×</button>
             </div>
@@ -860,7 +877,13 @@ function TabProcessos({ templates }) {
                     )}
                     {docsAnex.length>0&&(
                       <div style={{ display:"flex",gap:4,marginTop:4,flexWrap:"wrap" }}>
-                        {docsAnex.map((a,ai)=><span key={ai} style={{ fontSize:10,background:"#EEF2FF",color:NAVY,borderRadius:5,padding:"1px 7px" }}>{a.tipo?.startsWith("image/")?"🖼️":"📎"} {a.nome}</span>)}
+                        {docsAnex.map((a,ai)=>(
+                        <span key={ai} onClick={()=>setModalEtapa({proc:selecionado,etapa:e})}
+                          style={{fontSize:10,background:"#EEF2FF",color:NAVY,borderRadius:5,padding:"2px 8px",cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3}}
+                          title="Clique para gerenciar anexos">
+                          {a.tipo?.startsWith("image/")?"🖼️":"📎"} {a.nome}
+                        </span>
+                      ))}
                       </div>
                     )}
                   </div>
