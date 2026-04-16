@@ -537,8 +537,10 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
                   <div style={{ fontSize:11,color:"#aaa" }}>{fmtData(a.data)}{a.tamanho?` · ${(a.tamanho/1024).toFixed(1)}KB`:""}</div>
                 </div>
                 <div style={{display:'flex',gap:5}}>
-                  {a.dataUrl&&<button onClick={()=>setPreviewAnexo(a)} style={{background:'none',border:`1px solid ${NAVY}`,color:NAVY,borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:11}}>👁️ Ver</button>}
-                  <button onClick={()=>removerAnexo(i)} style={{background:"none",border:"1px solid #e53935",color:"#e53935",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>✕ Remover</button>
+                  {a.dataUrl
+                    ? <button onClick={()=>setPreviewAnexo(a)} style={{background:'none',border:`1px solid ${NAVY}`,color:NAVY,borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:11}}>👁️ Ver</button>
+                    : <span style={{fontSize:10,color:'#aaa',fontStyle:'italic'}}>re-envie para visualizar</span>}
+                  <button onClick={()=>removerAnexo(i)} style={{background:"none",border:"1px solid #e53935",color:"#e53935",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>✕</button>
                 </div>
               </div>
             ))}
@@ -579,7 +581,13 @@ function TabProcessos({ templates }) {
 
   useEffect(()=>{
     try{setClientes(JSON.parse(localStorage.getItem("ep_clientes")||"[]"));}catch{}
-    try{setUsuarios(JSON.parse(localStorage.getItem("ep_usuarios")||"[]"));}catch{}
+    try{
+      const u1=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]');
+      const u2=JSON.parse(localStorage.getItem('ep_usuarios')||'[]');
+      const merged=[...u1];
+      u2.forEach(u=>{if(!merged.find(x=>x.nome===u.nome))merged.push(u);});
+      setUsuarios(merged.filter(u=>u.ativo!==false));
+    }catch{}
   },[]);
 
   const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
