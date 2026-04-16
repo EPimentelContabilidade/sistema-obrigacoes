@@ -118,6 +118,10 @@ export default function Admin() {
   const [formPerfil, setFormPerfil] = useState({nome:'',cor:'#2563eb'})
   const [notifRules, setNotifRules] = useState(()=>{ try{return JSON.parse(localStorage.getItem('ep_notif_rules')||'null')||[]}catch{return []} })
   const [notifForm, setNotifForm] = useState({dep:'',gatilho:'vencimento_7d',popup:true,email:true,whatsapp:true})
+  const [editDepto, setEditDepto] = useState(null)
+  const [editPerfil, setEditPerfil] = useState(null)
+  const [selDepts, setSelDepts] = useState([])
+  const [selPerfis, setSelPerfis] = useState([])
   const [usuarios, setUsuarios] = useState(carregarUsuarios)
   const [clientes, setClientes] = useState([])
   const [modal, setModal] = useState(null)
@@ -328,63 +332,176 @@ export default function Admin() {
       {/* PERMISSÕES POR PERFIL */}
       {aba==='departamentos'&&(
         <div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-            <h3 style={{color:NAVY,margin:0,fontSize:16}}>🏢 Gerenciar Departamentos</h3>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <h3 style={{color:NAVY,margin:0,fontSize:16}}>🏢 Departamentos</h3>
+            {selDepts.length>0&&<button type='button' onClick={()=>{if(!confirm('Excluir '+selDepts.length+'?')) return;const nd=deptsAdmin.filter((_,i)=>!selDepts.includes(i));setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setSelDepts([]);}} style={{padding:'5px 14px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',border:'1px solid #fca5a5',cursor:'pointer',fontWeight:700,fontSize:12}}>🗑️ Excluir {selDepts.length}</button>}
           </div>
-          <div style={{background:'#fff',borderRadius:12,padding:20,border:'1px solid #e2e8f0',marginBottom:16}}>
-            <label style={{fontSize:12,fontWeight:600,color:'#555',display:'block',marginBottom:6}}>Adicionar Departamento</label>
+          <div style={{background:'#fff',borderRadius:10,padding:12,border:'1px solid #e2e8f0',marginBottom:12}}>
             <div style={{display:'flex',gap:8}}>
-              <input value={novoDepto} onChange={e=>setNovoDepto(e.target.value)} placeholder="Nome do departamento..." style={{flex:1,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13}}/>
-              <button type="button" onClick={()=>{if(!novoDepto.trim()) return;const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);localStorage.setItem('ep_departamentos_admin',JSON.stringify(d));localStorage.setItem('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}} style={{padding:'8px 18px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Adicionar</button>
+              <input value={novoDepto} onChange={e=>setNovoDepto(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&novoDepto.trim()){const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);localStorage.setItem('ep_departamentos_admin',JSON.stringify(d));localStorage.setItem('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}}} placeholder='Novo departamento...' style={{flex:1,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13}}/>
+              <button type='button' onClick={()=>{if(!novoDepto.trim()) return;const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);localStorage.setItem('ep_departamentos_admin',JSON.stringify(d));localStorage.setItem('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}} style={{padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Adicionar</button>
             </div>
           </div>
-          <div style={{display:'grid',gap:8}}>
+          <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0'}}>
+              <input type='checkbox' checked={selDepts.length===deptsAdmin.length&&deptsAdmin.length>0} onChange={e=>setSelDepts(e.target.checked?deptsAdmin.map((_,i)=>i):[])} style={{accentColor:NAVY,width:13,height:13,cursor:'pointer'}}/>
+              <span style={{fontSize:11,fontWeight:700,color:'#64748b'}}>SELECIONAR TODOS ({deptsAdmin.length})</span>
+            </div>
+            {deptsAdmin.length===0&&<div style={{padding:20,textAlign:'center',color:'#aaa',fontSize:13}}>Nenhum departamento. Adicione acima.</div>}
             {deptsAdmin.map((d,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'#fff',borderRadius:10,border:'1px solid #e2e8f0'}}>
-                <div style={{width:10,height:10,borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>
-                <span style={{flex:1,fontWeight:600,color:NAVY,fontSize:14}}>{d}</span>
-                <button type="button" onClick={()=>{if(!confirm('Excluir "'+d+'"?')) return;const nd=deptsAdmin.filter((_,j)=>j!==i);setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));}} style={{padding:'4px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:12}}>🗑️</button>
+              <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',borderBottom:'1px solid #f0f4f8',background:selDepts.includes(i)?'#eff6ff':'#fff'}}>
+                <input type='checkbox' checked={selDepts.includes(i)} onChange={()=>setSelDepts(p=>p.includes(i)?p.filter(x=>x!==i):[...p,i])} style={{accentColor:NAVY,width:13,height:13,cursor:'pointer',flexShrink:0}}/>
+                <div style={{width:8,height:8,borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>
+                {editDepto?.idx===i
+                  ? <input autoFocus value={editDepto.nome} onChange={e=>setEditDepto({idx:i,nome:e.target.value})} onKeyDown={e=>{if(e.key==='Enter'){const nd=[...deptsAdmin];nd[i]=editDepto.nome.trim()||d;setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setEditDepto(null);}if(e.key==='Escape')setEditDepto(null);}} style={{flex:1,padding:'4px 8px',border:'1.5px solid #2563eb',borderRadius:6,fontSize:13}}/>
+                  : <span style={{flex:1,fontWeight:600,color:NAVY,fontSize:13}}>{d}</span>
+                }
+                <div style={{display:'flex',gap:4}}>
+                  {editDepto?.idx===i
+                    ? <><button type='button' onClick={()=>{const nd=[...deptsAdmin];nd[i]=editDepto.nome.trim()||d;setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setEditDepto(null);}} style={{padding:'3px 9px',borderRadius:6,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700}}>💾</button><button type='button' onClick={()=>setEditDepto(null)} style={{padding:'3px 7px',borderRadius:6,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:11}}>✕</button></>
+                    : <><button type='button' onClick={()=>setEditDepto({idx:i,nome:d})} style={{padding:'3px 9px',borderRadius:6,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11}}>✏️</button><button type='button' onClick={()=>{if(!confirm('Excluir "'+d+'"?')) return;const nd=deptsAdmin.filter((_,j)=>j!==i);setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setSelDepts(p=>p.filter(x=>x!==i).map(x=>x>i?x-1:x));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button></>
+                  }
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
-      {aba==='perfis'&&(
+            {aba==='perfis'&&(
         <div>
-          <h3 style={{color:NAVY,margin:'0 0 20px',fontSize:16}}>👔 Perfis do Sistema</h3>
-          <div style={{marginBottom:20}}>
-            <div style={{fontSize:12,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:10}}>Perfis Padrão</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+            <h3 style={{color:NAVY,margin:0,fontSize:16}}>👔 Perfis</h3>
+            {selPerfis.length>0&&<button type='button' onClick={()=>{if(!confirm('Excluir '+selPerfis.length+'?')) return;const nl=perfisCustom.filter(p=>!selPerfis.includes(p.id));setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));setSelPerfis([]);}} style={{padding:'5px 14px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',border:'1px solid #fca5a5',cursor:'pointer',fontWeight:700,fontSize:12}}>🗑️ Excluir {selPerfis.length}</button>}
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:8}}>Perfis Padrão</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
-              {PERFIS.map(p=>(<div key={p.id} style={{padding:'12px 16px',background:'#fff',borderRadius:10,border:`2px solid ${p.cor}33`,display:'flex',alignItems:'center',gap:10}}><div style={{width:12,height:12,borderRadius:'50%',background:p.cor}}/><div style={{flex:1}}><div style={{fontWeight:700,color:p.cor,fontSize:13}}>{p.label}</div><div style={{fontSize:11,color:'#888'}}>{PERFIS_PADRAO[p.id]?.abas?.length||0} abas</div></div></div>))}
+              {PERFIS.map(p=>(<div key={p.id} style={{padding:'10px 14px',background:'#fff',borderRadius:9,border:`2px solid ${p.cor}33`,display:'flex',alignItems:'center',gap:8}}><div style={{width:10,height:10,borderRadius:'50%',background:p.cor}}/><div style={{flex:1}}><div style={{fontWeight:700,color:p.cor,fontSize:13}}>{p.label}</div><div style={{fontSize:11,color:'#888'}}>{PERFIS_PADRAO[p.id]?.abas?.length||0} abas · {PERFIS_PADRAO[p.id]?.perms?.length||0} perms</div></div></div>))}
             </div>
           </div>
-          <div>
-            <div style={{fontSize:12,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:10}}>Perfis Customizados</div>
-            <div style={{background:'#fff',borderRadius:12,padding:16,border:'1px solid #e2e8f0',marginBottom:12}}>
-              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:10,alignItems:'end'}}>
-                <input value={formPerfil.nome} onChange={e=>setFormPerfil(f=>({...f,nome:e.target.value}))} placeholder="Nome do novo perfil..." style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,boxSizing:'border-box'}}/>
-                <button type="button" onClick={()=>{if(!formPerfil.nome.trim()) return;const np={id:'custom_'+Date.now(),label:formPerfil.nome,cor:formPerfil.cor||'#2563eb',custom:true};const lista=[...perfisCustom,np];setPerfisCustom(lista);localStorage.setItem('ep_perfis_custom',JSON.stringify(lista));setFormPerfil({nome:'',cor:'#2563eb'});alert('✅ Perfil criado!');}} style={{padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Criar</button>
+          <div style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:8}}>Perfis Customizados</div>
+          <div style={{background:'#fff',borderRadius:10,padding:12,border:'1px solid #e2e8f0',marginBottom:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8,alignItems:'end',marginBottom:8}}>
+              <input value={formPerfil.nome} onChange={e=>setFormPerfil(f=>({...f,nome:e.target.value}))} placeholder='Nome do novo perfil...' style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,boxSizing:'border-box'}}/>
+              <button type='button' onClick={()=>{if(!formPerfil.nome.trim()) return;const np={id:'custom_'+Date.now(),label:formPerfil.nome,cor:formPerfil.cor||'#2563eb',custom:true};const lista=[...perfisCustom,np];setPerfisCustom(lista);localStorage.setItem('ep_perfis_custom',JSON.stringify(lista));setFormPerfil({nome:'',cor:'#2563eb'});alert('✅ Perfil criado!');}} style={{padding:'8px 14px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Criar</button>
+            </div>
+            <div style={{display:'flex',gap:5}}>{['#dc2626','#2563eb','#16a34a','#f59e0b','#7c3aed','#0891b2','#64748b','#db2777'].map(cor=>(<div key={cor} onClick={()=>setFormPerfil(f=>({...f,cor}))} style={{width:22,height:22,borderRadius:'50%',background:cor,cursor:'pointer',border:formPerfil.cor===cor?'3px solid #000':'2px solid transparent'}}/>))}</div>
+          </div>
+          {perfisCustom.length===0
+            ? <div style={{textAlign:'center',padding:20,color:'#aaa',fontSize:13,background:'#f8fafc',borderRadius:9,border:'2px dashed #e2e8f0'}}>Nenhum perfil customizado.</div>
+            : <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0'}}>
+                  <input type='checkbox' checked={selPerfis.length===perfisCustom.length} onChange={e=>setSelPerfis(e.target.checked?perfisCustom.map(p=>p.id):[])} style={{accentColor:NAVY,width:13,height:13,cursor:'pointer'}}/>
+                  <span style={{fontSize:11,fontWeight:700,color:'#64748b'}}>SELECIONAR TODOS ({perfisCustom.length})</span>
+                </div>
+                {perfisCustom.map((p,i)=>(
+                  <div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:'10px 12px',borderBottom:'1px solid #f0f4f8',background:selPerfis.includes(p.id)?'#eff6ff':'#fff'}}>
+                    <input type='checkbox' checked={selPerfis.includes(p.id)} onChange={()=>setSelPerfis(prev=>prev.includes(p.id)?prev.filter(x=>x!==p.id):[...prev,p.id])} style={{accentColor:NAVY,width:13,height:13,cursor:'pointer',flexShrink:0}}/>
+                    <div style={{width:10,height:10,borderRadius:'50%',background:p.cor,flexShrink:0}}/>
+                    {editPerfil?.id===p.id
+                      ? <input autoFocus value={editPerfil.label} onChange={e=>setEditPerfil({...editPerfil,label:e.target.value})} onKeyDown={e=>{if(e.key==='Escape')setEditPerfil(null);}} style={{flex:1,padding:'4px 8px',border:'1.5px solid #2563eb',borderRadius:6,fontSize:13,fontWeight:700}}/>
+                      : <span style={{flex:1,fontWeight:700,color:p.cor,fontSize:13}}>{p.label}</span>
+                    }
+                    <div style={{display:'flex',gap:4}}>
+                      {editPerfil?.id===p.id
+                        ? <><button type='button' onClick={()=>{const nl=perfisCustom.map(x=>x.id===p.id?{...x,label:editPerfil.label}:x);setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));setEditPerfil(null);}} style={{padding:'3px 9px',borderRadius:6,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700}}>💾</button><button type='button' onClick={()=>setEditPerfil(null)} style={{padding:'3px 7px',borderRadius:6,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:11}}>✕</button></>
+                        : <><button type='button' onClick={()=>setEditPerfil({...p})} style={{padding:'3px 9px',borderRadius:6,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11}}>✏️</button><button type='button' onClick={()=>{if(!confirm('Excluir "'+p.label+'"?')) return;const nl=perfisCustom.filter(x=>x.id!==p.id);setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));setSelPerfis(prev=>prev.filter(x=>x!==p.id));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button></>
+                      }
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{display:'flex',gap:6,marginTop:10}}>{['#dc2626','#2563eb','#16a34a','#f59e0b','#7c3aed','#0891b2'].map(cor=>(<div key={cor} onClick={()=>setFormPerfil(f=>({...f,cor}))} style={{width:24,height:24,borderRadius:'50%',background:cor,cursor:'pointer',border:formPerfil.cor===cor?'3px solid #000':'2px solid transparent'}}/>))}</div>
-            </div>
-            {perfisCustom.length===0?<div style={{textAlign:'center',padding:20,color:'#aaa',fontSize:13}}>Nenhum perfil customizado.</div>:<div style={{display:'grid',gap:8}}>{perfisCustom.map((p,i)=>(<div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'#fff',borderRadius:10,border:`2px solid ${p.cor}33`}}><div style={{width:12,height:12,borderRadius:'50%',background:p.cor,flexShrink:0}}/><span style={{flex:1,fontWeight:700,color:p.cor,fontSize:13}}>{p.label}</span><button type="button" onClick={()=>{const nl=perfisCustom.filter((_,j)=>j!==i);setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));}} style={{padding:'4px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:12}}>🗑️</button></div>))}</div>}
-          </div>
+          }
         </div>
       )}
-      {aba==='notificacoes'&&(
+            {aba==='notificacoes'&&(
         <div>
-          <h3 style={{color:NAVY,margin:'0 0 6px',fontSize:16}}>🔔 Notificações Automáticas</h3>
-          <p style={{color:'#888',fontSize:12,marginBottom:16}}>Quando obrigações vencem ou a IA detecta atraso, notifica o responsável via popup, e-mail e WhatsApp.</p>
-          <div style={{background:'#fff',borderRadius:12,padding:18,border:'1px solid #e2e8f0',marginBottom:16}}>
+          <h3 style={{color:NAVY,margin:'0 0 4px',fontSize:16}}>🔔 Notificações Automáticas</h3>
+          <p style={{color:'#888',fontSize:12,marginBottom:14}}>Notifica responsáveis via popup, e-mail e WhatsApp por evento e departamento.</p>
+          <div style={{background:'#fff',borderRadius:10,padding:16,border:'1px solid #e2e8f0',marginBottom:14}}>
             <div style={{fontWeight:700,color:NAVY,fontSize:13,marginBottom:12}}>➕ Nova Regra</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:10}}>
-              <div><label style={{fontSize:11,fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Departamento</label><select value={notifForm.dep} onChange={e=>setNotifForm(f=>({...f,dep:e.target.value}))} style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,background:'#fff'}}><option value=''>— Todos —</option>{deptsAdmin.map(d=><option key={d}>{d}</option>)}</select></div>
-              <div><label style={{fontSize:11,fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Gatilho</label><select value={notifForm.gatilho} onChange={e=>setNotifForm(f=>({...f,gatilho:e.target.value}))} style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,background:'#fff'}}><option value='vencimento_7d'>7 dias antes do vencimento</option><option value='vencimento_3d'>3 dias antes do vencimento</option><option value='vencimento_hoje'>Vence hoje (urgente)</option><option value='vencimento_passou'>Obrigação vencida</option><option value='ia_detecta'>IA Claude detecta atraso</option><option value='entregue'>Obrigação entregue</option></select></div>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Departamento</label>
+                <select value={notifForm.dep} onChange={e=>setNotifForm(f=>({...f,dep:e.target.value}))} style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,background:'#fff'}}>
+                  <option value=''>— Todos —</option>
+                  {deptsAdmin.map(d=><option key={d}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Gatilho / Evento</label>
+                <select value={notifForm.gatilho} onChange={e=>setNotifForm(f=>({...f,gatilho:e.target.value}))} style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,background:'#fff'}}>
+                  <optgroup label='📋 Obrigações'>
+                    <option value='vencimento_7d'>Vence em 7 dias</option>
+                    <option value='vencimento_3d'>Vence em 3 dias</option>
+                    <option value='vencimento_hoje'>Vence hoje (URGENTE)</option>
+                    <option value='vencimento_passou'>Obrigação VENCIDA</option>
+                    <option value='nova_obrigacao'>Nova obrigação criada</option>
+                    <option value='entregue'>Obrigação entregue</option>
+                  </optgroup>
+                  <optgroup label='📁 Processos'>
+                    <option value='novo_processo'>Novo processo criado</option>
+                    <option value='processo_concluido'>Processo concluído</option>
+                    <option value='processo_atrasado'>Processo em atraso</option>
+                    <option value='processo_atribuido'>Processo atribuído</option>
+                  </optgroup>
+                  <optgroup label='👥 Clientes'>
+                    <option value='novo_cliente'>Novo cliente cadastrado</option>
+                    <option value='cert_vencendo'>Certificado digital vencendo</option>
+                  </optgroup>
+                  <optgroup label='🤖 IA Claude'>
+                    <option value='ia_detecta'>IA Claude detecta atraso</option>
+                    <option value='ia_alerta'>IA Claude alerta automático</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11,fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Perfil a notificar</label>
+                <select value={notifForm.perfil||''} onChange={e=>setNotifForm(f=>({...f,perfil:e.target.value}))} style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,background:'#fff'}}>
+                  <option value=''>— Todos —</option>
+                  {PERFIS.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                  <label style={{fontSize:11,fontWeight:600,color:'#555'}}>Canais</label>
+                  <button type='button' onClick={()=>setNotifForm(f=>({...f,popup:true,email:true,whatsapp:true}))} style={{fontSize:10,padding:'2px 8px',borderRadius:5,background:'#f1f5f9',color:'#2563eb',border:'none',cursor:'pointer',fontWeight:600}}>✓ Selecionar todos</button>
+                </div>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {[['popup','🔔 Popup','#7c3aed','#EDE9FF'],['email','📧 E-mail','#2563eb','#EBF5FF'],['whatsapp','💬 WhatsApp','#16a34a','#EDFBF1']].map(([k,l,cor,bg])=>(
+                    <label key={k} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',fontSize:12,padding:'4px 9px',borderRadius:6,background:notifForm[k]!==false?bg:'#f5f5f5',color:notifForm[k]!==false?cor:'#aaa',border:'1px solid '+(notifForm[k]!==false?cor+'44':'#eee')}}>
+                      <input type='checkbox' checked={notifForm[k]!==false} onChange={e=>setNotifForm(f=>({...f,[k]:e.target.checked}))} style={{accentColor:cor}}/> {l}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div style={{display:'flex',gap:16,marginBottom:12}}>{[['popup','🔔 Popup'],['email','📧 E-mail'],['whatsapp','💬 WhatsApp']].map(([k,l])=>(<label key={k} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:13}}><input type="checkbox" checked={notifForm[k]!==false} onChange={e=>setNotifForm(f=>({...f,[k]:e.target.checked}))} style={{accentColor:NAVY}}/>{l}</label>))}</div>
-            <button type="button" onClick={()=>{const nova={id:Date.now(),...notifForm};const lista=[...notifRules,nova];setNotifRules(lista);localStorage.setItem('ep_notif_rules',JSON.stringify(lista));alert('✅ Regra salva!');}} style={{padding:'8px 20px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>Salvar Regra</button>
+            <button type='button' onClick={()=>{const nova={id:Date.now(),...notifForm,popup:notifForm.popup!==false,email:notifForm.email!==false,whatsapp:notifForm.whatsapp!==false};const lista=[...notifRules,nova];setNotifRules(lista);localStorage.setItem('ep_notif_rules',JSON.stringify(lista));alert('✅ Regra salva!');}} style={{padding:'8px 22px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>💾 Salvar Regra</button>
           </div>
-          {notifRules.length===0?<div style={{textAlign:'center',padding:24,color:'#aaa',fontSize:13,background:'#f8f9fb',borderRadius:10}}>Nenhuma regra configurada.</div>:<div style={{display:'grid',gap:8}}>{notifRules.map((r,i)=>{const GL={vencimento_7d:'7d antes',vencimento_3d:'3d antes',vencimento_hoje:'Hoje',vencimento_passou:'Vencida',ia_detecta:'IA Claude',entregue:'Entregue'};return <div key={r.id} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#fff',borderRadius:10,border:'1px solid #e2e8f0'}}><div style={{flex:1}}><div style={{fontWeight:700,color:NAVY,fontSize:13}}>{r.dep||'Todos os departamentos'}</div><div style={{fontSize:11,color:'#888',marginTop:2}}>Gatilho: {GL[r.gatilho]||r.gatilho}{r.popup?' 🔔':''}{r.email?' 📧':''}{r.whatsapp?' 💬':''}</div></div><button type="button" onClick={()=>{const nl=notifRules.filter((_,j)=>j!==i);setNotifRules(nl);localStorage.setItem('ep_notif_rules',JSON.stringify(nl));}} style={{padding:'4px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:12}}>🗑️</button></div>})}</div>}
+          {notifRules.length===0
+            ? <div style={{textAlign:'center',padding:24,color:'#aaa',fontSize:13,background:'#f8fafc',borderRadius:10,border:'2px dashed #e2e8f0'}}>Nenhuma regra configurada.</div>
+            : <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0'}}>
+                  <span style={{fontSize:11,fontWeight:700,color:'#64748b'}}>{notifRules.length} REGRA(S) ATIVA(S)</span>
+                  <button type='button' onClick={()=>{if(!confirm('Apagar todas?')) return;setNotifRules([]);localStorage.setItem('ep_notif_rules','[]');}} style={{fontSize:11,padding:'3px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer'}}>🗑️ Limpar tudo</button>
+                </div>
+                {notifRules.map((r,i)=>{
+                  const GL={vencimento_7d:'Vence 7d',vencimento_3d:'Vence 3d',vencimento_hoje:'HOJE',vencimento_passou:'VENCIDA',nova_obrigacao:'Nova obrigação',entregue:'Entregue',novo_processo:'Novo processo',processo_concluido:'Concluído',processo_atrasado:'Atrasado',processo_atribuido:'Atribuído',novo_cliente:'Novo cliente',cert_vencendo:'Cert. vencendo',ia_detecta:'IA detecta',ia_alerta:'IA alerta'}
+                  const PP=PERFIS.find(p=>p.id===r.perfil)
+                  return <div key={r.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderBottom:'1px solid #f0f4f8'}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                        <span style={{fontWeight:700,color:NAVY,fontSize:12}}>{r.dep||'Todos'}</span>
+                        <span style={{fontSize:10,padding:'1px 7px',borderRadius:10,background:'#EDE9FF',color:'#7c3aed',fontWeight:600}}>{GL[r.gatilho]||r.gatilho}</span>
+                        {PP&&<span style={{fontSize:10,padding:'1px 6px',borderRadius:8,background:PP.cor+'15',color:PP.cor,fontWeight:600}}>{PP.label}</span>}
+                      </div>
+                      <div style={{fontSize:10,color:'#888',marginTop:2}}>{r.popup?'🔔 ':''}{r.email?'📧 ':''}{r.whatsapp?'💬 ':''}</div>
+                    </div>
+                    <button type='button' onClick={()=>{const nl=notifRules.filter((_,j)=>j!==i);setNotifRules(nl);localStorage.setItem('ep_notif_rules',JSON.stringify(nl));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button>
+                  </div>
+                })}
+              </div>
+          }
         </div>
       )}
             {aba==='permissoes' && (
