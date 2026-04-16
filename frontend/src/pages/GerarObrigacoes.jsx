@@ -4,7 +4,6 @@
 // <GerarObrigacoes cliente={cli} onClose={()=>...} onGerado={(qtd)=>...} />
 // ══════════════════════════════════════════════════════════════════════════════
 import { useState } from 'react'
-import { gerarObrigacoesCliente } from './ConfiguracoesTarefas'
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
@@ -48,12 +47,40 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
   const [gerado, setGerado] = useState(false)
   const [qtdGerada, setQtdGerada] = useState(0)
 
-  // Catálogo via Config. Tarefas (gerarObrigacoesCliente usa ep_obrigacoes_catalogo_v2 + fallback padrão)
+  // Catálogo via Config. Tarefas (lê ep_obrigacoes_catalogo_v2 com fallback padrão)
   const getCatalogo = () => {
     try {
       const regime = cliente.tributacao || cliente.regime || ''
-      const lista = gerarObrigacoesCliente(regime).filter(o => !apenasAtivas || o.ativo !== false)
-      if (lista.length > 0) return lista
+      const mapa = {
+        'Simples Nacional':'Simples Nacional','MEI':'MEI',
+        'Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real',
+        'RET':'RET/Imobiliário','RET/Imobiliário':'RET/Imobiliário',
+        'Imune/Isento':'Imune/Isento','Produtor Rural':'Produtor Rural',
+        'Social/IRH':'Social/IRH','Social/RH':'Social/IRH','Social':'Social/IRH',
+        'Condomínio':'Condomínio','Autônomo':'Autônomo',
+      }
+      const chave = mapa[regime] || regime
+      // 1. Catálogo personalizado (Config. Tarefas)
+      const catV2 = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2') || 'null')
+      if (catV2?.[chave]) {
+        const lista = catV2[chave].filter(o => !apenasAtivas || o.ativo !== false)
+        if (lista.length > 0) return lista
+      }
+      // 2. Catálogo padrão embutido por regime
+      const PADRAO = {
+        'MEI': [{codigo:'DAS-MEI',nome:'DAS Mensal',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'DASN-SIMEI',nome:'DASN-SIMEI',periodicidade:'Anual'}],
+        'Simples Nacional': [{codigo:'DAS',nome:'DAS Mensal',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'PGDAS-D',nome:'PGDAS-D',periodicidade:'Mensal'},{codigo:'DEFIS',nome:'DEFIS',periodicidade:'Anual'},{codigo:'SPED-CONT',nome:'SPED Contábil',periodicidade:'Anual'},{codigo:'ESOCIAL',nome:'eSocial',periodicidade:'Mensal'},{codigo:'DCTFWEB',nome:'DCTFWeb',periodicidade:'Mensal'}],
+        'Lucro Presumido': [{codigo:'DARF-IRPJ',nome:'DARF IRPJ',periodicidade:'Trimestral',passivel_multa:'Sim'},{codigo:'DARF-CSLL',nome:'DARF CSLL',periodicidade:'Trimestral',passivel_multa:'Sim'},{codigo:'PIS',nome:'PIS',periodicidade:'Mensal'},{codigo:'COFINS',nome:'COFINS',periodicidade:'Mensal'},{codigo:'DCTF',nome:'DCTF Mensal',periodicidade:'Mensal'},{codigo:'ESOCIAL',nome:'eSocial',periodicidade:'Mensal'},{codigo:'DCTFWEB',nome:'DCTFWeb',periodicidade:'Mensal'},{codigo:'SPED-CONT',nome:'SPED Contábil',periodicidade:'Anual'}],
+        'Lucro Real': [{codigo:'DARF-IRPJ-LR',nome:'DARF IRPJ Mensal',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'DARF-CSLL-LR',nome:'DARF CSLL',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'PIS-NC',nome:'PIS Não Cumulativo',periodicidade:'Mensal'},{codigo:'COFINS-NC',nome:'COFINS Não Cumulativa',periodicidade:'Mensal'},{codigo:'DCTF',nome:'DCTF',periodicidade:'Mensal'},{codigo:'ESOCIAL',nome:'eSocial',periodicidade:'Mensal'},{codigo:'LALUR',nome:'LALUR/LACS',periodicidade:'Anual'}],
+        'RET/Imobiliário': [{codigo:'RET-DARF',nome:'DARF RET (4%)',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'DIMOB',nome:'DIMOB',periodicidade:'Anual'},{codigo:'SPED-CONT-RET',nome:'SPED Contábil',periodicidade:'Anual'}],
+        'Social/IRH': [{codigo:'FOLHA-PAG',nome:'Folha de Pagamento',periodicidade:'Mensal'},{codigo:'FGTS-SOCIAL',nome:'FGTS Mensal',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'INSS-GPS',nome:'INSS / GPS',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'ESOCIAL-RH',nome:'eSocial',periodicidade:'Mensal'},{codigo:'DCTFWEB-RH',nome:'DCTFWeb',periodicidade:'Mensal'},{codigo:'CAGED-RH',nome:'CAGED',periodicidade:'Mensal'},{codigo:'RAIS-RH',nome:'RAIS Anual',periodicidade:'Anual'}],
+        'Imune/Isento': [{codigo:'DCTF-IMUNE',nome:'DCTF',periodicidade:'Mensal'},{codigo:'SPED-IMUNE',nome:'SPED Contábil',periodicidade:'Anual'},{codigo:'RAIS-IMUNE',nome:'RAIS',periodicidade:'Anual'}],
+        'Condomínio': [{codigo:'BALANCETE',nome:'Balancete Mensal',periodicidade:'Mensal'},{codigo:'IRRF-COND',nome:'IRRF (prestadores)',periodicidade:'Mensal'}],
+        'Autônomo': [{codigo:'CARNE-LEAO',nome:'Carnê Leão',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'IRPF-AUT',nome:'IRPF Anual',periodicidade:'Anual'},{codigo:'INSS-AUT',nome:'INSS Autônomo',periodicidade:'Mensal',passivel_multa:'Sim'}],
+        'Produtor Rural': [{codigo:'FUNRURAL',nome:'Funrural',periodicidade:'Mensal',passivel_multa:'Sim'},{codigo:'DITR',nome:'DITR',periodicidade:'Anual'}],
+      }
+      if (PADRAO[chave]) return PADRAO[chave]
+      // 3. Fallback: obrigações salvas diretamente no cliente
       if (cliente.obrigacoes_catalogo?.length) return cliente.obrigacoes_catalogo
       return []
     } catch { return [] }
@@ -61,7 +88,8 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
   const getFonteInfo = () => {
     const regime = cliente.tributacao || cliente.regime || ''
     const catV2 = (() => { try { return JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'null') } catch { return null } })()
-    return { personalizada: !!catV2?.[regime]?.length, total: getCatalogo().length, regime }
+    const chave = regime
+    return { personalizada: !!catV2?.[chave]?.length, total: getCatalogo().length, regime }
   }
 
   const gerarPreview = () => {
