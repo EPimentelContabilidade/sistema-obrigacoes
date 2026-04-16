@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, Plus, X, Save, ChevronLeft, ChevronRight, User, MapPin, Phone, CheckCircle, Zap, Trash2, Eye, EyeOff, ExternalLink, Shield, FileText } from 'lucide-react'
 import GerarObrigacoes from './GerarObrigacoes'
 import AbaDocumentos from '../components/AbaDocumentos'
@@ -324,7 +324,7 @@ export default function Clientes() {
   const [regimeAdicionalSel, setRegimeAdicionalSel] = useState('')
   const todosRegimes = ['Simples Nacional','MEI','Lucro Real','Lucro Presumido','RET','Imune/Isento']
   const obrigsPorTrib = obrigacoesPorTributacao(form.tributacao)
-  const todasObrigacoesDisponiveis = React.useMemo(()=>{
+  const todasObrigacoesDisponiveis = useMemo(()=>{
     const vistas=new Set(); const lista=[]
     ;['Simples Nacional','MEI','Lucro Real','Lucro Presumido','RET','Imune/Isento'].forEach(reg=>{
       obrigacoesPorTributacao(reg).forEach(o=>{ if(!vistas.has(o.id)){vistas.add(o.id);lista.push({...o,_regime:reg})} })
@@ -1047,7 +1047,7 @@ export default function Clientes() {
       {/* Modal Obrigações */}
       {modalObrig&&(()=>{
         const DEPTS=['Todos','Fiscal','Pessoal','Contábil','Bancos']
-        const [mostrarOutros,setMostrarOutros]=React.useState(false)
+        const [mostrarOutros,setMostrarOutros]=useState(false)
         const fonteModal=mostrarOutros?todasObrigacoesDisponiveis:obrigsPorTrib
         const filtObrig=todasObrigsModal.filter(o=>{
           if(buscaObrig&&!o.nome?.toLowerCase().includes(buscaObrig.toLowerCase())&&!(o.mininome||'').toLowerCase().includes(buscaObrig.toLowerCase())) return false
