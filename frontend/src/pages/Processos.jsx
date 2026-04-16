@@ -591,7 +591,9 @@ function TabProcessos({ templates }) {
 
     const excluirProcesso = (id, e) => { e.stopPropagation(); if(!window.confirm('Excluir este processo?')) return; const l=processos.filter(p=>p.id!==id); salvarProcessos(l); if(selecionado?.id===id) setSelecionado(null); };
     const salvarProcesso = () => {
-    if(!form.titulo||!form.cliente) return;
+    const _cliente = form.cliente || buscaCliente;
+    if(!form.titulo||!_cliente) { alert('Preencha o Título e o Cliente'); return }
+    if(!form.cliente && buscaCliente) setForm(f=>({...f,cliente:buscaCliente}));
     if(editandoProcesso){
       const lista=processos.map(p=>p.id===editandoProcesso.id?{...p,...form,historico:[...(p.historico||[]),{data:hoje(),acao:'Processo editado',usuario:'Usuário'}]}:p);
       salvarProcessos(lista); setSelecionado(lista.find(p=>p.id===editandoProcesso.id));
@@ -711,11 +713,11 @@ function TabProcessos({ templates }) {
               </select>
             )}
 
-            {templates.length>0&&(
+            {(templates||[]).length>0&&(
               <select value={filtroTemplate} onChange={e=>setFiltroTemplate(e.target.value)}
                 style={{padding:'5px 8px',borderRadius:6,border:`1px solid ${filtroTemplate?NAVY:'#ddd'}`,fontSize:11,background:filtroTemplate?'#EBF5FF':'#fff',color:filtroTemplate?NAVY:'#333',cursor:'pointer'}}>
                 <option value="">📋 Template</option>
-                {templates.map(t=><option key={t.id} value={t.id}>{t.icone||'📋'} {t.nome}</option>)}
+                {(templates||[]).map(t=><option key={t.id} value={t.id}>{t.icone||'📋'} {t.nome}</option>)}
               </select>
             )}
             {/* Multi-CNPJ dropdown */}
@@ -905,9 +907,9 @@ function TabProcessos({ templates }) {
               <input style={inputStyle} value={form.titulo} placeholder="Digite ou escolha um template..."
                 onChange={e=>{setForm(f=>({...f,titulo:e.target.value}));setBuscaTemplate(e.target.value);setDropTemplate(true)}}
                 onFocus={()=>setDropTemplate(true)} autoComplete="off"/>
-              {dropTemplate&&templates.filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).length>0&&(
+              {dropTemplate&&(templates||[]).filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).length>0&&(
                 <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:9999,background:'#fff',border:'1px solid #ddd',borderRadius:8,boxShadow:'0 4px 16px rgba(0,0,0,.12)',maxHeight:200,overflowY:'auto',marginTop:2}}>
-                  {templates.filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).map(t=>(
+                  {(templates||[]).filter(t=>!buscaTemplate||t.nome.toLowerCase().includes(buscaTemplate.toLowerCase())).map(t=>(
                     <div key={t.id} onClick={()=>{setForm(f=>({...f,titulo:t.nome,template:t.id,categoria:t.categoria||f.categoria}));setDropTemplate(false);setBuscaTemplate('');}}
                       style={{padding:'8px 12px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,borderBottom:'1px solid #f5f5f5'}}
                       onMouseEnter={e=>e.currentTarget.style.background='#f5f7ff'}
@@ -934,7 +936,7 @@ function TabProcessos({ templates }) {
               {mostrarBuscaCliente&&clientesFiltrados.length>0&&(
                 <div style={{ position:"absolute",top:"100%",left:0,right:0,background:"#fff",border:"1px solid #ddd",borderRadius:8,boxShadow:"0 4px 12px rgba(0,0,0,.12)",zIndex:100,maxHeight:200,overflowY:"auto" }}>
                   {clientesFiltrados.map(c=>(
-                    <div key={c.id} onClick={()=>{setForm({...form,cliente:c.nome_razao||c.nome,clienteId:c.id,telefone:c.whatsapp||c.telefone||""});setBuscaCliente("");setMostrarBuscaCliente(false);}}
+                    <div key={c.id} onClick={()=>{setForm(f=>({...f,cliente:c.nome_razao||c.nome,clienteId:c.id,telefone:c.whatsapp||c.telefone||""}));setBuscaCliente("");setMostrarBuscaCliente(false);}}
                       style={{ padding:"9px 14px",cursor:"pointer",borderBottom:"1px solid #f5f5f5" }}
                       onMouseOver={e=>e.currentTarget.style.background="#F0F4FF"} onMouseOut={e=>e.currentTarget.style.background="transparent"}>
                       <div style={{ fontWeight:600,color:NAVY,fontSize:13 }}>{c.nome_razao||c.nome}</div>
