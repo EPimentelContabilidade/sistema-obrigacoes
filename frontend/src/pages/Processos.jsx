@@ -796,6 +796,8 @@ function TabProcessos({ templates }) {
   const [toast, setToast] = useState(null);
   const [historicoAberto, setHistoricoAberto] = useState(false);
   const [hoverAnexoDetalhe, setHoverAnexoDetalhe] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const confirmar = (msg, onOk) => setConfirmModal({msg, onOk});
   const [hoverPosDetalhe, setHoverPosDetalhe] = useState({x:0,y:0});
   const showToast = (msg, tipo='ok') => { setToast({msg,tipo}); setTimeout(()=>setToast(null),4000); };
   const limparFiltros = () => {
@@ -960,7 +962,7 @@ function TabProcessos({ templates }) {
             <div style={{display:'flex',gap:5,alignItems:'center'}}>
               <button onClick={()=>{setEditandoProcesso(selecionado);setForm({...selecionado});setBuscaCliente(selecionado.cliente||'');setDropTemplate(false);setModal(true);}}
                 style={{background:'#f0f4ff',border:'1px solid #c7d2fe',color:NAVY,borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>✏️ Editar</button>
-              <button onClick={()=>{if(!window.confirm('Excluir este processo?'))return;const l=processos.filter(p=>p.id!==selecionado.id);salvarProcessos(l);setSelecionado(null);}}
+              <button onClick={()=>confirmar('Excluir este processo permanentemente?',()=>{const l=processos.filter(p=>p.id!==selecionado.id);salvarProcessos(l);setSelecionado(null);})}
                 style={{background:'#fef2f2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🗑️ Excluir</button>
               {(['Concluído','Cancelado','Pausado','Desistido'].includes(selecionado.status))&&(
                 <button onClick={()=>{const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Em Andamento',historico:[...(p.historico||[]),{data:hoje(),acao:'Processo reaberto',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
@@ -971,7 +973,7 @@ function TabProcessos({ templates }) {
                   style={{background:'#F3EEFF',border:'1px solid #c4b5fd',color:'#7C3AED',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>⏸️ Pausar</button>
               )}
               {!['Concluído','Cancelado','Desistido'].includes(selecionado.status)&&(
-                <button onClick={()=>{if(!window.confirm('Marcar como desistido?'))return;const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Desistido',historico:[...(p.historico||[]),{data:hoje(),acao:'Desistido',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
+                <button onClick={()=>confirmar('Marcar este processo como desistido?',()=>{const l=processos.map(p=>p.id===selecionado.id?{...p,status:'Desistido',historico:[...(p.historico||[]),{data:hoje(),acao:'Desistido',usuario:'Usuário'}]}:p);salvarProcessos(l);setSelecionado(l.find(p=>p.id===selecionado.id));}}
                   style={{background:'#FEF2F2',border:'1px solid #fca5a5',color:'#dc2626',borderRadius:7,padding:'5px 10px',cursor:'pointer',fontSize:12,fontWeight:700}}>🚫 Desistir</button>
               )}
               <button onClick={()=>setSelecionado(null)} style={{background:'#f5f5f5',border:'1px solid #ddd',color:'#555',borderRadius:7,padding:'5px 12px',cursor:'pointer',fontSize:12,fontWeight:700}}>← Voltar</button>
@@ -1341,6 +1343,19 @@ export default function Processos() {
         {aba==="processos"&&<TabProcessos templates={templates} />}
         {aba==="templates"&&<TabTemplates />}
         {aba==="relatorio"&&<TabRelatorio />}
+      {confirmModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{background:'#fff',borderRadius:14,padding:28,maxWidth:360,width:'90%',boxShadow:'0 16px 48px rgba(0,0,0,.25)',textAlign:'center'}}>
+            <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+            <p style={{color:'#1B2A4A',fontWeight:700,fontSize:15,marginBottom:6}}>Confirmar ação</p>
+            <p style={{color:'#555',fontSize:13,marginBottom:24}}>{confirmModal.msg}</p>
+            <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+              <button onClick={()=>setConfirmModal(null)} style={{background:'#f5f5f5',border:'1px solid #ddd',color:'#555',borderRadius:8,padding:'9px 20px',cursor:'pointer',fontWeight:600,fontSize:13}}>Cancelar</button>
+              <button onClick={()=>{confirmModal.onOk();setConfirmModal(null);}} style={{background:'#dc2626',color:'#fff',border:'none',borderRadius:8,padding:'9px 20px',cursor:'pointer',fontWeight:700,fontSize:13}}>✓ Confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
       {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:99998,background:toast.tipo==='erro'?'#FEF2F2':'#f0fdf4',border:`1.5px solid ${toast.tipo==='erro'?'#fca5a5':'#86efac'}`,borderLeft:`5px solid ${toast.tipo==='erro'?'#dc2626':'#22c55e'}`,borderRadius:10,padding:'12px 18px',boxShadow:'0 8px 24px rgba(0,0,0,.15)',maxWidth:360,display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:20}}>{toast.tipo==='erro'?'❌':'✅'}</span><span style={{fontSize:13,fontWeight:600,color:toast.tipo==='erro'?'#dc2626':'#166534'}}>{toast.msg}</span></div>}
 
       </div>
