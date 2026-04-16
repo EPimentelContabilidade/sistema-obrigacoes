@@ -1343,21 +1343,6 @@ export default function Processos() {
         {aba==="processos"&&<TabProcessos templates={templates} />}
         {aba==="templates"&&<TabTemplates />}
         {aba==="relatorio"&&<TabRelatorio />}
-      {confirmModal&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{background:'#fff',borderRadius:14,padding:28,maxWidth:360,width:'90%',boxShadow:'0 16px 48px rgba(0,0,0,.25)',textAlign:'center'}}>
-            <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
-            <p style={{color:'#1B2A4A',fontWeight:700,fontSize:15,marginBottom:6}}>Confirmar ação</p>
-            <p style={{color:'#555',fontSize:13,marginBottom:24}}>{confirmModal.msg}</p>
-            <div style={{display:'flex',gap:10,justifyContent:'center'}}>
-              <button onClick={()=>setConfirmModal(null)} style={{background:'#f5f5f5',border:'1px solid #ddd',color:'#555',borderRadius:8,padding:'9px 20px',cursor:'pointer',fontWeight:600,fontSize:13}}>Cancelar</button>
-              <button onClick={()=>{confirmModal.onOk();setConfirmModal(null);}} style={{background:'#dc2626',color:'#fff',border:'none',borderRadius:8,padding:'9px 20px',cursor:'pointer',fontWeight:700,fontSize:13}}>✓ Confirmar</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {toast&&<div style={{position:'fixed',bottom:24,right:24,zIndex:99998,background:toast.tipo==='erro'?'#FEF2F2':'#f0fdf4',border:`1.5px solid ${toast.tipo==='erro'?'#fca5a5':'#86efac'}`,borderLeft:`5px solid ${toast.tipo==='erro'?'#dc2626':'#22c55e'}`,borderRadius:10,padding:'12px 18px',boxShadow:'0 8px 24px rgba(0,0,0,.15)',maxWidth:360,display:'flex',alignItems:'center',gap:10}}><span style={{fontSize:20}}>{toast.tipo==='erro'?'❌':'✅'}</span><span style={{fontSize:13,fontWeight:600,color:toast.tipo==='erro'?'#dc2626':'#166534'}}>{toast.msg}</span></div>}
-
       </div>
     </div>
   );
