@@ -173,6 +173,22 @@ export default function EntregasTarefas() {
   const [mGerar,     setMGerar]     = useState(false)
   const [mRelatorio, setMRelatorio] = useState(false)
   const [alertandoIA, setAlertandoIA] = useState(false)
+  const [mVincAvulsa, setMVincAvulsa] = useState(false)
+  const [avulsaForm, setAvulsaForm] = useState({nome:'',departamento:'Fiscal',responsavel:'',vencimento:'',competencia:'',obs:''})
+
+  const executarIAVencimentos = async (listaTarefas,clienteAtual,mesAtual) => {
+    if(!clienteAtual) return; setAlertandoIA(true)
+    const hoje=new Date()
+    const alertas=listaTarefas.filter(t=>!['entregue','dispensada'].includes(t.status)&&t.vencimento&&Math.ceil((new Date(t.vencimento+'T12:00:00')-hoje)/864e5)<=7)
+    if(!alertas.length){setAlertandoIA(false);alert('✅ IA: Nenhuma obrigação vencida ou a vencer nos próximos 7 dias.');return}
+    const API='/api/v1'
+    // Notificação sistema
+    try{const n=JSON.parse(localStorage.getItem('ep_notificacoes')||'[]');n.unshift({id:Date.now(),para:'',titulo:'⚠️ Obrigações a vencer',mensagem:`${clienteAtual.nome}: ${alertas.length} obrigação(ões)`,lida:false,data:new Date().toISOString(),tipo:'vencimento'});localStorage.setItem('ep_notificacoes',JSON.stringify(n.slice(0,50)))}catch{}
+    const msg=`⚠️ *EPimentel — Vencimentos*\n*${clienteAtual.nome}*\n${alertas.map(t=>{const d=Math.ceil((new Date(t.vencimento+'T12:00:00')-hoje)/864e5);return`• ${t.nome}: ${d<0?'⛔ VENCIDA':'📅 '+new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}`}).join('\n')}`
+    if(clienteAtual.whatsapp) try{await fetch(`${API}/comunicados/enviar-wa`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone:clienteAtual.whatsapp,texto:msg})})}catch{}
+    if(clienteAtual.email) try{await fetch(`${API}/comunicados/enviar-email-simples`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destinatario:clienteAtual.email,nome:clienteAtual.nome,assunto:`[EPimentel] ⚠️ ${alertas.length} obrigações a vencer`,html:`<h3>Obrigações a Vencer</h3><ul>${alertas.map(t=>`<li>${t.nome} — ${new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}</li>`).join('')}</ul>`})})}catch{}
+    setAlertandoIA(false); alert(`🤖 IA concluiu! ${alertas.length} obrigação(ões) notificadas.${clienteAtual.whatsapp?' WhatsApp ✅':''}${clienteAtual.email?' E-mail ✅':''} Popup ✅`)
+  }
   const [resultadoAlerta, setResultadoAlerta] = useState('')
   const [modalAlerta, setModalAlerta] = useState(false)
   const [mReverter,  setMReverter]  = useState(null)
@@ -472,9 +488,13 @@ export default function EntregasTarefas() {
                   <button onClick={()=>setModalAlerta(true)} title="Enviar alertas WhatsApp/Email" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #6366f1',background:'#EDE9FF',color:'#6366f1',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                     🔔 Alertar
                   </button>
-                  <button onClick={()=>setMVinc(true)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:`1px solid ${NAVY}`,background:'#fff',color:NAVY,fontSize:12,fontWeight:600,cursor:'pointer'}}>
-                    <Settings size={12}/> Vincular
+                  <button onClick={()=>setMVincAvulsa(true)} title="Vincular obrigação avulsa ao mês" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #22c55e',background:'#f0fdf4',color:'#166534',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                    ➕ Vincular Avulsa
                   </button>
+                  <button onClick={()=>executarIAVencimentos(tarefas,cli,mes)} disabled={alertandoIA} title="IA verifica vencimentos e notifica responsáveis" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #C5A55A',background:alertandoIA?'#f5f5f5':'#FFFBF0',color:alertandoIA?'#aaa':'#854D0E',fontSize:12,fontWeight:700,cursor:alertandoIA?'not-allowed':'pointer'}}>
+                    🤖 {alertandoIA?'Verificando...':'IA Vencimentos'}
+                  </button>
+
                 </div>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#888',marginBottom:4}}>
@@ -783,36 +803,22 @@ export default function EntregasTarefas() {
         />
       )}
 
-      {/* Modal Rastreio */}
+            {/* Modal Rastreio */}
       {mRastreio&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
-          <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:520,maxHeight:'85vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 60px rgba(0,0,0,0.2)'}}>
+          <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:500,boxShadow:'0 24px 60px rgba(0,0,0,0.2)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 20px',borderBottom:'1px solid #f0f0f0'}}>
-              <div><div style={{fontWeight:700,color:NAVY,fontSize:14}}>Rastreio de Acesso</div><div style={{fontSize:11,color:'#999',marginTop:2}}>{mRastreio.nome}</div></div>
+              <div><div style={{fontWeight:700,color:NAVY,fontSize:14}}>📊 Rastreio da Obrigação</div><div style={{fontSize:11,color:'#999',marginTop:2}}>{mRastreio.nome}</div></div>
               <button onClick={()=>setMRastreio(null)} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={18}/></button>
             </div>
-            <div style={{flex:1,overflowY:'auto',padding:'14px 20px'}}>
-              {(mRastreio.visualizacoes||[]).map(v=>{
-                const DI=v.dispositivo.icon||Monitor
-                const isCli=v.usuario.perfil==='Cliente'
-                return <div key={v.id} style={{display:'flex',gap:12,marginBottom:12}}>
-                  <div style={{width:36,height:36,borderRadius:'50%',background:isCli?GOLD:NAVY,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:13,fontWeight:700,color:'#fff'}}>{v.usuario.avatar}</div>
-                  <div style={{flex:1,background:'#f8f9fb',borderRadius:9,padding:'9px 12px',border:'1px solid #f0f0f0'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
-                      <span style={{fontSize:13,fontWeight:700,color:NAVY}}>{v.usuario.nome}</span>
-                      <span style={{fontSize:10,color:'#aaa'}}>{v.data} {v.hora}</span>
-                    </div>
-                    <div style={{fontSize:12,color:'#555',marginBottom:5}}>{v.acao}</div>
-                    <div style={{display:'flex',gap:6}}>
-                      <span style={{fontSize:10,padding:'1px 7px',borderRadius:5,background:'#f0f0f0',color:'#666'}}><DI size={10}/> {v.dispositivo.nome}</span>
-                      <span style={{fontSize:10,padding:'1px 7px',borderRadius:5,background:'#f0f0f0',color:'#666'}}>{v.dispositivo.local}</span>
-                    </div>
-                  </div>
-                </div>
-              })}
-            </div>
-            <div style={{padding:'10px 20px',borderTop:'1px solid #f0f0f0',display:'flex',justifyContent:'flex-end'}}>
-              <button onClick={()=>setMRastreio(null)} style={{padding:'7px 18px',borderRadius:8,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>Fechar</button>
+            <div style={{padding:'20px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
+                {[['Status',mRastreio.status||'Pendente'],['Competência',mpe(mRastreio.competencia)||'—'],['Vencimento',mRastreio.vencimento?new Date(mRastreio.vencimento+'T12:00').toLocaleDateString('pt-BR'):'—'],['Departamento',mRastreio.departamento||'—'],['Responsável',mRastreio.responsavel||'—'],['Protocolo',mRastreio.protocolo||'—']].map(([l,v])=>(
+                  <div key={l} style={{background:'#f8f9fb',borderRadius:8,padding:'10px 12px',border:'1px solid #eee'}}><div style={{fontSize:10,color:'#888',fontWeight:600,textTransform:'uppercase',marginBottom:3}}>{l}</div><div style={{fontSize:13,fontWeight:700,color:NAVY}}>{v}</div></div>
+                ))}
+              </div>
+              {(mRastreio.anexos||[]).length>0?<div style={{marginBottom:14}}><div style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:8}}>📎 Documentos</div>{(mRastreio.anexos||[]).map((a,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',background:'#EBF5FF',borderRadius:7,marginBottom:4}}><span>📄</span><span style={{fontSize:12,color:NAVY,fontWeight:600}}>{a.nome||a}</span></div>)}</div>:<div style={{textAlign:'center',padding:'16px 0',color:'#bbb',fontSize:12}}><div style={{fontSize:28,marginBottom:6}}>📎</div>Nenhum documento anexado</div>}
+              <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}><button onClick={()=>setMRastreio(null)} style={{padding:'7px 18px',borderRadius:8,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>Fechar</button></div>
             </div>
           </div>
         </div>
@@ -1000,6 +1006,37 @@ export default function EntregasTarefas() {
               <div style={{display:'flex',justifyContent:'flex-end',gap:10}}>
                 <button onClick={()=>exportarPDF(cli,mes,tarefas)} style={{padding:'8px 16px',borderRadius:8,background:'#e53935',color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer'}}>📄 PDF</button>
                 <button onClick={()=>setModalAlerta(false)} style={{padding:'8px 18px',borderRadius:8,background:NAVY,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>Fechar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Vincular Obrigação Avulsa */}
+      {mVincAvulsa&&cli&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300}}>
+          <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:500,boxShadow:'0 16px 48px rgba(0,0,0,.2)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 20px',borderBottom:'1px solid #f0f0f0'}}>
+              <div><div style={{fontWeight:700,color:NAVY,fontSize:14}}>➕ Vincular Obrigação Avulsa</div><div style={{fontSize:11,color:'#999',marginTop:2}}>{cli.nome}</div></div>
+              <button onClick={()=>setMVincAvulsa(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={16}/></button>
+            </div>
+            <div style={{padding:'16px 20px'}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                <div style={{gridColumn:'1/-1'}}><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Nome da Obrigação *</label><input value={avulsaForm.nome} onChange={e=>setAvulsaForm(f=>({...f,nome:e.target.value}))} placeholder="Ex: DCTF Avulsa, Declaração Especial..." style={{width:'100%',padding:'8px 12px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13,boxSizing:'border-box'}}/></div>
+                <div><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Departamento</label><select value={avulsaForm.departamento} onChange={e=>setAvulsaForm(f=>({...f,departamento:e.target.value}))} style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13}}>{['Fiscal','Pessoal','Contábil','Bancos','Societário'].map(d=><option key={d}>{d}</option>)}</select></div>
+                <div><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Responsável</label><input value={avulsaForm.responsavel} onChange={e=>setAvulsaForm(f=>({...f,responsavel:e.target.value}))} placeholder="Nome do responsável" style={{width:'100%',padding:'8px 12px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13,boxSizing:'border-box'}}/></div>
+                <div><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Data de Vencimento</label><input type="date" value={avulsaForm.vencimento} onChange={e=>setAvulsaForm(f=>({...f,vencimento:e.target.value}))} style={{width:'100%',padding:'8px 12px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13}}/></div>
+                <div><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Competência</label><input type="month" value={avulsaForm.competencia||mes} onChange={e=>setAvulsaForm(f=>({...f,competencia:e.target.value}))} style={{width:'100%',padding:'8px 12px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13}}/></div>
+              </div>
+              <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                <button onClick={()=>setMVincAvulsa(false)} style={{padding:'8px 18px',borderRadius:8,background:'#f5f5f5',color:'#555',fontWeight:600,fontSize:13,border:'none',cursor:'pointer'}}>Cancelar</button>
+                <button onClick={()=>{
+                  if(!avulsaForm.nome.trim()){alert('Informe o nome.');return}
+                  const nova={id:Date.now(),nome:avulsaForm.nome,departamento:avulsaForm.departamento,responsavel:avulsaForm.responsavel||'Eduardo Pimentel',vencimento:avulsaForm.vencimento,competencia:avulsaForm.competencia||mes,status:'pendente',avulsa:true,passivel_multa:false,protocolo:'',anexos:[],visualizacoes:[],gerado_em:new Date().toISOString()}
+                  setTarefas(prev=>[...prev,nova])
+                  setAvulsaForm({nome:'',departamento:'Fiscal',responsavel:'',vencimento:'',competencia:'',obs:''})
+                  setMVincAvulsa(false); alert('✅ Obrigação avulsa vinculada!')
+                }} style={{padding:'8px 20px',borderRadius:8,background:'#22c55e',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>✅ Vincular</button>
               </div>
             </div>
           </div>
