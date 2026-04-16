@@ -153,6 +153,28 @@ function BotaoNotificacoes({ usuario }) {
   )
 }
 
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError:false, error:null }; }
+  static getDerivedStateFromError(e) { return {hasError:true,error:e}; }
+  componentDidCatch(e,i) { console.error('ErrorBoundary:',e,i); }
+  render() {
+    if(this.state.hasError) return (
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100vh',background:'#f8f9fa',padding:32,textAlign:'center'}}>
+        <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+        <h2 style={{color:'#1B2A4A',marginBottom:8}}>Algo deu errado</h2>
+        <p style={{color:'#666',marginBottom:4,maxWidth:400}}>{String(this.state.error?.message||'').slice(0,120)}</p>
+        <p style={{color:'#aaa',fontSize:12,marginBottom:24}}>Seus dados estão seguros no localStorage</p>
+        <button onClick={()=>{this.setState({hasError:false,error:null});window.location.reload();}}
+          style={{background:'#1B2A4A',color:'#fff',border:'none',borderRadius:8,padding:'10px 24px',cursor:'pointer',fontWeight:700,fontSize:14,marginBottom:10}}>🔄 Recarregar</button>
+        <button onClick={()=>this.setState({hasError:false,error:null})}
+          style={{background:'none',border:'1px solid #ddd',color:'#666',borderRadius:8,padding:'8px 20px',cursor:'pointer',fontSize:13}}>Tentar novamente</button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const [page, setPage]           = useState('dashboard')
   const [usuario, setUsuario]     = useState(null)
@@ -333,6 +355,7 @@ export default function App() {
 
   // ── App ────────────────────────────────────────────────────────────────────
   return (
+    <ErrorBoundary>
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', fontFamily:"'Sora','Inter',system-ui,sans-serif" }}>
 
       {/* Sidebar */}
@@ -478,5 +501,6 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background:rgba(0,0,0,.15); border-radius:10px; }
       `}</style>
     </div>
+    </ErrorBoundary>
   )
 }
