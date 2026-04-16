@@ -507,6 +507,9 @@ function TabObrigacoes() {
 // ── TAB USUÁRIOS ──────────────────────────────────────────────────────────────
 function TabUsuarios({ departamentos }) {
   const [usuarios, setUsuarios] = useState(() => { try { return JSON.parse(localStorage.getItem("ep_usuarios")||"[]"); } catch { return []; } });
+  const [buscaAdmin, setBuscaAdmin] = useState('');
+  const [mostrarAdmin, setMostrarAdmin] = useState(false);
+  const usuariosAdmin = (()=>{ try{ const u1=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]'); const ids=new Set(usuarios.map(u=>u.nome)); return u1.filter(u=>!ids.has(u.nome)&&u.ativo!==false); }catch{return []} })();
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({ nome:"",email:"",whatsapp:"",departamento:"",perfil:"operador",ativo:true,senha:"" });
@@ -522,10 +525,27 @@ function TabUsuarios({ departamentos }) {
     <div>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
         <h3 style={{ color:NAVY,margin:0 }}>Usuários do Sistema</h3>
-        <button onClick={()=>abrir()} style={{ background:NAVY,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13 }}>+ Novo Usuário</button>
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>setMostrarAdmin(v=>!v)} style={{background:mostrarAdmin?'#EBF5FF':'#f5f5f5',color:mostrarAdmin?'#1D6FA4':'#555',border:'1px solid #ddd',borderRadius:8,padding:'8px 14px',cursor:'pointer',fontWeight:600,fontSize:13}}>
+            🔍 Importar do Admin{usuariosAdmin.length>0&&<span style={{marginLeft:4,background:'#1D6FA4',color:'#fff',borderRadius:10,fontSize:10,padding:'1px 6px'}}>{usuariosAdmin.length}</span>}
+          </button>
+          <button onClick={()=>abrir()} style={{ background:NAVY,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13 }}>+ Novo Usuário</button>
+        </div>
       </div>
       <div style={{ background:"#fff",borderRadius:10,overflow:"hidden",border:"1px solid #eee" }}>
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
+          {mostrarAdmin&&<div style={{marginBottom:12,padding:14,background:'#EBF5FF',borderRadius:10,border:'1px solid #c7d2fe'}}>
+            <div style={{fontWeight:700,color:'#1D6FA4',fontSize:13,marginBottom:8}}>👥 Usuários do Admin para importar:</div>
+            <input value={buscaAdmin} onChange={e=>setBuscaAdmin(e.target.value)} placeholder="Buscar..." style={{...inputStyle,marginBottom:8,maxWidth:280}}/>
+            {usuariosAdmin.length===0?<div style={{color:'#888',fontSize:13}}>Todos já importados.</div>:
+            usuariosAdmin.filter(u=>!buscaAdmin||u.nome.toLowerCase().includes(buscaAdmin.toLowerCase())).slice(0,8).map(u=>(
+              <div key={u.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 10px',background:'#fff',borderRadius:7,border:'1px solid #ddd',marginBottom:5}}>
+                <div style={{width:30,height:30,borderRadius:'50%',background:NAVY,color:GOLD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0}}>{u.nome[0]}</div>
+                <div style={{flex:1}}><div style={{fontWeight:700,color:NAVY,fontSize:12}}>{u.nome}</div><div style={{fontSize:11,color:'#888'}}>{u.email||'—'}</div></div>
+                <button onClick={()=>{const n={id:Date.now(),nome:u.nome,email:u.email||'',whatsapp:u.whatsapp||'',departamento:u.departamento||'',perfil:u.perfil==='admin'?'admin':'operador',ativo:true,senha:''};const l=[...usuarios,n];setUsuarios(l);localStorage.setItem('ep_usuarios',JSON.stringify(l));alert('✅ '+u.nome+' importado!');}} style={{padding:'4px 10px',borderRadius:7,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}}>Importar</button>
+              </div>
+            ))}
+          </div>}
           <thead><tr style={{ background:NAVY }}>{["Nome","E-mail","WhatsApp","Departamento","Perfil","Status",""].map(h=><th key={h} style={{ color:"#fff",padding:"10px 14px",textAlign:"left",fontSize:12 }}>{h}</th>)}</tr></thead>
           <tbody>
             {usuarios.length===0 && <tr><td colSpan={7} style={{ padding:24,textAlign:"center",color:"#999",fontSize:13 }}>Nenhum usuário.</td></tr>}
@@ -618,9 +638,13 @@ function TabDepartamentos() {
 function TabEnvio() {
   const [templates, setTemplates] = useState(() => {
     try { return JSON.parse(localStorage.getItem("ep_templates_envio")||"null") || [
-      { id:1,tipo:"whatsapp",nome:"Vencimento Próximo",assunto:"",corpo:"Olá {cliente_nome}! 👋\n\nA obrigação *{obrigacao}* vence em *{vencimento}*.\n\nEPimentel Auditoria & Contabilidade",ativo:true },
-      { id:2,tipo:"whatsapp",nome:"Obrigação Entregue",assunto:"",corpo:"Olá {cliente_nome}! ✅\n\n*{obrigacao}* competência *{competencia}* entregue.\n\nEPimentel Auditoria & Contabilidade",ativo:true },
-      { id:3,tipo:"email",nome:"Envio de Documentos",assunto:"EPimentel | {obrigacao} - {competencia}",corpo:"Prezado(a) {cliente_nome},\n\nEncaminhamos os documentos referentes à obrigação {obrigacao}, competência {competencia}.\n\nAtenciosamente,\nEPimentel Auditoria & Contabilidade",ativo:true },
+      {id:1,tipo:"whatsapp",nome:"Vencimento Próximo (7 dias)",assunto:"",corpo:"Olá {cliente_nome}! 👋\n\nA obrigação *{obrigacao}* vence em *{vencimento}*.\n\nProvidencia os documentos necessários.\n\n_EPimentel Auditoria & Contabilidade_",ativo:true},
+      {id:2,tipo:"whatsapp",nome:"Obrigação Entregue",assunto:"",corpo:"Olá {cliente_nome}! ✅\n\n*{obrigacao}* competência *{competencia}* processada e entregue.\n\n_EPimentel Auditoria & Contabilidade_",ativo:true},
+      {id:3,tipo:"whatsapp",nome:"⚠️ URGENTE — Vence Hoje",assunto:"",corpo:"⚠️ *URGENTE* — {cliente_nome}\n\n*{obrigacao}* vence *HOJE* ({vencimento}).\n\nContato: (62) 9 9907-2483\n\n_EPimentel Auditoria & Contabilidade_",ativo:true},
+      {id:4,tipo:"whatsapp",nome:"Solicitação de Documentos",assunto:"",corpo:"Olá {cliente_nome}! 📋\n\nPara *{obrigacao}* (competência {competencia}), precisamos:\n• Extrato bancário\n• Notas fiscais\n\nPrazo: {vencimento}\n\n_EPimentel Auditoria & Contabilidade_",ativo:true},
+      {id:5,tipo:"email",nome:"Envio de Documentos",assunto:"EPimentel | {obrigacao} - {competencia}",corpo:"Prezado(a) {cliente_nome},\n\nEncaminhamos os documentos de {obrigacao}, competência {competencia}.\n\nAtenciosamente,\nEPimentel Auditoria & Contabilidade\n(62) 9 9907-2483",ativo:true},
+      {id:6,tipo:"email",nome:"Alerta de Vencimento",assunto:"⚠️ {obrigacao} vence em {vencimento}",corpo:"Prezado(a) {cliente_nome},\n\n{obrigacao} (competência {competencia}) vence em {vencimento}.\n\nProvidencia os documentos para evitar multas.\n\nAtenciosamente,\nEPimentel Auditoria & Contabilidade",ativo:true},
+      {id:7,tipo:"email",nome:"Relatório Mensal",assunto:"EPimentel | Resumo — {competencia}",corpo:"Prezado(a) {cliente_nome},\n\nResumo das obrigações de {competencia}:\n{obrigacao}\n\nQualquer dúvida, estamos à disposição.\n\nEPimentel Auditoria & Contabilidade",ativo:true},
     ]; } catch { return []; }
   });
   const [modal, setModal] = useState(false);
