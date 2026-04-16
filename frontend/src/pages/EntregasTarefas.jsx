@@ -14,7 +14,7 @@ const PERFIS = {
   Assistente:   { editar:false, excluir:false, renomear:false, entregar:true,  enviar:false, anexar:true,  reverter:false },
   Visualizador: { editar:false, excluir:false, renomear:false, entregar:false, enviar:false, anexar:false, reverter:false },
 }
-const USUARIO = { nome:'Eduardo Pimentel', perfil:'Administrador' }
+const USUARIO = (()=>{ try{ const u=JSON.parse(localStorage.getItem('usuario')||'null'); if(u?.nome) return {nome:u.nome,perfil:u.cargo==='Administrador'||u.perfil==='admin'?'Administrador':'Contador'}; const a=JSON.parse(localStorage.getItem('epimentel_usuarios')||'[]').find(x=>x.ativo!==false); if(a) return {nome:a.nome,perfil:a.perfil==='admin'?'Administrador':'Contador'}; }catch{} return {nome:'Eduardo Pimentel',perfil:'Administrador'}; })()
 const PERM = PERFIS[USUARIO.perfil]
 
 const DCORES = {
@@ -127,6 +127,7 @@ function gerarMensagemAlerta(cliente, tarefas, mes) {
     + 'EPimentel Auditoria & Contabilidade - CRC/GO 026.994/O-8'
 }
 
+const getDeptFromCatalog = (codigo) => { try{ const cfg=JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'{}'); for(const arr of Object.values(cfg)){ const o=arr.find(x=>x.codigo===codigo); if(o?.departamento) return o.departamento; } }catch{} return null; }
 const DEPT_MAP = {
   'DAS':'Fiscal','DEFIS':'Fiscal','PGDAS-D':'Fiscal','DAS-MEI':'Fiscal','DASN-SIMEI':'Fiscal',
   'DARF-IRPJ':'Fiscal','DARF-CSLL':'Fiscal','PIS-LP':'Fiscal','COFINS-LP':'Fiscal',
@@ -231,7 +232,7 @@ export default function EntregasTarefas() {
     }).catch(()=>{})
   },[])
 
-  useEffect(()=>{ if(cli) gerar() },[cli,mes,vinc])
+  useEffect(()=>{ if(cli) gerar() },[cli,mes])
 
   // ── Carrega obrigações do ep_tarefas_entregas (geradas via GerarObrigacoes) ─
   const gerar = () => {
@@ -251,8 +252,8 @@ export default function EntregasTarefas() {
           _origem: 'catalogo',
           nome: t.obrigacao,
           codigo: t.codigo,
-          departamento: DEPT_MAP[t.codigo] || 'Fiscal',
-          responsavel: 'Eduardo Pimentel',
+          departamento: getDeptFromCatalog(t.codigo) || DEPT_MAP[t.codigo] || t.departamento || 'Fiscal',
+          responsavel: t.responsavel || USUARIO.nome,
           status: t.status === 'Entregue' ? 'entregue' : 'pendente',
           data_entrega: t.data_entrega || null,
           entregue_por: t.entregue_por || null,
@@ -484,7 +485,7 @@ export default function EntregasTarefas() {
                   <button onClick={()=>setModalAlerta(true)} title="Enviar alertas WhatsApp/Email" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #6366f1',background:'#EDE9FF',color:'#6366f1',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                     🔔 Alertar
                   </button>
-                  {isAdmin&&selecionadas.length>0&&<button type="button" onClick={()=>{if(!confirm(`Excluir ${selecionadas.length} obrigação(ões)? Não pode ser desfeito.`)) return;setTarefas(p=>p.filter(t=>!selecionadas.includes(t.id)));setSelecionadas([])}} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #dc2626',background:'#FEF2F2',color:'#dc2626',fontSize:12,fontWeight:700,cursor:'pointer'}}>🗑️ Excluir {selecionadas.length}</button>}
+                  {isAdmin&&selecionadas.length>0&&<button type="button" onClick={()=>{if(!confirm(`Excluir ${selecionadas.length} obrigação(ões)? Não pode ser desfeito.`)) return;try{const todas=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]');localStorage.setItem('ep_tarefas_entregas',JSON.stringify(todas.filter(t=>!selecionadas.includes(t.id))));const ex=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]');selecionadas.forEach(id=>{if(!ex.includes(String(id)))ex.push(String(id))});localStorage.setItem('ep_tarefas_excluidas',JSON.stringify(ex));}catch{}setTarefas(p=>p.filter(t=>!selecionadas.includes(t.id)));setSelecionadas([])}} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #dc2626',background:'#FEF2F2',color:'#dc2626',fontSize:12,fontWeight:700,cursor:'pointer'}}>🗑️ Excluir {selecionadas.length}</button>}
                   <button onClick={()=>setMVincAvulsa(true)} title="Vincular obrigação avulsa ao mês" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #22c55e',background:'#f0fdf4',color:'#166534',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                     ➕ Vincular Avulsa
                   </button>
