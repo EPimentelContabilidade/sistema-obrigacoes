@@ -586,23 +586,46 @@ function TabUsuarios({ departamentos }) {
 
 // ── TAB DEPARTAMENTOS ─────────────────────────────────────────────────────────
 function TabDepartamentos() {
-  const [deps, setDeps] = useState(() => { try { return JSON.parse(localStorage.getItem("ep_departamentos")||"null") || DEPARTAMENTOS_PADRAO; } catch { return DEPARTAMENTOS_PADRAO; } });
+  const carregarDeps = () => {
+    try {
+      const adminStr = JSON.parse(localStorage.getItem('ep_departamentos_admin')||'null');
+      if(adminStr && adminStr.length>0){
+        const saved = JSON.parse(localStorage.getItem('ep_departamentos')||'[]');
+        const CORES=['#2196F3','#4CAF50','#FF9800','#9C27B0','#E91E63','#2563eb','#16a34a','#db2777'];
+        return adminStr.map((nome,i)=>saved.find(d=>d.nome===nome)||{id:i+1,nome,cor:CORES[i%CORES.length],responsavel:''});
+      }
+      return JSON.parse(localStorage.getItem('ep_departamentos')||'null')||DEPARTAMENTOS_PADRAO;
+    } catch{return DEPARTAMENTOS_PADRAO;}
+  };
+  const [deps, setDeps] = useState(carregarDeps);
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState({ nome:"",cor:"#1B2A4A",responsavel:"" });
 
   const salvar = () => {
     const lista = editando ? deps.map(d=>d.id===editando.id?{...d,...form}:d) : [...deps,{...form,id:Date.now()}];
-    setDeps(lista); localStorage.setItem("ep_departamentos",JSON.stringify(lista)); setModal(false);
+    setDeps(lista);
+    localStorage.setItem('ep_departamentos', JSON.stringify(lista));
+    localStorage.setItem('ep_departamentos_admin', JSON.stringify(lista.map(d=>d.nome)));
+    setModal(false);
   };
-  const excluir = id => { if(!confirm("Excluir?")) return; const l=deps.filter(d=>d.id!==id); setDeps(l); localStorage.setItem("ep_departamentos",JSON.stringify(l)); };
+  const excluir = id => {
+    if(!confirm('Excluir?')) return;
+    const l=deps.filter(d=>d.id!==id);
+    setDeps(l);
+    localStorage.setItem('ep_departamentos',JSON.stringify(l));
+    localStorage.setItem('ep_departamentos_admin',JSON.stringify(l.map(d=>d.nome)));
+  };
   const abrir = (d=null) => { setEditando(d); setForm(d?{nome:d.nome,cor:d.cor,responsavel:d.responsavel||""}:{nome:"",cor:"#1B2A4A",responsavel:""}); setModal(true); };
 
   return (
     <div>
-      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
-        <h3 style={{ color:NAVY,margin:0 }}>Departamentos</h3>
-        <button onClick={()=>abrir()} style={{ background:NAVY,color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",cursor:"pointer",fontWeight:700,fontSize:13 }}>+ Novo</button>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div>
+          <h3 style={{color:NAVY,margin:0}}>Departamentos</h3>
+          {(()=>{try{const a=JSON.parse(localStorage.getItem('ep_departamentos_admin')||'null');return a&&a.length>0&&<div style={{fontSize:11,color:'#2563eb',marginTop:3,fontWeight:600}}>🔗 Sincronizado com Painel Admin ({a.length})</div>;}catch{}return null;})()}
+        </div>
+        <button onClick={()=>abrir()} style={{background:NAVY,color:'#fff',border:'none',borderRadius:8,padding:'8px 18px',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Novo</button>
       </div>
       <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14 }}>
         {deps.map(d=>(
@@ -701,7 +724,17 @@ function TabEnvio() {
 // ── MAIN ──────────────────────────────────────────────────────────────────────
 export default function ConfiguracoesTarefas() {
   const [aba, setAba] = useState("obrigacoes");
-  const [departamentos] = useState(() => { try { return JSON.parse(localStorage.getItem("ep_departamentos")||"null") || DEPARTAMENTOS_PADRAO; } catch { return DEPARTAMENTOS_PADRAO; } });
+  const [departamentos] = useState(() => {
+    try {
+      const adminStr = JSON.parse(localStorage.getItem('ep_departamentos_admin')||'null');
+      if(adminStr&&adminStr.length>0){
+        const saved=JSON.parse(localStorage.getItem('ep_departamentos')||'[]');
+        const CORES=['#2196F3','#4CAF50','#FF9800','#9C27B0','#E91E63','#2563eb','#16a34a','#db2777'];
+        return adminStr.map((nome,i)=>saved.find(d=>d.nome===nome)||{id:i+1,nome,cor:CORES[i%CORES.length],responsavel:''});
+      }
+      return JSON.parse(localStorage.getItem('ep_departamentos')||'null')||DEPARTAMENTOS_PADRAO;
+    }catch{return DEPARTAMENTOS_PADRAO;}
+  });
 
   const ABAS = [
     { id:"obrigacoes", label:"📋 Obrigações por Regime" },
