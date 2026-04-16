@@ -61,7 +61,7 @@ function iconeDoc(tipo='') {
 const FORM_VAZIO = {
   titulo:'', conteudo:'', resumo:'', urgencia:'normal', departamento:'Geral',
   responsavel:'', canal:'email', tipo:'externo',
-  cliente_ids:[], emails_extra:[], processo_ids:[],
+  cliente_ids:[], emails_extra:[], whatsapps_extra:[], processo_ids:[],
   usa_dominio_proprio:false, assinatura_personalizada:'',
 }
 
@@ -276,7 +276,8 @@ function SecaoDocumentos({ comId, modoLeitura }) {
   )
 }
 
-function SeletorProcessos({ selectedIds, onChange }) {
+function SeletorProcessos({ selectedIds: rawSelectedIds, onChange }) {
+  const selectedIds = Array.isArray(rawSelectedIds) ? rawSelectedIds : []
   const [processos, setProcessos] = useState([])
   const [busca, setBusca] = useState('')
   useEffect(()=>{ try{ setProcessos(JSON.parse(localStorage.getItem('ep_processos')||'[]')) }catch{} },[])
@@ -342,6 +343,7 @@ export default function Comunicados() {
   const [editandoId, setEditandoId] = useState(null)
   const [clienteBusca, setClienteBusca] = useState('')
   const [emailAvulso, setEmailAvulso]   = useState('')
+  const [whatsappAvulso, setWhatsappAvulso] = useState('')
   const [enviando, setEnviando]     = useState(false)
   const [salvando, setSalvando]     = useState(false)
   const [gerandoResumo, setGerandoResumo] = useState(false)
@@ -520,6 +522,10 @@ export default function Comunicados() {
   const addEmail = () => {
     if (emailAvulso?.includes('@')) { setF('emails_extra',[...form.emails_extra,emailAvulso.trim()]); setEmailAvulso('') }
   }
+  const addWhatsApp = () => {
+    const n = whatsappAvulso.trim()
+    if (n.length >= 8) { setF('whatsapps_extra',[...(form.whatsapps_extra||[]),n]); setWhatsappAvulso('') }
+  }
 
   // ── Salvar sem enviar (com fallback localStorage) ─────────────────────────
   const salvar = async () => {
@@ -690,7 +696,7 @@ export default function Comunicados() {
     setSmtpSalvo(true); setTimeout(()=>setSmtpSalvo(false),2000)
   }
 
-  const cancelarForm = () => { setForm({...FORM_VAZIO}); setEditandoId(null); setUploadPendente([]); setAba('lista') }
+  const cancelarForm = () => { setForm({...FORM_VAZIO}); setEditandoId(null); setUploadPendente([]); setEmailAvulso(''); setWhatsappAvulso(''); setAba('lista') }
 
   const stats = {
     total:     comunicados.length,
