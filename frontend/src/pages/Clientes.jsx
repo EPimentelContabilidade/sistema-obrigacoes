@@ -942,7 +942,7 @@ export default function Clientes() {
                     <Save size={14}/> Salvar
                   </button>
                   {ABA_TABS.findIndex(a=>a.id===abaForm)<ABA_TABS.length-1&&(
-                    <button onClick={()=>{ salvar(); setAbaForm(ABA_TABS[ABA_TABS.findIndex(a=>a.id===abaForm)+1].id) }} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:NAVY, color:'#fff', fontSize:12, fontWeight:600, border:'none', cursor:'pointer' }}>
+                    <button onClick={()=>{ salvar(); setTimeout(()=>setAbaForm(ABA_TABS[ABA_TABS.findIndex(a=>a.id===abaForm)+1].id),100) }} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:NAVY, color:'#fff', fontSize:12, fontWeight:600, border:'none', cursor:'pointer' }}>
                       Próximo <ChevronRight size={14}/>
                     </button>
                   )}
