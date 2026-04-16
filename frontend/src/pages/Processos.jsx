@@ -227,8 +227,9 @@ function ModalTemplate({ template, onSave, onClose }) {
   const [subtarefaEtapa, setSubtarefaEtapa] = useState(null);
   const addSubtarefa = (ei) => {
     if(!novaSubtarefa.trim()) return;
-    const arr=[...form.etapas]; arr[ei]={...arr[ei],subtarefas:[...(arr[ei].subtarefas||[]),{desc:novaSubtarefa.trim()}]};
-    setForm(f=>({...f,etapas:arr})); setNovaSubtarefa("");
+    const _desc=novaSubtarefa.trim();
+    setForm(f=>{const arr=[...f.etapas];arr[ei]={...arr[ei],subtarefas:[...(arr[ei].subtarefas||[]),{desc:_desc,concluida:false}]};return{...f,etapas:arr}});
+    setNovaSubtarefa("");
   };
   const removeSubtarefa = (ei,si) => {
     const arr=[...form.etapas]; arr[ei]={...arr[ei],subtarefas:(arr[ei].subtarefas||[]).filter((_,idx)=>idx!==si)};
@@ -957,6 +958,27 @@ function TabProcessos({ templates }) {
                           {a.tipo?.startsWith("image/")?"🖼️":"📎"} {a.nome}
                         </span>
                       ))}
+                      </div>
+                    )}
+                    {(e.subtarefas||[]).length>0&&(
+                      <div style={{marginTop:6,padding:'6px 10px',background:'#F8FAFF',borderRadius:7,border:'1px solid #E8EEFF'}}>
+                        <div style={{fontSize:10,fontWeight:700,color:NAVY,marginBottom:4}}>
+                          ✅ Subtarefas <span style={{fontSize:9,color:'#888',fontWeight:400}}>({(e.subtarefas||[]).filter(s=>s.concluida).length}/{(e.subtarefas||[]).length})</span>
+                        </div>
+                        {(e.subtarefas||[]).map((s,si)=>(
+                          <div key={si} onClick={()=>{
+                            const lista=processos.map(p=>{
+                              if(p.id!==selecionado.id)return p;
+                              return {...p,etapas:p.etapas.map(et=>et.id!==e.id?et:{...et,subtarefas:(et.subtarefas||[]).map((sb,idx)=>idx===si?{...sb,concluida:!sb.concluida}:sb)})};
+                            });
+                            salvarProcessos(lista);setSelecionado(lista.find(p=>p.id===selecionado.id));
+                          }} style={{display:'flex',alignItems:'center',gap:7,padding:'3px 0',cursor:'pointer'}}>
+                            <div style={{width:14,height:14,borderRadius:3,border:`1.5px solid ${s.concluida?'#4CAF50':'#ccc'}`,background:s.concluida?'#4CAF50':'#fff',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                              {s.concluida&&<span style={{color:'#fff',fontSize:9,fontWeight:900}}>✓</span>}
+                            </div>
+                            <span style={{fontSize:11,color:s.concluida?'#aaa':'#444',textDecoration:s.concluida?'line-through':'none'}}>{s.desc}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
