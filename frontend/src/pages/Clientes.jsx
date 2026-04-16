@@ -108,14 +108,21 @@ const cTrib = (t) => { const [bg,c]=(cores_trib[t]||'#f5f5f5:#666').split(':'); 
 
 function SenhaInput({ value, onChange, placeholder='••••••••', disabled, ...props }) {
   const [show, setShow] = useState(false)
+  const ref = useRef(null)
+  useEffect(()=>{
+    if(ref.current&&ref.current.value&&!value){const s=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;s.call(ref.current,'');ref.current.dispatchEvent(new Event('input',{bubbles:true}))}
+  },[])
   return (
     <div style={{ position:'relative' }}>
       <input
+        ref={ref}
         type={show?'text':'password'}
-        value={value}
+        value={value||''}
         onChange={onChange}
         placeholder={placeholder}
-        autoComplete="off"
+        disabled={disabled}
+        autoComplete="new-password"
+        readOnly={false}
         style={{ ...inp, paddingRight:36, ...props.style }}
       />
       <button type="button" onClick={()=>setShow(s=>!s)} style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'#aaa' }}>
@@ -273,7 +280,10 @@ export default function Clientes() {
     }
     // cert_b64 salvo em chave separada para não estourar localStorage
     const certB64 = form.credenciais?.cert_b64 || ''
-    if (certB64 && novoId) localStorage.setItem(`ep_cert_${novoId}`, certB64)
+    if (certB64 && novoId) {
+      localStorage.setItem(`ep_cert_${novoId}`, certB64)
+      if(form.credenciais?.cert_senha) localStorage.setItem(`ep_cert_senha_${novoId}`, form.credenciais.cert_senha)
+    }
     const credsSemB64 = { ...(form.credenciais||{}), cert_b64: '' }
     const novoCliente = { ...form, id:novoId, seq:novoSeq, ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:{...CREDS_VAZIO,...credsSemB64}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
     let novaLista = []
@@ -307,7 +317,8 @@ export default function Clientes() {
   const nova = () => { setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setCnpjDados(null); setAba('cadastro'); setAbaForm('dados') }
   const editar = (cli) => {
     const certB64Salvo = localStorage.getItem(`ep_cert_${cli.id}`) || cli.credenciais?.cert_b64 || ''
-    const credsComB64 = { ...CREDS_VAZIO, ...(cli.credenciais||{}), cert_b64: certB64Salvo }
+    const certSenhaSalva = localStorage.getItem(`ep_cert_senha_${cli.id}`) || cli.credenciais?.cert_senha || ''
+    const credsComB64 = { ...CREDS_VAZIO, ...(cli.credenciais||{}), cert_b64: certB64Salvo, cert_senha: certSenhaSalva }
     setForm({ ...FORM_VAZIO, ...cli, obrigacoes_vinculadas:cli.obrigacoes_vinculadas||[], credenciais:credsComB64, responsaveis:cli.responsaveis||[], contatos:cli.contatos?.length?cli.contatos:[{nome:'',email:'',whatsapp:'',tipo:'principal'}], ativo:cli.ativo!==false, tributacao:cli.tributacao||cli.regime||'' })
     setEditId(cli.id); setCnpjDados(null); setAba('cadastro'); setAbaForm('dados')
   }
@@ -854,6 +865,16 @@ export default function Clientes() {
                       </CampoLabel>
                     </div>
                     <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                      <button type="button" onClick={()=>{
+                        if(!editId){alert('Salve o cliente primeiro.');return}
+                        const b64=form.credenciais?.cert_b64||''
+                        if(b64) localStorage.setItem(`ep_cert_${editId}`,b64)
+                        if(form.credenciais?.cert_senha) localStorage.setItem(`ep_cert_senha_${editId}`,form.credenciais.cert_senha)
+                        const upd={...clientes.find(x=>x.id===editId),credenciais:{...CREDS_VAZIO,...form.credenciais,cert_b64:''}}
+                        const lista=clientes.map(x=>x.id===editId?upd:x)
+                        localStorage.setItem('ep_clientes',JSON.stringify(lista));setClientes(lista)
+                        alert('✅ Credenciais salvas!')
+                      }} style={{padding:'7px 16px',borderRadius:8,background:'#4CAF50',color:'#fff',fontSize:12,fontWeight:700,border:'none',cursor:'pointer',marginRight:8}}>💾 Salvar Credenciais</button>
                       <button style={{ padding:'7px 16px', borderRadius:8, background:'#00BCD4', color:'#fff', fontSize:12, fontWeight:700, border:'none', cursor:'pointer' }}>🛒 Comprar / Renovar Certificado</button>
                     </div>
                   </CredSection>
