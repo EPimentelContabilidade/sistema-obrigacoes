@@ -137,13 +137,9 @@ const DEPT_MAP = {
   'SPED-CONT':'Contábil','ECF':'Contábil','LALUR':'Contábil','SPED-CONT-LP':'Contábil',
   'BLOCO-B':'Contábil','POC':'Contábil',
 }
+// gerarRastreio removido (dados fictícios)
 
-const gerarRastreio = (id) => {
-  const us = [{nome:'Eduardo Pimentel',perfil:'Contador',avatar:'E'},{nome:'Maria Santos',perfil:'Cliente',avatar:'M'},{nome:'João Silva',perfil:'Cliente',avatar:'J'}]
-  const ac = ['Visualizou a tarefa','Abriu o documento','Confirmou recebimento','Baixou o arquivo']
-  const dv = [{nome:'Chrome · Windows',icon:Monitor,local:'Goiânia, GO'},{nome:'Safari · iPhone',icon:Smartphone,local:'Goiânia, GO'},{nome:'Firefox · Windows',icon:Monitor,local:'Goiânia, GO'}]
-  return Array.from({length:(String(id).length%3)+1},(_,i)=>({id:i,usuario:us[i%3],dispositivo:dv[i%3],acao:ac[i%4],data:`0${i+1}/04/2026`,hora:`${9+i*3}:${i*15%60<10?'0':''}${i*15%60}`,ip:`191.${10+i}.${20+i}.${30+i}`}))
-}
+
 
 const mpe = (mes) => {
   if(!mes) return ''
@@ -174,6 +170,8 @@ export default function EntregasTarefas() {
   const [mRelatorio, setMRelatorio] = useState(false)
   const [alertandoIA, setAlertandoIA] = useState(false)
   const [mVincAvulsa, setMVincAvulsa] = useState(false)
+  const [selecionadas, setSelecionadas] = useState([])
+  const isAdmin = USUARIO.perfil === 'Administrador'
   const [avulsaForm, setAvulsaForm] = useState({nome:'',departamento:'Fiscal',responsavel:'',vencimento:'',competencia:'',obs:''})
 
   const executarIAVencimentos = async (listaTarefas,clienteAtual,mesAtual) => {
@@ -264,8 +262,7 @@ export default function EntregasTarefas() {
           passivel_multa: t.passivel_multa || false,
           vencimento: t.vencimento,
           dia_vencimento: t.vencimento ? parseInt(t.vencimento.split('-')[2]) : 20,
-          competencia: t.competencia,
-          visualizacoes: gerarRastreio(t.id || Math.random()),
+          competencia: t.competencia),
           anexos: t.anexos || [],
           historico: t.historico || [],
         }))
@@ -288,8 +285,7 @@ export default function EntregasTarefas() {
             departamento: o.departamento || 'Fiscal',
             responsavel: o.responsavel || 'Eduardo Pimentel',
             status: 'pendente', data_entrega: null, entregue_por: null,
-            enviado: false, robo_ok: false,
-            visualizacoes: gerarRastreio(o.id || i), anexos: [],
+            enviado: false, robo_ok: false, anexos: [],
           })))
           return
         }
@@ -488,6 +484,7 @@ export default function EntregasTarefas() {
                   <button onClick={()=>setModalAlerta(true)} title="Enviar alertas WhatsApp/Email" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #6366f1',background:'#EDE9FF',color:'#6366f1',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                     🔔 Alertar
                   </button>
+                  {isAdmin&&selecionadas.length>0&&<button type="button" onClick={()=>{if(!confirm(`Excluir ${selecionadas.length} obrigação(ões)? Não pode ser desfeito.`)) return;setTarefas(p=>p.filter(t=>!selecionadas.includes(t.id)));setSelecionadas([])}} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #dc2626',background:'#FEF2F2',color:'#dc2626',fontSize:12,fontWeight:700,cursor:'pointer'}}>🗑️ Excluir {selecionadas.length}</button>}
                   <button onClick={()=>setMVincAvulsa(true)} title="Vincular obrigação avulsa ao mês" style={{display:'flex',alignItems:'center',gap:5,padding:'5px 12px',borderRadius:7,border:'1px solid #22c55e',background:'#f0fdf4',color:'#166534',fontSize:12,fontWeight:700,cursor:'pointer'}}>
                     ➕ Vincular Avulsa
                   </button>
@@ -646,14 +643,15 @@ export default function EntregasTarefas() {
                     const dc=DCORES[t.departamento]||{bg:'#f5f5f5',color:'#666'}
                     const ent2=t.status==='entregue'
                     const isE=expanded===t.id
-                    const viN=t.visualizacoes?.length||0
+                    const viN=t.anexos?.length||0
                     const anN=t.anexos?.length||0
                     const dv=t.vencimento
                       ? new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')
                       : `${String(t.dia_vencimento||20).padStart(2,'0')}/04/2026`
                     return (
                       <React.Fragment key={t.id}>
-                        <tr style={{background:ent2?'#FAFFF8':i%2===0?'#fff':'#fafafa',borderBottom:isE?'none':'1px solid #f0f0f0'}}>
+                        <tr style={{background:selecionadas.includes(t.id)?'#FEF2F2':ent2?'#FAFFF8':i%2===0?'#fff':'#fafafa',borderBottom:isE?'none':'1px solid #f0f0f0'}}>
+                          {isAdmin&&<td style={{width:28,padding:'0 4px',textAlign:'center'}} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selecionadas.includes(t.id)} onChange={()=>setSelecionadas(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])} style={{accentColor:'#dc2626',width:13,height:13,cursor:'pointer'}}/></td>}
                           {/* Semáforo */}
                         <td style={{padding:'6px 8px',textAlign:'center',width:36}} onClick={()=>setExpanded(isE?null:t.id)}>
                           {(()=>{
@@ -717,7 +715,7 @@ export default function EntregasTarefas() {
                               <Btn onClick={()=>setMAnexo(t)} bg="#f59e0b" color="#fff" title="Anexar e enviar" disabled={!PERM.anexar}><Paperclip size={11}/></Btn>
                               <Btn onClick={()=>enviar(t.id)} bg={NAVY} color="#fff" title="Enviar ao cliente" disabled={!PERM.enviar}><Send size={11}/></Btn>
                               <Btn onClick={()=>{setMRenomear(t);setNovoNome(t.nome)}} bg="#EBF5FF" color="#1D6FA4" title="Renomear" disabled={!PERM.renomear}>Aa</Btn>
-                              <Btn onClick={()=>{setFEdit({nome:t.nome,departamento:t.departamento,exigir_robo:t.exigir_robo});setMEditar(t)}} bg="#f0f4ff" color={NAVY} title="Editar" disabled={!PERM.editar}><Edit2 size={11}/></Btn>
+                              
                               {ent2&&<Btn onClick={()=>{setMReverter(t);setMotivoRev('')}} bg="#FEF9C3" color="#854D0E" title="Reverter para Pendente" disabled={!PERM.reverter||(t.responsavel!==USUARIO.nome&&USUARIO.perfil!=='Administrador')}>↩</Btn>}
                               <Btn onClick={()=>setMExcluir(t)} bg="#FEF2F2" color="#dc2626" title="Excluir" disabled={!PERM.excluir}><Trash2 size={11}/></Btn>
                             </div>
@@ -1022,7 +1020,14 @@ export default function EntregasTarefas() {
             </div>
             <div style={{padding:'16px 20px'}}>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-                <div style={{gridColumn:'1/-1'}}><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Nome da Obrigação *</label><input value={avulsaForm.nome} onChange={e=>setAvulsaForm(f=>({...f,nome:e.target.value}))} placeholder="Ex: DCTF Avulsa, Declaração Especial..." style={{width:'100%',padding:'8px 12px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13,boxSizing:'border-box'}}/></div>
+                <div style={{gridColumn:'1/-1'}}>
+                  <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Buscar em Config. Tarefas *</label>
+                  <div style={{position:'relative'}}>
+                    <input value={avulsaForm.buscaNome||''} onChange={e=>setAvulsaForm(f=>({...f,buscaNome:e.target.value,nome:e.target.value}))} placeholder="Digite para buscar ou escreva nome livre..." style={{width:'100%',padding:'8px 12px',borderRadius:8,border:`1.5px solid ${avulsaForm.nome?'#22c55e':'#ddd'}`,fontSize:13,boxSizing:'border-box'}}/>
+                    {(()=>{const q=(avulsaForm.buscaNome||'').toLowerCase();if(q.length<2) return null;let ts=[];try{ts=JSON.parse(localStorage.getItem('ep_config_tarefas')||'[]')}catch{};const rs=ts.filter(t=>(t.nome||t.titulo||'').toLowerCase().includes(q)).slice(0,8);if(!rs.length) return null;return <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:50,background:'#fff',border:'1px solid #ddd',borderRadius:8,boxShadow:'0 8px 20px rgba(0,0,0,.12)',maxHeight:180,overflowY:'auto',marginTop:2}}>{rs.map((t,i)=><div key={i} onClick={()=>setAvulsaForm(f=>({...f,nome:t.nome||t.titulo,buscaNome:t.nome||t.titulo,departamento:t.departamento||f.departamento}))} style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #f5f5f5',display:'flex',gap:8,alignItems:'center'}} onMouseEnter={e=>e.currentTarget.style.background='#f0f4ff'} onMouseLeave={e=>e.currentTarget.style.background='#fff'}><span style={{fontSize:10,padding:'1px 6px',borderRadius:5,background:'#EBF5FF',color:'#1D6FA4',fontWeight:700}}>{t.departamento||'Fiscal'}</span><span style={{fontSize:12,fontWeight:600,color:NAVY}}>{t.nome||t.titulo}</span></div>)}</div>;})()}
+                  </div>
+                  {avulsaForm.nome&&avulsaForm.nome===avulsaForm.buscaNome&&<div style={{fontSize:10,color:'#22c55e',marginTop:3,fontWeight:600}}>✓ {avulsaForm.nome}</div>}
+                </div>
                 <div><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Departamento</label><select value={avulsaForm.departamento} onChange={e=>setAvulsaForm(f=>({...f,departamento:e.target.value}))} style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13}}>{['Fiscal','Pessoal','Contábil','Bancos','Societário'].map(d=><option key={d}>{d}</option>)}</select></div>
                 <div><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Responsável</label><input value={avulsaForm.responsavel} onChange={e=>setAvulsaForm(f=>({...f,responsavel:e.target.value}))} placeholder="Nome do responsável" style={{width:'100%',padding:'8px 12px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13,boxSizing:'border-box'}}/></div>
                 <div><label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:4}}>Data de Vencimento</label><input type="date" value={avulsaForm.vencimento} onChange={e=>setAvulsaForm(f=>({...f,vencimento:e.target.value}))} style={{width:'100%',padding:'8px 12px',borderRadius:8,border:'1.5px solid #ddd',fontSize:13}}/></div>
