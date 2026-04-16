@@ -798,8 +798,6 @@ function TabProcessos({ templates }) {
   const [hoverAnexoDetalhe, setHoverAnexoDetalhe] = useState(null);
   const [hoverPosDetalhe, setHoverPosDetalhe] = useState({x:0,y:0});
   const showToast = (msg, tipo='ok') => { setToast({msg,tipo}); setTimeout(()=>setToast(null),4000); };
-  const [hoverAnexoDetalhe, setHoverAnexoDetalhe] = useState(null);
-  const [hoverPosDetalhe, setHoverPosDetalhe] = useState({x:0,y:0});
   const limparFiltros = () => {
     setEmpresaFiltro(''); setFiltroTexto(''); setFiltroCategoria(''); setFiltroStatus('');
     setFiltroCNPJs([]); setFiltroGrupo(''); setFiltroTemplate(''); setFiltroResponsavel('');
