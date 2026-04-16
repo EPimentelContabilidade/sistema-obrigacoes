@@ -407,6 +407,7 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
   const [aiAnalisando, setAiAnalisando] = useState(false);
   const [aiResultado, setAiResultado] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [previewAnexo, setPreviewAnexo] = useState(null);
   const fileRef = useRef();
 
   const docsNecessarios = etapa.docs_necessarios || [];
@@ -431,7 +432,7 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
       }
       const lista=processos.map(p=>{
         if(p.id!==proc.id) return p;
-        const etapas=p.etapas.map(et=>et.id!==etapa.id?et:{...et,anexos:[...(et.anexos||[]),{nome:file.name,tamanho:file.size,data:hoje(),tipo:file.type}]});
+        const dataUrl=ev.target.result; const etapas=p.etapas.map(et=>et.id!==etapa.id?et:{...et,anexos:[...(et.anexos||[]),{nome:file.name,tamanho:file.size,data:hoje(),tipo:file.type,dataUrl}]});
         return {...p,etapas};
       });
       salvarProcessos(lista);
@@ -457,6 +458,32 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
 
   return (
     <Modal titulo={`📎 ${etapa.descricao||etapa.desc}`} onClose={onClose} largura={580}>
+      {previewAnexo && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',zIndex:9999,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}} onClick={()=>setPreviewAnexo(null)}>
+          <div style={{background:'#fff',borderRadius:12,overflow:'hidden',width:'90vw',maxWidth:900,maxHeight:'90vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:NAVY,color:'#fff'}}>
+              <span style={{fontWeight:600,fontSize:13}}>{previewAnexo.nome}</span>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <a href={previewAnexo.dataUrl} download={previewAnexo.nome} style={{background:GOLD,color:NAVY,borderRadius:6,padding:'4px 12px',fontSize:12,fontWeight:700,textDecoration:'none'}}>⬇️ Baixar</a>
+                <button onClick={()=>setPreviewAnexo(null)} style={{background:'rgba(255,255,255,.2)',border:'none',color:'#fff',borderRadius:6,padding:'4px 10px',cursor:'pointer',fontSize:18,lineHeight:1}}>×</button>
+              </div>
+            </div>
+            <div style={{flex:1,overflow:'auto',padding:16,background:'#f1f5f9',display:'flex',justifyContent:'center'}}>
+              {previewAnexo.tipo?.startsWith('image/') ? (
+                <img src={previewAnexo.dataUrl} alt={previewAnexo.nome} style={{maxWidth:'100%',borderRadius:8}}/>
+              ) : previewAnexo.tipo==='application/pdf' ? (
+                <iframe src={previewAnexo.dataUrl} style={{width:'100%',height:'70vh',border:'none',borderRadius:8}} title={previewAnexo.nome}/>
+              ) : (
+                <div style={{textAlign:'center',padding:40,color:'#888'}}>
+                  <div style={{fontSize:48,marginBottom:12}}>📎</div>
+                  <div style={{fontWeight:600,marginBottom:8}}>{previewAnexo.nome}</div>
+                  <a href={previewAnexo.dataUrl} download={previewAnexo.nome} style={{color:NAVY,fontWeight:700}}>Clique para baixar</a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Documentos necessários */}
       {docsNecessarios.length>0 && (
@@ -509,7 +536,10 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
                   <div style={{ fontSize:13,fontWeight:600,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{a.nome}</div>
                   <div style={{ fontSize:11,color:"#aaa" }}>{fmtData(a.data)}{a.tamanho?` · ${(a.tamanho/1024).toFixed(1)}KB`:""}</div>
                 </div>
-                <button onClick={()=>removerAnexo(i)} style={{ background:"none",border:"1px solid #e53935",color:"#e53935",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11,flexShrink:0 }}>Remover</button>
+                <div style={{display:'flex',gap:5}}>
+                  {a.dataUrl&&<button onClick={()=>setPreviewAnexo(a)} style={{background:'none',border:`1px solid ${NAVY}`,color:NAVY,borderRadius:6,padding:'3px 8px',cursor:'pointer',fontSize:11}}>👁️ Ver</button>}
+                  <button onClick={()=>removerAnexo(i)} style={{background:"none",border:"1px solid #e53935",color:"#e53935",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>✕ Remover</button>
+                </div>
               </div>
             ))}
           </div>
