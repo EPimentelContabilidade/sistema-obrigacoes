@@ -265,13 +265,11 @@ export default function App() {
   const logout = () => { localStorage.removeItem('usuario'); localStorage.removeItem('authToken'); setUsuario(null); setPage('dashboard') }
   const navTo = id => { setPage(id); setBusca('') }
 
-  // Escutar sinais de navegação cross-component (GerarObrigacoes → Config.Tarefas etc)
+  // Escutar navegação cross-component via CustomEvent (mesma janela)
   React.useEffect(()=>{
-    const handleNav=(e)=>{ if(e.key==='ep_navigate_to'&&e.newValue){setPage(e.newValue);setBusca('');localStorage.removeItem('ep_navigate_to')} };
-    const pendente=localStorage.getItem('ep_navigate_to');
-    if(pendente){setPage(pendente);setBusca('');localStorage.removeItem('ep_navigate_to')}
-    window.addEventListener('storage',handleNav);
-    return()=>window.removeEventListener('storage',handleNav);
+    const handleNav=(e)=>{ if(e.detail){setPage(e.detail);setBusca('')} };
+    window.addEventListener('epNavigateTo',handleNav);
+    return()=>window.removeEventListener('epNavigateTo',handleNav);
   },[]);
 
   const buscaRes = busca.trim() ? allItems().filter(i => i.label.toLowerCase().includes(busca.toLowerCase())) : []
