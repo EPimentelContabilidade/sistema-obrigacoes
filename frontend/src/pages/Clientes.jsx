@@ -106,7 +106,7 @@ const FORM_VAZIO = {
 const cores_trib = { 'Simples Nacional':'#EBF5FF:#1D6FA4','MEI':'#FEF9C3:#854D0E','Lucro Real':'#F3EEFF:#6B3EC9','Lucro Presumido':'#EDE9FF:#5b21b6','RET':'#EDFBF1:#1A7A3C','Imune/Isento':'#F9FAFB:#6B7280' }
 const cTrib = (t) => { const [bg,c]=(cores_trib[t]||'#f5f5f5:#666').split(':'); return {bg,c} }
 
-function SenhaInput({ value, onChange, placeholder='••••••••', ...props }) {
+function SenhaInput({ value, onChange, placeholder='••••••••', disabled, ...props }) {
   const [show, setShow] = useState(false)
   return (
     <div style={{ position:'relative' }}>
@@ -324,6 +324,14 @@ export default function Clientes() {
   const [regimeAdicionalSel, setRegimeAdicionalSel] = useState('')
   const todosRegimes = ['Simples Nacional','MEI','Lucro Real','Lucro Presumido','RET','Imune/Isento']
   const obrigsPorTrib = obrigacoesPorTributacao(form.tributacao)
+  const todasObrigacoesDisponiveis = React.useMemo(()=>{
+    const vistas=new Set(); const lista=[]
+    ;['Simples Nacional','MEI','Lucro Real','Lucro Presumido','RET','Imune/Isento'].forEach(reg=>{
+      obrigacoesPorTributacao(reg).forEach(o=>{ if(!vistas.has(o.id)){vistas.add(o.id);lista.push({...o,_regime:reg})} })
+    })
+    try{JSON.parse(localStorage.getItem('ep_config_tarefas')||'[]').forEach(t=>{const id='custom_'+t.id;if(!vistas.has(id)){vistas.add(id);lista.push({id,nome:t.nome||t.titulo,mininome:t.codigo||'',departamento:t.departamento||'Fiscal',dia_vencimento:t.dia||0,_regime:'Custom',_custom:true})}})}catch{}
+    return lista
+  },[form.tributacao])
   const obrigsAdicionais = regimeAdicionalSel ? obrigacoesPorTributacao(regimeAdicionalSel).filter(o=>!obrigsPorTrib.find(x=>x.id===o.id)) : []
   const todasObrigsModal = [...obrigsPorTrib, ...obrigsAdicionais]
 
@@ -727,6 +735,26 @@ export default function Clientes() {
                 </div>
               )}
 
+
+              {/* Contatos adicionais */}
+              <div style={{ marginTop:16 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                  <label style={{ fontSize:11,color:'#888',fontWeight:700,textTransform:'uppercase',letterSpacing:.7 }}>📋 Contatos Adicionais</label>
+                  <button onClick={()=>setF('contatos',[...(form.contatos||[]),{nome:'',cargo:'',email:'',whatsapp:''}])} style={{ padding:'5px 12px', borderRadius:7, background:NAVY, color:'#fff', fontSize:12, fontWeight:600, border:'none', cursor:'pointer' }}>+ Contato</button>
+                </div>
+                {(form.contatos||[]).length===0&&<div style={{ padding:18, textAlign:'center', color:'#ccc', background:'#fafafa', borderRadius:10, border:'2px dashed #e8e8e8', fontSize:12 }}>Clique em "+ Contato" para adicionar contatos adicionais</div>}
+                {(form.contatos||[]).map((ct,ci)=>(
+                  <div key={ci} style={{ marginBottom:10, padding:'12px 14px', borderRadius:10, border:'1px solid #e0e0e0', background:'#fafafa', position:'relative' }}>
+                    <button onClick={()=>setF('contatos',form.contatos.filter((_,i)=>i!==ci))} style={{ position:'absolute', top:8, right:8, padding:'2px 7px', borderRadius:6, background:'#FEF2F2', color:'#dc2626', border:'none', cursor:'pointer', fontSize:11 }}>🗑️</button>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:8 }}>
+                      {[['Nome','nome'],['Cargo','cargo']].map(([l,k])=>(<div key={k}><label style={{ fontSize:10,color:'#888',fontWeight:600,display:'block',marginBottom:3 }}>{l}</label><input value={ct[k]||''} onChange={e=>{const r=[...form.contatos];r[ci]={...r[ci],[k]:e.target.value};setF('contatos',r)}} style={inp}/></div>))}
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                      {[['E-mail','email'],['WhatsApp','whatsapp']].map(([l,k])=>(<div key={k}><label style={{ fontSize:10,color:'#888',fontWeight:600,display:'block',marginBottom:3 }}>{l}</label><input value={ct[k]||''} onChange={e=>{const r=[...form.contatos];r[ci]={...r[ci],[k]:e.target.value};setF('contatos',r)}} style={inp}/></div>))}
+                    </div>
+                  </div>
+                ))}
+              </div>
               {/* ── ABA CREDENCIAIS ── */}
               {abaForm==='credenciais' && (
                 <div>
@@ -1019,6 +1047,8 @@ export default function Clientes() {
       {/* Modal Obrigações */}
       {modalObrig&&(()=>{
         const DEPTS=['Todos','Fiscal','Pessoal','Contábil','Bancos']
+        const [mostrarOutros,setMostrarOutros]=React.useState(false)
+        const fonteModal=mostrarOutros?todasObrigacoesDisponiveis:obrigsPorTrib
         const filtObrig=todasObrigsModal.filter(o=>{
           if(buscaObrig&&!o.nome?.toLowerCase().includes(buscaObrig.toLowerCase())&&!(o.mininome||'').toLowerCase().includes(buscaObrig.toLowerCase())) return false
           if(deptSel!=='Todos'&&o.departamento!==deptSel) return false
