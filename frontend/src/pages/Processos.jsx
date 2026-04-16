@@ -698,7 +698,7 @@ function TabProcessos({ templates }) {
     setBuscaCliente(""); setMostrarBuscaCliente(false); setModal(true);
   };
 
-    const excluirProcesso = (id, e) => { e.stopPropagation(); if(!window.confirm('Excluir este processo?')) return; const l=processos.filter(p=>p.id!==id); salvarProcessos(l); if(selecionado?.id===id) setSelecionado(null); };
+    const excluirProcesso = (id, e) => { e.stopPropagation(); confirmar('Excluir este processo?',()=>{const l=processos.filter(p=>p.id!==id); salvarProcessos(l); if(selecionado?.id===id) setSelecionado(null);}); };
     const notificarResponsavel = async (nomeResp, titulo) => {
     const u = usuarios.find(x=>x.nome===nomeResp);
     if (!u) return;
