@@ -338,6 +338,8 @@ export default function Comunicados() {
   const [filtroDept, setFiltroDept] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroTipo, setFiltroTipo]  = useState('')
+  const [buscaGlobal, setBuscaGlobal] = useState('')
+  const [todosProcessos, setTodosProcessos] = useState([])
 
   const [form, setForm]         = useState({ ...FORM_VAZIO })
   const [editandoId, setEditandoId] = useState(null)
@@ -420,6 +422,7 @@ export default function Comunicados() {
       setComunicados(locais); verificarAlertasUsuario(locais)
     } catch {} finally { setCarregando(false) }
   }
+  useEffect(()=>{ try{setTodosProcessos(JSON.parse(localStorage.getItem('ep_processos')||'[]'))}catch{} },[])
   useEffect(()=>{ carregarComunicados() },[filtroUrg,filtroDept,filtroStatus])
 
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
@@ -705,7 +708,12 @@ export default function Comunicados() {
     atrasados: comunicados.filter(c=>c.atrasado).length,
   }
   const cliFiltrados = clientes.filter(c=>{ const q=clienteBusca.toLowerCase(); return !q||(c.nome||'').toLowerCase().includes(q)||(c.cnpj||'').includes(q) })
-  const comunicadosFiltrados = filtroTipo ? comunicados.filter(c=>(c.tipo||'externo')===filtroTipo) : comunicados
+  const comunicadosFiltrados = comunicados.filter(c=>{
+    if(filtroTipo&&(c.tipo||'externo')!==filtroTipo) return false
+    if(buscaGlobal){ const q=buscaGlobal.toLowerCase(); let n=''; try{n=JSON.parse(c.cliente_ids||'[]').map(id=>{const x=clientes.find(y=>y.id===id);return x?.nome||''}).join(' ')}catch{}; if(![c.titulo,c.assunto,c.conteudo,c.resumo,c.departamento,n].join(' ').toLowerCase().includes(q)) return false }
+    return true
+  })
+  const processosBusca = buscaGlobal.length>=2 ? todosProcessos.filter(p=>{ const q=buscaGlobal.toLowerCase(); return (p.titulo||'').toLowerCase().includes(q)||(p.cliente||'').toLowerCase().includes(q) }).slice(0,8) : []
 
   // canal options baseadas no tipo
   const canaisDisponiveis = form.tipo==='interno' ? CANAIS_INTERNO : CANAIS_EXTERNO
@@ -1071,7 +1079,7 @@ export default function Comunicados() {
                   <Users size={11} style={{display:'inline',marginRight:4}}/>Clientes
                   {form.cliente_ids.length>0&&<span style={{marginLeft:6,background:NAVY,color:'#fff',fontSize:9,padding:'1px 6px',borderRadius:8}}>{form.cliente_ids.length}</span>}
                 </label>
-                <input value={clienteBusca} onChange={e=>setClienteBusca(e.target.value)} placeholder="Buscar cliente..." style={{...inp,marginBottom:6}}/>
+                <input value={clienteBusca} onChange={e=>setClienteBusca(e.target.value)} placeholder="🔍 Filtrar clientes (todos listados abaixo)..." style={{...inp,marginBottom:6}}/>
                 <div style={{maxHeight:160,overflowY:'auto',border:'1px solid #e8e8e8',borderRadius:8}}>
                   {cliFiltrados.slice(0,20).map(c=>{
                     const s2=form.cliente_ids.includes(c.id)
@@ -1201,6 +1209,18 @@ export default function Comunicados() {
         <Filter size={13} style={{color:'#aaa',flexShrink:0}}/>
         {/* Tipo */}
         <div style={{display:'flex',gap:5}}>
+          <div style={{marginBottom:12,position:'relative'}}>
+            <input value={buscaGlobal} onChange={e=>setBuscaGlobal(e.target.value)} placeholder="🔍 Pesquisar comunicados e processos por palavra-chave..." style={{width:'100%',padding:'9px 36px 9px 14px',borderRadius:10,border:'1.5px solid #e0e0e0',fontSize:13,outline:'none',boxSizing:'border-box',background:'#fafafa'}}/>
+            {buscaGlobal&&<button onClick={()=>setBuscaGlobal('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#aaa',fontSize:18}}>×</button>}
+            {processosBusca.length>0&&<div style={{marginTop:6,background:'#EBF5FF',borderRadius:8,padding:'8px 12px',border:'1px solid #c7d2fe'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#1D6FA4',marginBottom:4}}>📋 Processos encontrados ({processosBusca.length})</div>
+              {processosBusca.map(p=>{const cor={'Em Andamento':'#2196F3','Concluído':'#4CAF50','Pausado':'#7C3AED','Cancelado':'#F44336'}[p.status]||'#888';return(
+                <div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:'1px solid #dbeafe'}}>
+                  <span style={{fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:8,background:cor+'22',color:cor,flexShrink:0}}>{p.status}</span>
+                  <div><div style={{fontSize:12,fontWeight:600,color:'#1B2A4A'}}>{p.titulo}</div><div style={{fontSize:10,color:'#888'}}>{p.cliente}</div></div>
+                </div>)})}
+            </div>}
+          </div>
           {[{id:'',lb:'Todos'},{id:'externo',lb:'🌐 Externo'},{id:'interno',lb:'🏢 Interno'}].map(t=>(
             <button key={t.id} onClick={()=>setFiltroTipo(t.id)}
               style={{padding:'4px 12px',borderRadius:16,border:`1px solid ${filtroTipo===t.id?NAVY:'#e0e0e0'}`,background:filtroTipo===t.id?NAVY:'#fff',color:filtroTipo===t.id?'#fff':'#555',fontSize:11,fontWeight:700,cursor:'pointer'}}>
