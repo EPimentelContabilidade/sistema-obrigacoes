@@ -9,6 +9,23 @@ const fmtData = d => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
 const hoje = () => new Date().toISOString().split("T")[0];
 
 const CATEGORIAS = ["Contábil","Fiscal","RH / Departamento Pessoal","Paralegal / Societário","Financeiro","Imobiliário / SPE","Outros"];
+
+function AnexoPreviewTooltip({ anexo, x, y }) {
+  if (!anexo) return null;
+  const isImg = anexo.tipo?.startsWith('image/');
+  const isPDF = anexo.tipo === 'application/pdf';
+  const kb = anexo.tamanho ? (anexo.tamanho/1024).toFixed(1)+'KB' : '';
+  return (
+    <div style={{position:'fixed',left:Math.min(x+12,window.innerWidth-240),top:Math.min(y-10,window.innerHeight-200),zIndex:99999,background:'#fff',borderRadius:10,boxShadow:'0 8px 32px rgba(0,0,0,.25)',border:'1px solid #e0e0e0',padding:10,width:220,pointerEvents:'none'}}>
+      {anexo.dataUrl&&isImg&&<img src={anexo.dataUrl} alt={anexo.nome} style={{width:'100%',maxHeight:120,objectFit:'contain',borderRadius:6,marginBottom:6,background:'#f5f5f5'}}/>}
+      {anexo.dataUrl&&isPDF&&<div style={{width:'100%',height:100,borderRadius:6,overflow:'hidden',marginBottom:6,background:'#f5f5f5',display:'flex',alignItems:'center',justifyContent:'center'}}><iframe src={anexo.dataUrl} style={{width:'200%',height:'200%',border:'none',transform:'scale(0.5)',transformOrigin:'top left',pointerEvents:'none'}} title={anexo.nome}/></div>}
+      {!anexo.dataUrl&&<div style={{width:'100%',height:60,background:'#f5f5f5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:6,fontSize:32}}>{isImg?'🖼️':isPDF?'📄':'📎'}</div>}
+      <div style={{fontSize:11,fontWeight:700,color:'#1B2A4A',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{anexo.nome}</div>
+      <div style={{fontSize:10,color:'#999',marginTop:2}}>{kb}{anexo.data?' · '+anexo.data:''}</div>
+    </div>
+  );
+}
+
 const STATUS_CORES = { "Em Andamento":"#2196F3","Aguardando Cliente":"#FF9800","Concluído":"#4CAF50","Cancelado":"#F44336","Pendente":"#9C27B0","Pausado":"#7C3AED","Desistido":"#dc2626" };
 const PRIORIDADES = ["Baixa","Normal","Alta","Urgente"];
 const TIPOS_DOC = ["Contrato Social","Alteração Contratual","Distrato","RG/CNH","CPF","Comprovante de Endereço","Procuração","Nota Fiscal","Guia de Tributo","Holerite","Extrato Bancário","Certidão","Balanço Patrimonial","Foto","Imagem","Outro"];
@@ -409,6 +426,8 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
   const [aiResultado, setAiResultado] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [previewAnexo, setPreviewAnexo] = useState(null);
+  const [hoverAnexo, setHoverAnexo] = useState(null);
+  const [hoverPos, setHoverPos] = useState({x:0,y:0});
   const fileRef = useRef();
 
   const docsNecessarios = etapa.docs_necessarios || [];
@@ -534,7 +553,7 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
               <div key={i} style={{ display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:a.tipo?.startsWith("image/")?"#F0F8FF":"#F8F9FA",borderRadius:8,border:"1px solid #E0E0E0" }}>
                 <span style={{ fontSize:22,flexShrink:0 }}>{iconeArquivo(a.tipo)}</span>
                 <div style={{ flex:1,minWidth:0 }}>
-                  <div style={{ fontSize:13,fontWeight:600,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{a.nome}</div>
+                  <div onMouseEnter={e=>{setHoverAnexo(a);setHoverPos({x:e.clientX,y:e.clientY});}} onMouseLeave={()=>setHoverAnexo(null)} style={{fontSize:13,fontWeight:600,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"default"}}>{a.nome}</div>
                   <div style={{ fontSize:11,color:"#aaa" }}>{fmtData(a.data)}{a.tamanho?` · ${(a.tamanho/1024).toFixed(1)}KB`:""}</div>
                 </div>
                 <div style={{display:'flex',gap:5}}>
@@ -548,6 +567,7 @@ function ModalEtapa({ proc, etapa, processos, salvarProcessos, onClose }) {
           </div>
         </div>
       )}
+      <AnexoPreviewTooltip anexo={hoverAnexo} x={hoverPos.x} y={hoverPos.y}/>
     </Modal>
   );
 }
@@ -772,6 +792,8 @@ function TabProcessos({ templates }) {
     : new Set();
   const toggleCNPJ = cnpj => setFiltroCNPJs(p => p.includes(cnpj) ? p.filter(x=>x!==cnpj) : [...p, cnpj]);
   const [filtroResponsavel, setFiltroResponsavel] = useState('');
+  const [hoverAnexoDetalhe, setHoverAnexoDetalhe] = useState(null);
+  const [hoverPosDetalhe, setHoverPosDetalhe] = useState({x:0,y:0});
   const limparFiltros = () => {
     setEmpresaFiltro(''); setFiltroTexto(''); setFiltroCategoria(''); setFiltroStatus('');
     setFiltroCNPJs([]); setFiltroGrupo(''); setFiltroTemplate(''); setFiltroResponsavel('');
@@ -1000,8 +1022,10 @@ function TabProcessos({ templates }) {
                       <div style={{ display:"flex",gap:4,marginTop:4,flexWrap:"wrap" }}>
                         {docsAnex.map((a,ai)=>(
                         <span key={ai} onClick={()=>setModalEtapa({proc:selecionado,etapa:e})}
+                          onMouseEnter={ev=>{setHoverAnexoDetalhe(a);setHoverPosDetalhe({x:ev.clientX,y:ev.clientY});}}
+                          onMouseLeave={()=>setHoverAnexoDetalhe(null)}
                           style={{fontSize:10,background:"#EEF2FF",color:NAVY,borderRadius:5,padding:"2px 8px",cursor:'pointer',display:'inline-flex',alignItems:'center',gap:3}}
-                          title="Clique para gerenciar anexos">
+                          title="Hover: preview • Clique: gerenciar">
                           {a.tipo?.startsWith("image/")?"🖼️":"📎"} {a.nome}
                         </span>
                       ))}
