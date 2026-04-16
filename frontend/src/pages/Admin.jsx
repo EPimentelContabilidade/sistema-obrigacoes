@@ -52,9 +52,8 @@ const PERFIS = [
   { id:'estagiario', label:'Estagiário',    cor:'#f59e0b' },
 ]
 
-const DEPARTAMENTOS_ESCRITORIO = [
-  'Geral','Fiscal','Contábil','Pessoal','Financeiro','Jurídico','Diretoria','TI','Comercial'
-]
+const DEPARTAMENTOS_PADRAO_ADMIN = ['Geral','Fiscal','Contábil','Pessoal','Financeiro','Jurídico','Diretoria','TI','Comercial']
+const getDepartamentos = () => { try{return JSON.parse(localStorage.getItem('ep_departamentos_admin')||'null')||DEPARTAMENTOS_PADRAO_ADMIN}catch{return DEPARTAMENTOS_PADRAO_ADMIN} }
 
 const STORAGE_KEY = 'epimentel_usuarios'
 
@@ -113,6 +112,12 @@ const GOLD = '#C5A55A'
 
 export default function Admin() {
   const [aba, setAba] = useState('usuarios')
+  const [deptsAdmin, setDeptsAdmin] = useState(getDepartamentos)
+  const [novoDepto, setNovoDepto] = useState('')
+  const [perfisCustom, setPerfisCustom] = useState(()=>{ try{return JSON.parse(localStorage.getItem('ep_perfis_custom')||'null')||[]}catch{return []} })
+  const [formPerfil, setFormPerfil] = useState({nome:'',cor:'#2563eb'})
+  const [notifRules, setNotifRules] = useState(()=>{ try{return JSON.parse(localStorage.getItem('ep_notif_rules')||'null')||[]}catch{return []} })
+  const [notifForm, setNotifForm] = useState({dep:'',gatilho:'vencimento_7d',popup:true,email:true,whatsapp:true})
   const [usuarios, setUsuarios] = useState(carregarUsuarios)
   const [clientes, setClientes] = useState([])
   const [modal, setModal] = useState(null)
@@ -260,7 +265,7 @@ export default function Admin() {
       {msg && <div style={{ padding:'10px 16px', background:msg.includes('✅')?'#f0fdf4':'#fef2f2', borderRadius:8, fontSize:13, marginBottom:16, color:msg.includes('✅')?'#16a34a':'#dc2626', fontWeight:500 }}>{msg}</div>}
 
       <div style={{ display:'flex', gap:4, marginBottom:20, background:'#f1f5f9', borderRadius:10, padding:4 }}>
-        {[{id:'usuarios',label:'👥 Usuários'},{id:'permissoes',label:'🔐 Permissões por Perfil'},{id:'config',label:'⚙️ Sistema'}].map(({id,label}) => (
+        {[{id:'usuarios',label:'👥 Usuários'},{id:'departamentos',label:'🏢 Departamentos'},{id:'perfis',label:'👔 Perfis'},{id:'notificacoes',label:'🔔 Notificações'},{id:'permissoes',label:'🔐 Permissões'},{id:'config',label:'⚙️ Sistema'}].map(({id,label}) => (
           <button key={id} onClick={() => setAba(id)} style={{
             flex:1, padding:'9px 12px', borderRadius:8, border:'none',
             background:aba===id?'#fff':'transparent', color:aba===id?NAVY:'#888',
@@ -321,7 +326,68 @@ export default function Admin() {
       )}
 
       {/* PERMISSÕES POR PERFIL */}
-      {aba==='permissoes' && (
+      {aba==='departamentos'&&(
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+            <h3 style={{color:NAVY,margin:0,fontSize:16}}>🏢 Gerenciar Departamentos</h3>
+          </div>
+          <div style={{background:'#fff',borderRadius:12,padding:20,border:'1px solid #e2e8f0',marginBottom:16}}>
+            <label style={{fontSize:12,fontWeight:600,color:'#555',display:'block',marginBottom:6}}>Adicionar Departamento</label>
+            <div style={{display:'flex',gap:8}}>
+              <input value={novoDepto} onChange={e=>setNovoDepto(e.target.value)} placeholder="Nome do departamento..." style={{flex:1,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13}}/>
+              <button type="button" onClick={()=>{if(!novoDepto.trim()) return;const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);localStorage.setItem('ep_departamentos_admin',JSON.stringify(d));localStorage.setItem('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}} style={{padding:'8px 18px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Adicionar</button>
+            </div>
+          </div>
+          <div style={{display:'grid',gap:8}}>
+            {deptsAdmin.map((d,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'#fff',borderRadius:10,border:'1px solid #e2e8f0'}}>
+                <div style={{width:10,height:10,borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>
+                <span style={{flex:1,fontWeight:600,color:NAVY,fontSize:14}}>{d}</span>
+                <button type="button" onClick={()=>{if(!confirm('Excluir "'+d+'"?')) return;const nd=deptsAdmin.filter((_,j)=>j!==i);setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));}} style={{padding:'4px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:12}}>🗑️</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {aba==='perfis'&&(
+        <div>
+          <h3 style={{color:NAVY,margin:'0 0 20px',fontSize:16}}>👔 Perfis do Sistema</h3>
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:12,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:10}}>Perfis Padrão</div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+              {PERFIS.map(p=>(<div key={p.id} style={{padding:'12px 16px',background:'#fff',borderRadius:10,border:`2px solid ${p.cor}33`,display:'flex',alignItems:'center',gap:10}}><div style={{width:12,height:12,borderRadius:'50%',background:p.cor}}/><div style={{flex:1}}><div style={{fontWeight:700,color:p.cor,fontSize:13}}>{p.label}</div><div style={{fontSize:11,color:'#888'}}>{PERFIS_PADRAO[p.id]?.abas?.length||0} abas</div></div></div>))}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:10}}>Perfis Customizados</div>
+            <div style={{background:'#fff',borderRadius:12,padding:16,border:'1px solid #e2e8f0',marginBottom:12}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:10,alignItems:'end'}}>
+                <input value={formPerfil.nome} onChange={e=>setFormPerfil(f=>({...f,nome:e.target.value}))} placeholder="Nome do novo perfil..." style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,boxSizing:'border-box'}}/>
+                <button type="button" onClick={()=>{if(!formPerfil.nome.trim()) return;const np={id:'custom_'+Date.now(),label:formPerfil.nome,cor:formPerfil.cor||'#2563eb',custom:true};const lista=[...perfisCustom,np];setPerfisCustom(lista);localStorage.setItem('ep_perfis_custom',JSON.stringify(lista));setFormPerfil({nome:'',cor:'#2563eb'});alert('✅ Perfil criado!');}} style={{padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Criar</button>
+              </div>
+              <div style={{display:'flex',gap:6,marginTop:10}}>{['#dc2626','#2563eb','#16a34a','#f59e0b','#7c3aed','#0891b2'].map(cor=>(<div key={cor} onClick={()=>setFormPerfil(f=>({...f,cor}))} style={{width:24,height:24,borderRadius:'50%',background:cor,cursor:'pointer',border:formPerfil.cor===cor?'3px solid #000':'2px solid transparent'}}/>))}</div>
+            </div>
+            {perfisCustom.length===0?<div style={{textAlign:'center',padding:20,color:'#aaa',fontSize:13}}>Nenhum perfil customizado.</div>:<div style={{display:'grid',gap:8}}>{perfisCustom.map((p,i)=>(<div key={p.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 16px',background:'#fff',borderRadius:10,border:`2px solid ${p.cor}33`}}><div style={{width:12,height:12,borderRadius:'50%',background:p.cor,flexShrink:0}}/><span style={{flex:1,fontWeight:700,color:p.cor,fontSize:13}}>{p.label}</span><button type="button" onClick={()=>{const nl=perfisCustom.filter((_,j)=>j!==i);setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));}} style={{padding:'4px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:12}}>🗑️</button></div>))}</div>}
+          </div>
+        </div>
+      )}
+      {aba==='notificacoes'&&(
+        <div>
+          <h3 style={{color:NAVY,margin:'0 0 6px',fontSize:16}}>🔔 Notificações Automáticas</h3>
+          <p style={{color:'#888',fontSize:12,marginBottom:16}}>Quando obrigações vencem ou a IA detecta atraso, notifica o responsável via popup, e-mail e WhatsApp.</p>
+          <div style={{background:'#fff',borderRadius:12,padding:18,border:'1px solid #e2e8f0',marginBottom:16}}>
+            <div style={{fontWeight:700,color:NAVY,fontSize:13,marginBottom:12}}>➕ Nova Regra</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:10}}>
+              <div><label style={{fontSize:11,fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Departamento</label><select value={notifForm.dep} onChange={e=>setNotifForm(f=>({...f,dep:e.target.value}))} style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,background:'#fff'}}><option value=''>— Todos —</option>{deptsAdmin.map(d=><option key={d}>{d}</option>)}</select></div>
+              <div><label style={{fontSize:11,fontWeight:600,color:'#555',display:'block',marginBottom:4}}>Gatilho</label><select value={notifForm.gatilho} onChange={e=>setNotifForm(f=>({...f,gatilho:e.target.value}))} style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,background:'#fff'}}><option value='vencimento_7d'>7 dias antes do vencimento</option><option value='vencimento_3d'>3 dias antes do vencimento</option><option value='vencimento_hoje'>Vence hoje (urgente)</option><option value='vencimento_passou'>Obrigação vencida</option><option value='ia_detecta'>IA Claude detecta atraso</option><option value='entregue'>Obrigação entregue</option></select></div>
+            </div>
+            <div style={{display:'flex',gap:16,marginBottom:12}}>{[['popup','🔔 Popup'],['email','📧 E-mail'],['whatsapp','💬 WhatsApp']].map(([k,l])=>(<label key={k} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:13}}><input type="checkbox" checked={notifForm[k]!==false} onChange={e=>setNotifForm(f=>({...f,[k]:e.target.checked}))} style={{accentColor:NAVY}}/>{l}</label>))}</div>
+            <button type="button" onClick={()=>{const nova={id:Date.now(),...notifForm};const lista=[...notifRules,nova];setNotifRules(lista);localStorage.setItem('ep_notif_rules',JSON.stringify(lista));alert('✅ Regra salva!');}} style={{padding:'8px 20px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>Salvar Regra</button>
+          </div>
+          {notifRules.length===0?<div style={{textAlign:'center',padding:24,color:'#aaa',fontSize:13,background:'#f8f9fb',borderRadius:10}}>Nenhuma regra configurada.</div>:<div style={{display:'grid',gap:8}}>{notifRules.map((r,i)=>{const GL={vencimento_7d:'7d antes',vencimento_3d:'3d antes',vencimento_hoje:'Hoje',vencimento_passou:'Vencida',ia_detecta:'IA Claude',entregue:'Entregue'};return <div key={r.id} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:'#fff',borderRadius:10,border:'1px solid #e2e8f0'}}><div style={{flex:1}}><div style={{fontWeight:700,color:NAVY,fontSize:13}}>{r.dep||'Todos os departamentos'}</div><div style={{fontSize:11,color:'#888',marginTop:2}}>Gatilho: {GL[r.gatilho]||r.gatilho}{r.popup?' 🔔':''}{r.email?' 📧':''}{r.whatsapp?' 💬':''}</div></div><button type="button" onClick={()=>{const nl=notifRules.filter((_,j)=>j!==i);setNotifRules(nl);localStorage.setItem('ep_notif_rules',JSON.stringify(nl));}} style={{padding:'4px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:12}}>🗑️</button></div>})}</div>}
+        </div>
+      )}
+            {aba==='permissoes' && (
         <div>
           <div style={{ background:'#fff', borderRadius:12, padding:20, boxShadow:'0 1px 4px rgba(0,0,0,.08)', marginBottom:16 }}>
             <div style={{ fontWeight:700, color:NAVY, marginBottom:16, fontSize:15 }}>🔐 Matriz de Permissões por Perfil</div>
@@ -505,7 +571,7 @@ export default function Admin() {
                     <select value={form.departamento||''} onChange={e=>setForm(f=>({...f,departamento:e.target.value}))}
                       style={{ width:'100%', padding:'8px 10px', border:'1px solid #e2e8f0', borderRadius:7, fontSize:13, boxSizing:'border-box', background:'#fff' }}>
                       <option value=''>— Selecionar —</option>
-                      {DEPARTAMENTOS_ESCRITORIO.map(d=><option key={d} value={d}>{d}</option>)}
+                      {getDepartamentos().map(d=><option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div style={{ marginBottom:8 }}>
