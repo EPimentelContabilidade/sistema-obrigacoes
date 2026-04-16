@@ -211,7 +211,7 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
               {["Mensal","Trimestral","Semestral","Anual","Eventual"].map(p=><option key={p}>{p}</option>)}
             </select>
           </Campo>
-        <
+        </div>
         <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:10 }}>
           <Campo label="Departamento">
             <select style={selectStyle} value={form.departamento||""} onChange={e=>set("departamento",e.target.value)}>
@@ -225,7 +225,7 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
               {(()=>{try{return JSON.parse(localStorage.getItem('ep_usuarios')||'[]').filter(u=>!form.departamento||u.departamento===form.departamento||!u.departamento);}catch{return [];}})().map(u=><option key={u.id||u.nome} value={u.nome}>{u.nome}</option>)}
             </select>
           </Campo>
-        </div>/div>
+        </div>
       </div>
 
       {/* Dias de entrega por mês */}
