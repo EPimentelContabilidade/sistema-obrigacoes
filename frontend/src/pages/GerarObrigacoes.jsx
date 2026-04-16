@@ -249,7 +249,7 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
                           ? <><b>⚙️ Config. Tarefas personalizada</b> — {total} obrigações · regime: <b>{regime}</b></>
                           : <><b>📋 Catálogo padrão</b> — {total > 0 ? `${total} obrigações para ${regime}` : `Nenhuma para "${regime}"`}</>}
                       </div>
-                      <a href="/configuracoes-tarefas" style={{fontSize:11,color:'#1976D2',fontWeight:700,textDecoration:'none'}}>✏️ Editar Config. Tarefas →</a>
+                      <a href="/configuracoes-tarefas" target="_blank" rel="noreferrer" style={{fontSize:11,color:'#1976D2',fontWeight:700,textDecoration:'none',display:'inline-flex',alignItems:'center',gap:3}} title="Abre em nova aba">✏️ Editar Config. Tarefas → <span style={{fontSize:9,opacity:.6}}>↗</span></a>
                     </div>
                     {total===0&&<div style={{fontSize:11,color:'#e53935',marginTop:4}}>⚠️ Configure em <b>Config. Tarefas → Obrigações por Regime</b></div>}
                   </div>
