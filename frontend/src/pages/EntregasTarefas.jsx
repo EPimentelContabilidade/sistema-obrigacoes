@@ -4,7 +4,7 @@ import { CheckCircle, Send, Settings, Search, X, AlertTriangle, Filter, Save, Ey
 import { OBRIGACOES_SISTEMA } from './obrigacoes_data'
 import GerarObrigacoes from './GerarObrigacoes'
 
-const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 const inp  = { padding:'5px 8px', borderRadius:6, border:'1px solid #d0d0d0', fontSize:12, outline:'none', background:'#fff', color:'#333', boxSizing:'border-box' }
@@ -181,7 +181,7 @@ export default function EntregasTarefas() {
     const hoje=new Date()
     const alertas=listaTarefas.filter(t=>!['entregue','dispensada'].includes(t.status)&&t.vencimento&&Math.ceil((new Date(t.vencimento+'T12:00:00')-hoje)/864e5)<=7)
     if(!alertas.length){setAlertandoIA(false);alert('✅ IA: Nenhuma obrigação vencida ou a vencer nos próximos 7 dias.');return}
-    const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
+    const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
     // Notificação sistema
     try{const n=JSON.parse(localStorage.getItem('ep_notificacoes')||'[]');n.unshift({id:Date.now(),para:'',titulo:'⚠️ Obrigações a vencer',mensagem:`${clienteAtual.nome}: ${alertas.length} obrigação(ões)`,lida:false,data:new Date().toISOString(),tipo:'vencimento'});localStorage.setItem('ep_notificacoes',JSON.stringify(n.slice(0,50)))}catch{}
     const msg=`⚠️ *EPimentel — Vencimentos*\n*${clienteAtual.nome}*\n${alertas.map(t=>{const d=Math.ceil((new Date(t.vencimento+'T12:00:00')-hoje)/864e5);return`• ${t.nome}: ${d<0?'⛔ VENCIDA':'📅 '+new Date(t.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}`}).join('\n')}`
