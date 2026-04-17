@@ -33,8 +33,28 @@ import Obrigacoes            from './pages/Obrigacoes'
 import Alvaras              from './pages/Alvaras'
 import EPInteligencia       from './pages/EPInteligencia'
 
-const NAVY = '#1B2A4A'
-const GOLD = '#C5A55A'
+
+// ── Dados em tempo real para tela de login ───────────────────────────────────
+const LOGIN_NOTICIAS = [
+  { cat:'IRPF 2025', icon:'📋', titulo:'Declaração IRPF 2025: novos limites de isenção', resumo:'Rendimentos tributáveis acima de R$ 35.584 obrigam declaração. Prazo: 30 de maio de 2025.', tempo:'5 min' },
+  { cat:'REFORMA TRIBUTÁRIA', icon:'⚖️', titulo:'IVA Dual (CBS+IBS) entra em vigor em 2026', resumo:'LC 214/2025 define regras de transição de 7 anos. Empresas devem adaptar sistemas fiscais urgentemente.', tempo:'1h' },
+  { cat:'SIMPLES NACIONAL', icon:'📊', titulo:'Sublimites Simples Nacional 2025 confirmados', resumo:'Tabelas e alíquotas do regime simplificado divulgadas pela Receita Federal para o próximo exercício.', tempo:'3h' },
+  { cat:'MERCADO', icon:'💹', titulo:'SELIC mantida em 13,75% — BC sinaliza cortes', resumo:'Banco Central mantém taxa básica e sinaliza início de cortes apenas no segundo semestre de 2025.', tempo:'5h' },
+  { cat:'CONTABILIDADE', icon:'🏛️', titulo:'CFC aprova novas normas NBC TG 1000-R2', resumo:'Pequenas e médias empresas terão até 2026 para adequar demonstrações contábeis ao novo padrão.', tempo:'8h' },
+  { cat:'FOLHA DE PAGAMENTO', icon:'👥', titulo:'eSocial 2025: novas obrigações para MEI', resumo:'Micro empreendedores com funcionários devem adequar envio de eventos ao eSocial imediatamente.', tempo:'10h' },
+  { cat:'CONSTRUÇÃO CIVIL', icon:'🏗️', titulo:'RET e reconhecimento de receita POC em foco', resumo:'Patrimônio de afetação e CPC 47 são temas centrais para incorporadoras e construtoras em 2025.', tempo:'12h' },
+]
+const LOGIN_INDICADORES = [
+  { nome:'IPCA', valor:'4,83%', var:'+0.04', up:true },
+  { nome:'CDI', valor:'13,65%', var:'0.00', up:null },
+  { nome:'SELIC', valor:'13,75%', var:'0.00', up:null },
+  { nome:'USD', valor:'R$ 5,17', var:'-0.23', up:false },
+  { nome:'OURO', valor:'R$415/g', var:'+1.2%', up:true },
+  { nome:'IBOV', valor:'134.512', var:'+1.18%', up:true },
+]
+
+const NAVY = '#1B4D2E'  // Instagram verde
+const GOLD = '#C8A840'  // Instagram dourado
 
 const NAV_GROUPS = [
   { id:'principal', label:'Principal', items:[
@@ -277,86 +297,187 @@ export default function App() {
   const Page = PAGES[page] || Dashboard
 
   // ── Login ──────────────────────────────────────────────────────────────────
-  if (!usuario) return (
-    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg, #0f1c30 0%, ${NAVY} 60%, #1a2f4a 100%)` }}>
-      <div style={{ position:'absolute', inset:0, backgroundImage:'radial-gradient(circle at 20% 50%, rgba(197,165,90,.12) 0%, transparent 50%)' }}/>
+  // ── Estados para tela de login ──────────────────────────────────────────
+  const [loginHora, setLoginHora] = React.useState(new Date())
+  const [loginNIdx, setLoginNIdx] = React.useState(0)
+  const [loginTick, setLoginTick] = React.useState(0)
+  React.useEffect(()=>{
+    if(usuario) return
+    const t1=setInterval(()=>setLoginHora(new Date()),1000)
+    const t2=setInterval(()=>setLoginNIdx(i=>(i+1)%LOGIN_NOTICIAS.length),5000)
+    const t3=setInterval(()=>setLoginTick(i=>(i+1)%LOGIN_INDICADORES.length),2000)
+    return()=>{clearInterval(t1);clearInterval(t2);clearInterval(t3)}
+  },[usuario])
 
-      {/* Modal Esqueci Minha Senha */}
-      {esqueciModal && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-          <div style={{ background:'#fff', borderRadius:16, padding:28, width:'100%', maxWidth:340, boxShadow:'0 24px 64px rgba(0,0,0,.4)' }}>
-            <div style={{ fontSize:16, fontWeight:800, color:NAVY, marginBottom:6 }}>🔑 Recuperar Senha</div>
-            <div style={{ fontSize:12, color:'#888', marginBottom:18 }}>Informe o e-mail cadastrado e enviaremos as instruções.</div>
-            <label style={{ fontSize:10, fontWeight:700, color:'#aaa', display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:.8 }}>E-mail</label>
-            <input value={esqueciEmail} onChange={e=>setEsqueciEmail(e.target.value)}
-              placeholder="seu@email.com.br"
-              style={{ width:'100%', boxSizing:'border-box', border:'2px solid #f0f0f0', borderRadius:9, padding:'10px 12px', fontSize:13, outline:'none', fontFamily:'inherit', marginBottom:12 }}
-              onFocus={e=>e.target.style.borderColor=NAVY} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
-            {esqueciMsg && (
-              <div style={{ padding:'8px 12px', borderRadius:8, background: esqueciMsg.startsWith('✅')?'#EDFBF1':esqueciMsg.startsWith('⏳')?'#EBF5FF':'#FEF9C3', fontSize:12, marginBottom:12, color:'#333' }}>
-                {esqueciMsg}
-              </div>
-            )}
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={enviarEsqueci}
-                style={{ flex:1, padding:10, borderRadius:9, background:NAVY, color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>
-                Enviar
-              </button>
-              <button onClick={()=>{ setEsqueciModal(false); setEsqueciMsg(''); setEsqueciEmail('') }}
-                style={{ padding:'10px 16px', borderRadius:9, background:'#f5f5f5', color:'#555', fontSize:13, border:'none', cursor:'pointer' }}>
-                Fechar
-              </button>
+  if (!usuario) {
+    const VD='#1B4D2E', VM='#2D7A4F', VC='#3DAA6E', DR='#C8A840', BG='#0E2418'
+    const nn=LOGIN_NOTICIAS[loginNIdx]
+    const hStr=loginHora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+    const dStr=loginHora.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})
+    return (
+    <div style={{minHeight:'100vh',display:'flex',background:`linear-gradient(150deg,${BG} 0%,${VM} 55%,${BG} 100%)`,position:'relative',overflow:'hidden',fontFamily:"'Sora','Inter',system-ui,sans-serif"}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&display=swap');`}</style>
+      {/* BG decorativo */}
+      <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+        <div style={{position:'absolute',width:700,height:700,borderRadius:'50%',background:`radial-gradient(circle,${DR}15 0%,transparent 65%)`,top:-150,right:-100}}/>
+        <div style={{position:'absolute',width:500,height:500,borderRadius:'50%',background:`radial-gradient(circle,${VC}18 0%,transparent 65%)`,bottom:-100,left:-80}}/>
+        <div style={{position:'absolute',inset:0,backgroundImage:`linear-gradient(${DR}08 1px,transparent 1px),linear-gradient(90deg,${DR}08 1px,transparent 1px)`,backgroundSize:'48px 48px'}}/>
+      </div>
+
+      {/* Modal Esqueci */}
+      {esqueciModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div style={{background:'#fff',borderRadius:16,padding:28,width:'100%',maxWidth:340,boxShadow:'0 24px 64px rgba(0,0,0,.5)'}}>
+            <div style={{fontSize:16,fontWeight:800,color:VD,marginBottom:6}}>🔑 Recuperar Senha</div>
+            <div style={{fontSize:12,color:'#888',marginBottom:18}}>Informe o e-mail cadastrado e enviaremos as instruções.</div>
+            <label style={{fontSize:10,fontWeight:700,color:'#aaa',display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:.8}}>E-mail</label>
+            <input value={esqueciEmail} onChange={e=>setEsqueciEmail(e.target.value)} placeholder="seu@email.com.br"
+              style={{width:'100%',boxSizing:'border-box',border:'2px solid #f0f0f0',borderRadius:9,padding:'10px 12px',fontSize:13,outline:'none',fontFamily:'inherit',marginBottom:12}}
+              onFocus={e=>e.target.style.borderColor=VD} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
+            {esqueciMsg&&<div style={{padding:'8px 12px',borderRadius:8,background:esqueciMsg.startsWith('✅')?'#EDFBF1':esqueciMsg.startsWith('⏳')?'#EBF5FF':'#FEF9C3',fontSize:12,marginBottom:12,color:'#333'}}>{esqueciMsg}</div>}
+            <div style={{display:'flex',gap:8}}>
+              <button onClick={enviarEsqueci} style={{flex:1,padding:10,borderRadius:9,background:VD,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer'}}>Enviar</button>
+              <button onClick={()=>{setEsqueciModal(false);setEsqueciMsg('');setEsqueciEmail('')}} style={{padding:'10px 16px',borderRadius:9,background:'#f5f5f5',color:'#555',fontSize:13,border:'none',cursor:'pointer'}}>Fechar</button>
             </div>
           </div>
         </div>
       )}
 
-      <div style={{ position:'relative', background:'#fff', borderRadius:20, boxShadow:'0 32px 80px rgba(0,0,0,.45)', padding:'44px 40px', width:'100%', maxWidth:380, boxSizing:'border-box' }}>
-        <div style={{ textAlign:'center', marginBottom:32 }}>
-          <div style={{ width:68, height:68, borderRadius:16, background:`linear-gradient(135deg, ${NAVY}, #2d4a7a)`, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', boxShadow:`0 8px 24px ${NAVY}60` }}>
-            <span style={{ color:GOLD, fontSize:26, fontWeight:900 }}>E</span><span style={{ color:'#fff', fontSize:26, fontWeight:900 }}>P</span>
-          </div>
-          <div style={{ fontSize:22, fontWeight:800, color:NAVY, letterSpacing:-.5 }}>Sistema <span style={{ color:GOLD }}>E</span>Pimentel</div>
-          <div style={{ fontSize:11, color:'#bbb', marginTop:4, letterSpacing:1, textTransform:'uppercase' }}>Auditoria & Contabilidade</div>
-        </div>
-        <form onSubmit={login}>
-          <div style={{ marginBottom:16 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#aaa', marginBottom:6, textTransform:'uppercase', letterSpacing:.8 }}>E-mail</label>
-            <input type="text" value={loginForm.email} onChange={e=>setLoginForm(f=>({...f,email:e.target.value}))}
-              placeholder="admin@epimentel.com.br" autoComplete="email"
-              style={{ width:'100%', boxSizing:'border-box', border:'2px solid #f0f0f0', borderRadius:10, padding:'11px 14px', fontSize:13, outline:'none', fontFamily:'inherit' }}
-              onFocus={e=>e.target.style.borderColor=NAVY} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
-          </div>
-          <div style={{ marginBottom:6 }}>
-            <label style={{ display:'block', fontSize:10, fontWeight:700, color:'#aaa', marginBottom:6, textTransform:'uppercase', letterSpacing:.8 }}>Senha</label>
-            <input type="password" value={loginForm.senha} onChange={e=>setLoginForm(f=>({...f,senha:e.target.value}))}
-              placeholder="••••••••" autoComplete="current-password"
-              style={{ width:'100%', boxSizing:'border-box', border:'2px solid #f0f0f0', borderRadius:10, padding:'11px 14px', fontSize:13, outline:'none', fontFamily:'inherit' }}
-              onFocus={e=>e.target.style.borderColor=NAVY} onBlur={e=>e.target.style.borderColor='#f0f0f0'}/>
-          </div>
-          {/* Link Esqueci minha senha */}
-          <div style={{ textAlign:'right', marginBottom:18 }}>
-            <button type="button" onClick={()=>{ setEsqueciModal(true); setEsqueciEmail(loginForm.email) }}
-              style={{ background:'none', border:'none', cursor:'pointer', color:NAVY, fontSize:11, fontWeight:600, textDecoration:'underline', padding:0 }}>
-              Esqueci minha senha
-            </button>
-          </div>
-          {loginErro && (
-            <div style={{ background:'#FEF2F2', border:'1px solid #fca5a5', borderRadius:8, padding:'9px 12px', fontSize:12, color:'#991B1B', marginBottom:14, fontWeight:600 }}>
-              ⚠️ {loginErro}
+      {/* PAINEL ESQUERDO — Notícias */}
+      <div style={{flex:1,maxWidth:620,padding:'36px 48px',display:'flex',flexDirection:'column',position:'relative'}}>
+        {/* Header */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:28}}>
+          <div style={{display:'flex',alignItems:'center',gap:14}}>
+            <div style={{width:52,height:52,borderRadius:11,background:`linear-gradient(145deg,${VD},${VD}cc)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',boxShadow:`0 8px 24px ${VD}60`,border:`2px solid ${DR}44`}}>
+              <div style={{display:'flex',alignItems:'baseline'}}><span style={{color:DR,fontSize:17,fontWeight:900}}>E</span><span style={{color:'#fff',fontSize:17,fontWeight:900}}>P</span></div>
+              <div style={{color:`${DR}cc`,fontSize:6,fontWeight:700,letterSpacing:.5,textTransform:'uppercase'}}>CONTÁBIL</div>
             </div>
-          )}
-          <button type="submit" disabled={loginLoading}
-            style={{ width:'100%', padding:13, borderRadius:10, background: loginLoading ? '#d0a84b' : `linear-gradient(135deg, ${GOLD}, #d4a84b)`, color:NAVY, fontWeight:800, fontSize:14, border:'none', cursor: loginLoading ? 'wait' : 'pointer', boxShadow:`0 4px 16px ${GOLD}50` }}>
-            {loginLoading ? '⏳ Verificando...' : 'Entrar no Sistema'}
-          </button>
-        </form>
-        <div style={{ textAlign:'center', marginTop:22, fontSize:10, color:'#ccc', borderTop:'1px solid #f5f5f5', paddingTop:18 }}>
-          Carlos Eduardo A. M. Pimentel · CRC/GO 026.994/O-8
+            <div>
+              <div style={{color:'#fff',fontWeight:900,fontSize:20,letterSpacing:-.5}}>EPimentel</div>
+              <div style={{color:`${DR}99`,fontSize:10,textTransform:'uppercase',letterSpacing:2}}>Auditoria & Contabilidade</div>
+              <div style={{color:'rgba(255,255,255,.4)',fontSize:10,marginTop:1}}>(62) 9 9907-2483</div>
+            </div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{color:DR,fontSize:26,fontWeight:700,fontVariantNumeric:'tabular-nums',letterSpacing:-1.5}}>{hStr}</div>
+            <div style={{color:'rgba(255,255,255,.45)',fontSize:11,textTransform:'capitalize',marginTop:2}}>{dStr}</div>
+          </div>
+        </div>
+
+        {/* Indicadores */}
+        <div style={{background:'rgba(0,0,0,.35)',borderRadius:14,padding:'12px 14px',marginBottom:20,border:`1px solid ${DR}25`,backdropFilter:'blur(12px)'}}>
+          <div style={{color:DR,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+            📊 Indicadores Econômicos
+            <span style={{marginLeft:'auto',fontSize:9,color:'rgba(255,255,255,.3)'}}>ao vivo</span>
+          </div>
+          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+            {LOGIN_INDICADORES.map((ind,i)=>(
+              <div key={i} style={{flex:'1 1 65px',background:i===loginTick?`${DR}22`:'rgba(255,255,255,.05)',borderRadius:9,padding:'7px 9px',transition:'all .4s',border:`1px solid ${i===loginTick?DR+'44':'transparent'}`}}>
+                <div style={{color:'rgba(255,255,255,.45)',fontSize:9,fontWeight:700,textTransform:'uppercase'}}>{ind.nome}</div>
+                <div style={{color:'#fff',fontSize:12,fontWeight:800,margin:'2px 0',fontVariantNumeric:'tabular-nums'}}>{ind.valor}</div>
+                {ind.up!==null&&<div style={{fontSize:9,color:ind.up?'#4ade80':'#f87171',fontWeight:700}}>{ind.up?'▲':'▼'} {ind.var}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Título notícias */}
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+          <span style={{color:'rgba(255,255,255,.4)',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:2}}>Últimas do Setor</span>
+          <div style={{flex:1,height:1,background:`linear-gradient(90deg,${DR}40,transparent)`}}/>
+          <span style={{fontSize:9,color:DR,fontWeight:700,background:`${DR}20`,padding:'2px 8px',borderRadius:10}}>AO VIVO</span>
+        </div>
+
+        {/* Notícia principal */}
+        <div style={{background:'rgba(0,0,0,.4)',borderRadius:14,padding:'16px 18px',marginBottom:8,border:`1px solid ${DR}25`,backdropFilter:'blur(10px)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+            <span style={{fontSize:16}}>{nn.icon}</span>
+            <span style={{fontSize:9,fontWeight:800,color:DR,textTransform:'uppercase',letterSpacing:1.5,padding:'2px 8px',background:`${DR}22`,borderRadius:20}}>{nn.cat}</span>
+            <span style={{fontSize:10,color:'rgba(255,255,255,.3)',marginLeft:'auto'}}>{nn.tempo} atrás</span>
+          </div>
+          <div style={{color:'#fff',fontWeight:700,fontSize:14,lineHeight:1.45,marginBottom:6}}>{nn.titulo}</div>
+          <div style={{color:'rgba(255,255,255,.55)',fontSize:11,lineHeight:1.65}}>{nn.resumo}</div>
+        </div>
+
+        {/* Sub-notícias */}
+        <div style={{display:'grid',gap:5}}>
+          {LOGIN_NOTICIAS.filter((_,i)=>i!==loginNIdx).slice(0,3).map((item,i)=>(
+            <div key={i} style={{display:'flex',gap:9,padding:'7px 10px',borderRadius:8,background:'rgba(0,0,0,.25)',border:'1px solid rgba(255,255,255,.06)'}}>
+              <span style={{fontSize:13,flexShrink:0}}>{item.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:'rgba(255,255,255,.75)',fontSize:11,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.titulo}</div>
+                <div style={{color:'rgba(255,255,255,.3)',fontSize:10}}>{item.cat} · {item.tempo} atrás</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Nav dots */}
+        <div style={{display:'flex',gap:5,marginTop:12,alignItems:'center'}}>
+          {LOGIN_NOTICIAS.map((_,i)=>(
+            <div key={i} onClick={()=>setLoginNIdx(i)} style={{width:i===loginNIdx?20:6,height:6,borderRadius:3,background:i===loginNIdx?DR:'rgba(255,255,255,.2)',cursor:'pointer',transition:'all .3s'}}/>
+          ))}
+          <div style={{marginLeft:'auto',color:'rgba(255,255,255,.3)',fontSize:10}}>@ep.contabil</div>
+        </div>
+      </div>
+
+      {/* PAINEL DIREITO — Formulário */}
+      <div style={{width:430,display:'flex',alignItems:'center',justifyContent:'center',padding:'36px'}}>
+        <div style={{background:'#fff',borderRadius:24,padding:'40px 36px',width:'100%',boxShadow:`0 40px 100px rgba(0,0,0,.6),0 0 0 1px ${DR}20`}}>
+          <div style={{textAlign:'center',marginBottom:26}}>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:12}}>
+              <div style={{width:64,height:64,borderRadius:14,background:`linear-gradient(145deg,${VD},${VD}cc)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',boxShadow:`0 12px 28px ${VD}60`,border:`2px solid ${DR}44`}}>
+                <div style={{display:'flex',alignItems:'baseline'}}><span style={{color:DR,fontSize:22,fontWeight:900}}>E</span><span style={{color:'#fff',fontSize:22,fontWeight:900}}>P</span></div>
+                <div style={{color:`${DR}cc`,fontSize:7,fontWeight:700,letterSpacing:.5,textTransform:'uppercase'}}>CONTÁBIL</div>
+              </div>
+            </div>
+            <div style={{fontSize:21,fontWeight:900,color:VD,letterSpacing:-.5}}>Sistema <span style={{color:DR}}>EP</span>imentel</div>
+            <div style={{fontSize:10,color:'#aaa',marginTop:3,textTransform:'uppercase',letterSpacing:1.5}}>Auditoria & Contabilidade</div>
+          </div>
+          {/* Tags */}
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,justifyContent:'center',marginBottom:20}}>
+            {['📋 IRPF 2025','⚖️ Reforma Tributária','📊 Simples Nacional'].map((t,i)=>(
+              <span key={i} style={{fontSize:9,padding:'3px 9px',borderRadius:20,background:`${VD}12`,color:VD,fontWeight:700,border:`1px solid ${VD}20`}}>{t}</span>
+            ))}
+          </div>
+          <form onSubmit={login}>
+            <div style={{marginBottom:12}}>
+              <label style={{display:'block',fontSize:10,fontWeight:800,color:'#888',marginBottom:6,textTransform:'uppercase',letterSpacing:1}}>E-mail</label>
+              <input type="text" value={loginForm.email} onChange={e=>setLoginForm(f=>({...f,email:e.target.value}))}
+                placeholder="admin@epimentel.com.br" autoComplete="email"
+                style={{width:'100%',boxSizing:'border-box',border:'2px solid #eee',borderRadius:11,padding:'11px 15px',fontSize:13,outline:'none',fontFamily:'inherit',background:'#fafafa',transition:'all .2s'}}
+                onFocus={e=>{e.target.style.borderColor=VD;e.target.style.background='#fff'}}
+                onBlur={e=>{e.target.style.borderColor='#eee';e.target.style.background='#fafafa'}}/>
+            </div>
+            <div style={{marginBottom:22}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                <label style={{fontSize:10,fontWeight:800,color:'#888',textTransform:'uppercase',letterSpacing:1}}>Senha</label>
+                <button type="button" onClick={()=>{setEsqueciModal(true);setEsqueciEmail(loginForm.email)}}
+                  style={{background:'none',border:'none',cursor:'pointer',color:VD,fontSize:11,fontWeight:600,padding:0}}>Esqueci minha senha</button>
+              </div>
+              <input type="password" value={loginForm.senha} onChange={e=>setLoginForm(f=>({...f,senha:e.target.value}))}
+                placeholder="••••••••" autoComplete="current-password"
+                style={{width:'100%',boxSizing:'border-box',border:'2px solid #eee',borderRadius:11,padding:'11px 15px',fontSize:13,outline:'none',fontFamily:'inherit',background:'#fafafa',transition:'all .2s'}}
+                onFocus={e=>{e.target.style.borderColor=VD;e.target.style.background='#fff'}}
+                onBlur={e=>{e.target.style.borderColor='#eee';e.target.style.background='#fafafa'}}/>
+            </div>
+            {loginErro&&<div style={{background:'#FEF2F2',border:'1px solid #fca5a5',borderRadius:8,padding:'9px 12px',fontSize:12,color:'#991B1B',marginBottom:14,fontWeight:600}}>⚠️ {loginErro}</div>}
+            <button type="submit" disabled={loginLoading}
+              style={{width:'100%',padding:'13px',borderRadius:11,background:loginLoading?VM:`linear-gradient(135deg,${VD},${VM})`,color:'#fff',fontWeight:800,fontSize:14,border:'none',cursor:loginLoading?'wait':'pointer',boxShadow:`0 8px 24px ${VD}50`,display:'flex',alignItems:'center',justifyContent:'center',gap:8,transition:'all .2s'}}>
+              {loginLoading?'⏳ Verificando...':'🔐 Acessar Sistema'}
+            </button>
+          </form>
+          <div style={{marginTop:14,padding:'9px 12px',borderRadius:9,background:`${VD}08`,border:`1px solid ${VD}15`,display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:13}}>🔒</span>
+            <div style={{fontSize:10,color:'#888',lineHeight:1.5}}>
+              Acesso restrito a colaboradores autorizados.<br/>
+              <span style={{color:VD,fontWeight:600}}>Carlos Eduardo A. M. Pimentel · CRC/GO 026.994/O-8</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  )
+  )}
 
   const sideW = sideOpen ? (collapsed ? 58 : 226) : 0
 
@@ -366,7 +487,7 @@ export default function App() {
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', fontFamily:"'Sora','Inter',system-ui,sans-serif" }}>
 
       {/* Sidebar */}
-      <aside style={{ display:'flex', flexDirection:'column', flexShrink:0, width:sideW, minWidth:sideW, background:'linear-gradient(180deg,#0d1929 0%,#1B2A4A 45%,#172338 100%)', overflow:'hidden', transition:'width .3s cubic-bezier(.4,0,.2,1),min-width .3s cubic-bezier(.4,0,.2,1)', boxShadow:'4px 0 20px rgba(0,0,0,.25)', zIndex:20 }}>
+      <aside style={{ display:'flex', flexDirection:'column', flexShrink:0, width:sideW, minWidth:sideW, background:'linear-gradient(180deg,#0D2B1A 0%,#1B4D2E 45%,#163824 100%)', overflow:'hidden', transition:'width .3s cubic-bezier(.4,0,.2,1),min-width .3s cubic-bezier(.4,0,.2,1)', boxShadow:'4px 0 20px rgba(0,0,0,.25)', zIndex:20 }}>
 
         {/* Logo */}
         <div style={{ padding:'14px 12px 12px', borderBottom:'1px solid rgba(255,255,255,.07)', display:'flex', alignItems:'center', gap:9, minHeight:62, flexShrink:0, overflow:'hidden' }}>
