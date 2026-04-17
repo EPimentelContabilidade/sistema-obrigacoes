@@ -2,13 +2,15 @@
     root * /app/dist
     encode gzip
 
-    # Proxy /api/* para o backend FastAPI
-    reverse_proxy /api/* https://sistema-obrigacoes-production.up.railway.app {
-        header_up Host sistema-obrigacoes-production.up.railway.app
-        header_up X-Forwarded-Proto https
+    handle /api/* {
+        reverse_proxy https://sistema-obrigacoes-production.up.railway.app {
+            header_up Host sistema-obrigacoes-production.up.railway.app
+            header_up X-Real-IP {remote_host}
+        }
     }
 
-    # SPA: qualquer rota não encontrada retorna index.html
-    try_files {path} /index.html
-    file_server
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
 }
