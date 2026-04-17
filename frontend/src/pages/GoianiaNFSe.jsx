@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { LogIn, Download, Search, FileText, RefreshCw, Loader, AlertCircle, CheckCircle, X, Eye, EyeOff } from 'lucide-react'
 import ClienteSelector from '../components/ClienteSelector'
 
-const API = '/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 export default function GoianiaNFSe() {
   const [logado, setLogado] = useState(false)
