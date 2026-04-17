@@ -263,7 +263,7 @@ export default function Clientes() {
           data_situacao: d.data_situacao_cadastral,
           socios: (d.qsa||[]).map(s=>({nome:s.nome_socio, qualificacao:s.qualificacao_socio})),
           tipoCadastro: 'CNPJ'
-        })
+        }))
         try { localStorage.setItem('ep_rf_'+(form.cnpj||'').replace(/\D/g,''), JSON.stringify(d)); if(form.grupo) salvarGrupoLS(form.grupo) } catch {}
       }
     } catch (e) { console.error('CNPJ:', e) }
