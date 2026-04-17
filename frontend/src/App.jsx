@@ -419,7 +419,85 @@ export default function App() {
           </div>
         </div>
 
-                  {/* PAINEL DIREITO — Formulário */}
+        {/* Duas colunas: Notícias + Info fiscal */}
+        <div style={{display:'none'}}>
+          {/* Notícias */}
+          <div style={{display:'flex',flexDirection:'column',gap:6,minHeight:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{color:'rgba(255,255,255,.35)',fontSize:8.5,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5}}>Últimas do Setor</span>
+              <div style={{flex:1,height:1,background:`linear-gradient(90deg,${DR}40,transparent)`}}/>
+              <span style={{fontSize:7.5,color:DR,fontWeight:700,background:`${DR}20`,padding:'1px 6px',borderRadius:8}}>AO VIVO</span>
+            </div>
+            <div style={{background:'rgba(0,0,0,.35)',borderRadius:10,padding:'10px',border:`1px solid ${DR}20`,flex:1}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                <span style={{fontSize:13}}>{nn.icon}</span>
+                <span style={{fontSize:8,fontWeight:800,color:DR,textTransform:'uppercase',letterSpacing:1,padding:'1px 7px',background:`${DR}22`,borderRadius:20}}>{nn.cat}</span>
+                <span style={{fontSize:8.5,color:'rgba(255,255,255,.3)',marginLeft:'auto'}}>{nn.tempo}</span>
+              </div>
+              <div style={{color:'#fff',fontWeight:700,fontSize:11.5,lineHeight:1.4,marginBottom:5}}>{nn.titulo}</div>
+              <div style={{color:'rgba(255,255,255,.5)',fontSize:10,lineHeight:1.6}}>{nn.resumo}</div>
+            </div>
+            <div style={{display:'grid',gap:4}}>
+              {LOGIN_NOTICIAS.filter((_,i)=>i!==loginNIdx).slice(0,3).map((item,i)=>(
+                <div key={i} style={{display:'flex',gap:6,padding:'5px 7px',borderRadius:7,background:'rgba(0,0,0,.2)',border:'1px solid rgba(255,255,255,.05)'}}>
+                  <span style={{fontSize:10,flexShrink:0}}>{item.icon}</span>
+                  <div style={{minWidth:0}}>
+                    <div style={{color:'rgba(255,255,255,.7)',fontSize:9.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.titulo}</div>
+                    <div style={{color:'rgba(255,255,255,.3)',fontSize:8.5}}>{item.cat}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              {LOGIN_NOTICIAS.map((_,i)=>(<div key={i} onClick={()=>setLoginNIdx(i)} style={{width:i===loginNIdx?16:5,height:5,borderRadius:3,background:i===loginNIdx?DR:'rgba(255,255,255,.2)',cursor:'pointer',transition:'all .3s'}}/>))}
+            </div>
+          </div>
+
+          {/* Info fiscal */}
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{color:'rgba(255,255,255,.35)',fontSize:8.5,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5}}>Destaque Fiscal</span>
+              <div style={{flex:1,height:1,background:`linear-gradient(90deg,${DR}40,transparent)`}}/>
+            </div>
+            {/* Reforma Tributária */}
+            <div style={{background:'rgba(0,0,0,.35)',borderRadius:10,padding:'10px',border:`1px solid ${DR}20`,flex:1}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                <span style={{fontSize:14}}>⚖️</span>
+                <div>
+                  <div style={{color:DR,fontSize:10,fontWeight:800}}>Reforma Tributária</div>
+                  <div style={{color:'rgba(255,255,255,.35)',fontSize:8}}>LC 214/2025 — Em vigor</div>
+                </div>
+              </div>
+              {[
+                {icon:'📌',txt:'CBS e IBS nas NFs (informativo 2026)'},
+                {icon:'🔄',txt:'Transição de 7 anos (2026–2033)'},
+                {icon:'🏢',txt:'Simples Nacional: mudanças em 2027'},
+                {icon:'📊',txt:'57 novas normas tributárias por dia'},
+              ].map((item,i)=>(
+                <div key={i} style={{display:'flex',gap:5,alignItems:'flex-start',padding:'4px 6px',borderRadius:6,background:'rgba(255,255,255,.04)',marginBottom:3}}>
+                  <span style={{fontSize:10,flexShrink:0}}>{item.icon}</span>
+                  <span style={{color:'rgba(255,255,255,.65)',fontSize:9.5,lineHeight:1.4}}>{item.txt}</span>
+                </div>
+              ))}
+            </div>
+            {/* IRPF Alert */}
+            <div style={{background:`${DR}18`,borderRadius:10,padding:'9px 11px',border:`1px solid ${DR}45`}}>
+              <div style={{color:DR,fontSize:10,fontWeight:800,marginBottom:6}}>📋 IRPF 2025 — ATENÇÃO</div>
+              <div style={{color:'rgba(255,255,255,.65)',fontSize:9.5,lineHeight:1.65}}>
+                ⏰ <b style={{color:'#fff'}}>Prazo: 30/05/2025</b><br/>
+                👤 Rend. {'>'} R$ 35.584/ano<br/>
+                💰 1ª restituição: junho/2025<br/>
+                🌐 <span style={{color:DR}}>gov.br/irpf</span>
+              </div>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between'}}>
+              <span style={{color:'rgba(255,255,255,.2)',fontSize:8}}>Fonte: Receita Federal</span>
+              <span style={{color:'rgba(255,255,255,.2)',fontSize:8}}>@ep.contabil</span>
+            </div>
+          </div>
+        </div>
+      </div>
+            {/* PAINEL DIREITO — Formulário */}
       <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:'36px'}}>
         <div style={{background:'#fff',borderRadius:24,padding:'40px 36px',width:'100%',boxShadow:`0 40px 100px rgba(0,0,0,.6),0 0 0 1px ${DR}20`}}>
           <div style={{textAlign:'center',marginBottom:26}}>
