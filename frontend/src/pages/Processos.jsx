@@ -632,7 +632,7 @@ function RespAutocomplete({ value, usuarios, onChange }) {
 }
 
 function TabProcessos({ templates }) {
-  const API_BASE = '/api/v1';
+  const API_BASE = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1';
   const [processos, setProcessos] = useState(()=>{ try{return JSON.parse(localStorage.getItem("ep_processos")||"[]");}catch{return [];} });
   const [clientes, setClientes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
