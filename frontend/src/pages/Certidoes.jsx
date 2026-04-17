@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Search, Download, RefreshCw, CheckCircle, AlertCircle, Clock, Loader, Plus, X } from 'lucide-react'
 import ClienteSelector from '../components/ClienteSelector'
 
-const API = '/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 const TIPOS_CERTIDAO = [
   { id: 'cnd_federal', label: 'CND Federal', orgao: 'Receita Federal / PGFN', prazo: '180 dias', icon: '🏛️' },
