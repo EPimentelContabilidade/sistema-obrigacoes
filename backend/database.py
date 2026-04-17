@@ -1,10 +1,10 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 from config import settings
 from models import Base
 
 def _fix_url(url: str) -> str:
-    """Converte URL do Railway para formato asyncpg/aiosqlite."""
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif url.startswith("postgresql://") and "+asyncpg" not in url:
@@ -35,11 +35,24 @@ AsyncSessionLocal = sessionmaker(
     expire_on_commit=False,
 )
 
+# Colunas adicionadas após a criação inicial — ADD COLUMN IF NOT EXISTS
+MIGRATIONS_PG = [
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ep_id VARCHAR(20)",
+    "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS grupo VARCHAR(100)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ix_clientes_ep_id ON clientes (ep_id)",
+]
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if IS_POSTGRES:
+            for sql in MIGRATIONS_PG:
+                try:
+                    await conn.execute(text(sql))
+                except Exception as e:
+                    print(f"[DB] Migration skip: {e}")
     await seed_tipos_obrigacao()
-    print(f"[DB] Banco inicializado: {'PostgreSQL' if IS_POSTGRES else 'SQLite'}")
+    print(f"[DB] Banco pronto: {'PostgreSQL' if IS_POSTGRES else 'SQLite'}")
 
 async def get_db():
     async with AsyncSessionLocal() as session:
