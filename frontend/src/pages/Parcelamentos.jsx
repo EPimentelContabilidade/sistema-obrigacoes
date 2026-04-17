@@ -4,7 +4,7 @@ import { Plus, X, Save, Send, Bot, Trash2, Eye, RefreshCw,
 
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
-const API  = '/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 const ORGAOS = {
   receita:  { label:'Receita Federal',    icon:'🏛️', cor:'#1D6FA4', bg:'#EBF5FF',
