@@ -10,7 +10,7 @@ const DIAS_OPTS = ['Não Tem','1º dia útil','2º dia útil','3º dia útil','5
 const TRIBUTACOES = ['Simples Nacional','Lucro Presumido','Lucro Real','MEI','Imune/Isento','Produtor Rural','RET','Condomínio','Autônomo','Outro']
 const DEPT_CORES = { Fiscal:{bg:'#EBF5FF',color:'#1D6FA4'}, Pessoal:{bg:'#EDFBF1',color:'#1A7A3C'}, Contábil:{bg:'#F3EEFF',color:'#6B3EC9'}, Bancos:{bg:'#FEF9C3',color:'#854D0E'} }
 const FORM0 = { nome:'', mininome:'', departamento:'Fiscal', responsavel:'Eduardo Pimentel', tempo_previsto:0, meses:Array(12).fill('Todo dia 20'), lembrar_dias:'5', tipo_dias:'corridos', prazo_fixo:'antecipar', sabado_util:false, competencia:'mes_anterior', exigir_robo:false, passivel_multa:false, alerta_guia:true, ativa:true, comentario_padrao:'', tributacoes:[], whatsapp:false, empresas:[] }
-const API = '/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 const LS_KEY = 'ep_obrigacoes_catalogo_custom'
 
 export default function Obrigacoes() {
