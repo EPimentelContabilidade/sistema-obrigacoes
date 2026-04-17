@@ -182,6 +182,22 @@ export default function Clientes() {
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
   const setC = (k,v) => setForm(f=>({...f, credenciais:{...(f.credenciais||{}), [k]:v}}))
 
+  const handleCnpjChange = (v) => {
+    const digits = v.replace(/\D/g,'')
+    setF('cnpj', v)
+    if (digits.length === 14) setF('tipoCadastro','CNPJ')
+    else if (digits.length === 11) setF('tipoCadastro','CPF')
+    else if (digits.length === 20) setF('tipoCadastro','CAEPF')
+  }
+  const salvarGrupoLS = (nomeGrupo) => {
+    if (!nomeGrupo?.trim()) return
+    try {
+      const grupos = JSON.parse(localStorage.getItem('ep_grupos_cadastrados')||'[]')
+      if (!grupos.includes(nomeGrupo.trim())) { grupos.push(nomeGrupo.trim()); localStorage.setItem('ep_grupos_cadastrados', JSON.stringify(grupos)) }
+    } catch {}
+  }
+  const listarGruposLS = () => { try { return JSON.parse(localStorage.getItem('ep_grupos_cadastrados')||'[]') } catch { return [] } }
+
   const onTributacaoChange = (novoRegime) => {
     setF('tributacao', novoRegime); setF('regime', novoRegime)
     if (!editId) {
@@ -245,8 +261,10 @@ export default function Clientes() {
           natureza_juridica: d.natureza_juridica,
           situacao_cadastral: d.descricao_situacao_cadastral,
           data_situacao: d.data_situacao_cadastral,
-          socios: (d.qsa||[]).map(s=>({nome:s.nome_socio, qualificacao:s.qualificacao_socio}))
-        }))
+          socios: (d.qsa||[]).map(s=>({nome:s.nome_socio, qualificacao:s.qualificacao_socio})),
+          tipoCadastro: 'CNPJ'
+        })
+        try { localStorage.setItem('ep_rf_'+(form.cnpj||'').replace(/\D/g,''), JSON.stringify(d)); if(form.grupo) salvarGrupoLS(form.grupo) } catch {}
       }
     } catch (e) { console.error('CNPJ:', e) }
     setBuscandoCNPJ(false)
@@ -279,6 +297,7 @@ export default function Clientes() {
       novoSeq = clientes.find(c=>String(c.id)===String(editId))?.seq
     }
     // cert_b64 salvo em chave separada para não estourar localStorage
+    if (form.grupo) salvarGrupoLS(form.grupo)
     const certB64 = form.credenciais?.cert_b64 || ''
     if (certB64 && novoId) {
       localStorage.setItem(`ep_cert_${novoId}`, certB64)
@@ -504,16 +523,20 @@ export default function Clientes() {
                   <div style={{marginBottom:12}}>
                     <label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:6}}>Tipo de Cadastro</label>
                     <div style={{display:'flex',gap:8}}>
-                      {[['CNPJ','🏢 CNPJ'],['CPF','👤 CPF'],['CAEPF','🌾 CAEPF']].map(([v,l])=>(
-                        <button key={v} onClick={()=>setF('tipoCadastro',v)} style={{padding:'6px 16px',borderRadius:7,cursor:'pointer',border:`2px solid ${(form.tipoCadastro||'CNPJ')===v?NAVY:'#ddd'}`,background:(form.tipoCadastro||'CNPJ')===v?NAVY+'15':'#fff',color:(form.tipoCadastro||'CNPJ')===v?NAVY:'#888',fontWeight:(form.tipoCadastro||'CNPJ')===v?700:400,fontSize:12}}>{l}</button>
-                      ))}
+                      {[['CNPJ','🏢 CNPJ'],['CPF','👤 CPF'],['CAEPF','🌾 CAEPF']].map(([v,l])=>{
+                        const fixado=(form.tipoCadastro||'CNPJ')==='CNPJ'&&(form.cnpj||'').replace(/\D/g,'').length===14
+                        return <button key={v} onClick={()=>!fixado&&setF('tipoCadastro',v)} disabled={fixado&&v!=='CNPJ'} style={{padding:'6px 16px',borderRadius:7,cursor:fixado&&v!=='CNPJ'?'not-allowed':'pointer',border:`2px solid ${(form.tipoCadastro||'CNPJ')===v?NAVY:'#ddd'}`,background:(form.tipoCadastro||'CNPJ')===v?NAVY+'15':'#fff',color:(form.tipoCadastro||'CNPJ')===v?NAVY:'#888',fontWeight:(form.tipoCadastro||'CNPJ')===v?700:400,fontSize:12,opacity:fixado&&v!=='CNPJ'?0.4:1}}>{l}</button>
+                      })}
+                      {(form.tipoCadastro||'CNPJ')==='CNPJ'&&(form.cnpj||'').replace(/\D/g,'').length===14&&(
+                        <span style={{fontSize:10,color:'#16a34a',fontWeight:700,alignSelf:'center',marginLeft:4}}>🔒 Fixado</span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
                     <div>
                       <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>{form.tipoCadastro||'CNPJ'} *</label>
                       <div style={{ display:'flex', gap:8 }}>
-                        <input value={form.cnpj} onChange={e=>setF('cnpj',e.target.value)}
+                        <input value={form.cnpj} onChange={e=>handleCnpjChange(e.target.value)}
                           placeholder={(form.tipoCadastro||'CNPJ')==='CNPJ'?'00.000.000/0001-00':(form.tipoCadastro||'CNPJ')==='CPF'?'000.000.000-00':'00.000.00000/000-0'}
                           style={{ ...inp, flex:1 }}/>
                         {(form.tipoCadastro||'CNPJ')==='CNPJ'&&<button onClick={buscarCNPJ} disabled={buscandoCNPJ} style={{ padding:'7px 14px', borderRadius:7, background:GOLD, color:NAVY, fontWeight:700, fontSize:12, border:'none', cursor:'pointer', whiteSpace:'nowrap', opacity:buscandoCNPJ?0.6:1 }}>
@@ -538,7 +561,10 @@ export default function Clientes() {
                     </div>
                     <div>
                       <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>Grupo</label>
-                      <input value={form.grupo} onChange={e=>setF('grupo',e.target.value)} placeholder="Sem grupo" style={inp}/>
+                      <input value={form.grupo} onChange={e=>setF('grupo',e.target.value)} onBlur={e=>salvarGrupoLS(e.target.value)} list="ep-grupos-list" placeholder="Sem grupo" style={inp}/>
+                      <datalist id="ep-grupos-list">
+                        {[...new Set([...listarGruposLS(),...clientes.map(c=>c.grupo||'').filter(Boolean)])].sort().map(g=>(<option key={g} value={g}/>))}
+                      </datalist>
                     </div>
                   </div>
 
@@ -759,74 +785,45 @@ export default function Clientes() {
 
                   {/* Certificado Digital */}
                   <CredSection titulo="Certificado Digital (e-CNPJ / e-CPF A1)" icone="🔏">
-                    {/* Tipo e titular */}
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
-                      <CampoLabel label="Tipo de Certificado">
-                        <div style={{ display:'flex', gap:6 }}>
-                          {['e-CNPJ','e-CPF'].map(t=>(
-                            <button key={t} onClick={()=>setC('cert_tipo',t)} style={{ flex:1, padding:'6px 0', borderRadius:7, cursor:'pointer', border:`2px solid ${(creds.cert_tipo||'e-CNPJ')===t?NAVY:'#ddd'}`, background:(creds.cert_tipo||'e-CNPJ')===t?NAVY+'15':'#fff', color:(creds.cert_tipo||'e-CNPJ')===t?NAVY:'#888', fontWeight:(creds.cert_tipo||'e-CNPJ')===t?700:400, fontSize:12 }}>{t}</button>
-                          ))}
-                        </div>
-                      </CampoLabel>
-                      <CampoLabel label="Titular (nome no certificado)">
-                        <input value={creds.cert_titular||''} onChange={e=>setC('cert_titular',e.target.value)} placeholder="Nome como no certificado" style={inp}/>
-                      </CampoLabel>
-                      <CampoLabel label="CPF/CNPJ do certificado">
-                        <input value={creds.cert_cnpj_cpf||form.cnpj||''} onChange={e=>setC('cert_cnpj_cpf',e.target.value)} placeholder={form.cnpj||'00.000.000/0001-00'} style={inp}/>
-                      </CampoLabel>
-                    </div>
-                    {/* Arquivo e senha */}
-                    <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12 }}>
-                      <CampoLabel label="Arquivo .pfx (.p12">
-                        <div style={{ display:'flex', gap:8 }}>
-                          <input type="text" value={creds.cert_arquivo||''} readOnly placeholder="Nenhum arquivo selecionado..." style={{ ...inp, cursor:'default', background:'#f9f9f9', flex:1 }}/>
-                          <input
-                            ref={certFileRef}
-                            type="file"
-                            accept=".pfx,.p12,.cer,.crt,.pem"
-                            style={{ display:'none' }}
-                            onChange={e=>{
-                              const f2 = e.target.files[0]
-                              if(!f2) return
-                              setC('cert_arquivo', f2.name)
-                              setC('cert_senha_pendente', true)
-                              const nome = f2.name.toLowerCase()
-                              if(nome.includes('cpf')||nome.includes('ecpf')) setC('cert_tipo','e-CPF')
-                              else if(nome.includes('cnpj')||nome.includes('ecnpj')) setC('cert_tipo','e-CNPJ')
-                              const reader = new FileReader()
-                              reader.onload = ev => {
-                                const dataUrl = ev.target.result
-                                setC('cert_b64', dataUrl.split(',')[1]||'')
-                              }
-                              reader.readAsDataURL(f2)
-                              // Reset input para permitir reselecionar o mesmo arquivo
-                              e.target.value = ''
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={()=>certFileRef.current?.click()}
-                            style={{ padding:'7px 14px', borderRadius:7, background:'#555', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', border:'none' }}
-                          >
-                            📂 Browse
-                          </button>
-                        </div>
-                        <a href="https://www.sped.fazenda.gov.br/spedweb/" target="_blank" rel="noreferrer" style={{ fontSize:11, color:'#3b82f6', marginTop:4, display:'inline-flex', alignItems:'center', gap:4 }}>
-                          ℹ Veja como converter de p12 para pfx <ExternalLink size={10}/>
-                        </a>
-                      </CampoLabel>
-                      <CampoLabel label="Senha do certificado">
-                        <SenhaInput
-                          value={creds.cert_senha||''}
-                          onChange={e=>setC('cert_senha',e.target.value)}
-                        />
-                        <button
-                          type="button"
-                          onClick={async()=>{
-                            if(!creds.cert_b64) { alert('Selecione o arquivo .pfx primeiro'); return }
-                            // Tentar API
+                    {/* Área de importação — única forma de vincular */}
+                    <div style={{ background:'#F0FDF4', border:'2px dashed #86efac', borderRadius:12, padding:'18px 20px', marginBottom:14 }}>
+                      <div style={{ fontWeight:700, color:'#166534', fontSize:13, marginBottom:4 }}>📥 Importar certificado (.pfx / .p12)</div>
+                      <div style={{ fontSize:11, color:'#555', marginBottom:12 }}>Selecione o arquivo e informe a senha. O sistema identificará automaticamente o titular, CNPJ/CPF e validade.</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, alignItems:'flex-end' }}>
+                        <CampoLabel label="Arquivo .pfx ou .p12">
+                          <div style={{ display:'flex', gap:8 }}>
+                            <input type="text" value={creds.cert_arquivo||''} readOnly
+                              placeholder="Nenhum arquivo selecionado..."
+                              style={{ ...inp, cursor:'default', background:'#f9f9f9', flex:1,
+                                borderColor: creds.cert_arquivo ? '#86efac' : '#ddd',
+                                color: creds.cert_arquivo ? '#166534' : '#999' }}/>
+                            <input ref={certFileRef} type="file" accept=".pfx,.p12" style={{ display:'none' }}
+                              onChange={e=>{
+                                const f2=e.target.files[0]; if(!f2) return
+                                setC('cert_arquivo',f2.name)
+                                const nome=f2.name.toLowerCase()
+                                if(nome.includes('cpf')||nome.includes('ecpf')) setC('cert_tipo','e-CPF')
+                                else setC('cert_tipo','e-CNPJ')
+                                const reader=new FileReader()
+                                reader.onload=ev=>setC('cert_b64',(ev.target.result.split(',')[1])||'')
+                                reader.readAsDataURL(f2); e.target.value=''
+                              }}/>
+                            <button type="button" onClick={()=>certFileRef.current?.click()}
+                              style={{ padding:'7px 16px', borderRadius:7, background:NAVY, color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', border:'none' }}>
+                              📂 Selecionar
+                            </button>
+                          </div>
+                        </CampoLabel>
+                        <CampoLabel label="Senha do certificado">
+                          <SenhaInput value={creds.cert_senha||''} onChange={e=>setC('cert_senha',e.target.value)}/>
+                        </CampoLabel>
+                      </div>
+                      {creds.cert_arquivo && (
+                        <button type="button" onClick={async()=>{
+                            if(!creds.cert_b64){alert('Selecione o arquivo .pfx primeiro');return}
+                            if(!creds.cert_senha){alert('Informe a senha do certificado');return}
                             try {
-                              const r=await fetch(`${API}/clientes/certificado/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cert_base64:creds.cert_b64,senha:creds.cert_senha||''}),signal:AbortSignal.timeout(5000)})
+                              const r=await fetch(`${API}/clientes/certificado/info`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cert_base64:creds.cert_b64,senha:creds.cert_senha||''}),signal:AbortSignal.timeout(8000)})
                               if(r.ok){
                                 const info=await r.json()
                                 if(info.cnpj) setC('cert_cnpj_cpf',info.cnpj)
@@ -834,48 +831,57 @@ export default function Clientes() {
                                 if(info.validade) setC('cert_validade',info.validade)
                                 if(info.tipo) setC('cert_tipo',info.tipo)
                                 if(info.emitente) setC('cert_emissora',info.emitente.substring(0,40))
-                                alert('✅ Certificado carregado!\nTitular: '+(info.titular||'—')+'\nValidade: '+(info.validade||'—'))
+                                if(info.serie) setC('cert_serie',info.serie)
+                                alert('✅ Certificado reconhecido!\nTitular: '+(info.titular||'—')+'\nValidade: '+(info.validade||'—'))
                                 return
                               }
                             } catch {}
-                            // Fallback: certificado carregado mas API não disponível
-                            alert('✅ Arquivo .pfx carregado com sucesso!\n\nReconhecimento automático indisponível.\nPreencha manualmente: Titular, Data de Validade e Emissora.\n\nO certificado está salvo e será usado pelos módulos do sistema.')
+                            alert('✅ Arquivo carregado!\n\nAPI de reconhecimento indisponível. Preencha manualmente os dados abaixo.')
                           }}
-                          style={{ marginTop:6,width:'100%',padding:'7px',borderRadius:7,background:NAVY,color:'#fff',fontWeight:700,fontSize:12,border:'none',cursor:'pointer' }}
-                        >
-                          🔍 Reconhecer automaticamente
+                          style={{ marginTop:10,width:'100%',padding:'9px',borderRadius:8,background:`linear-gradient(135deg,${NAVY},#2D7A4F)`,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8 }}>
+                          🔍 Reconhecer automaticamente (Titular · CNPJ/CPF · Validade)
                         </button>
-                      </CampoLabel>
+                      )}
                     </div>
-                    {/* Validade e emissora */}
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
-                      <CampoLabel label="Data de Validade">
-                        <input type="date" value={creds.cert_validade||''} onChange={e=>setC('cert_validade',e.target.value)} style={{ ...inp, borderColor:creds.cert_validade&&new Date(creds.cert_validade)<new Date()?'#e53935':creds.cert_validade&&new Date(creds.cert_validade)<new Date(Date.now()+30*864e5)?'#FF9800':'#ddd' }}/>
-                        {creds.cert_validade&&new Date(creds.cert_validade)<new Date()&&<div style={{ fontSize:10, color:'#e53935', marginTop:2, fontWeight:700 }}>⚠ Certificado VENCIDO</div>}
-                        {creds.cert_validade&&new Date(creds.cert_validade)>=new Date()&&new Date(creds.cert_validade)<new Date(Date.now()+30*864e5)&&<div style={{ fontSize:10, color:'#FF9800', marginTop:2, fontWeight:700 }}>⚠ Vence em menos de 30 dias</div>}
-                      </CampoLabel>
-                      <CampoLabel label="Emissora AC">
-                        <select value={creds.cert_emissora||''} onChange={e=>setC('cert_emissora',e.target.value)} style={sel}>
-                          <option value="">Selecione...</option>
-                          {CERT_EMISSORAS.map(e=><option key={e} value={e}>{e}</option>)}
-                        </select>
-                      </CampoLabel>
-                      <CampoLabel label="Número de Série">
-                        <input value={creds.cert_serie||''} onChange={e=>setC('cert_serie',e.target.value)} placeholder="Ex: 1234567890ABCDEF" style={inp}/>
-                      </CampoLabel>
-                    </div>
-                    <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                    {/* Dados reconhecidos */}
+                    {(creds.cert_titular||creds.cert_validade||creds.cert_cnpj_cpf) && (
+                      <div style={{ background:'#fff', border:'1px solid #e8e8e8', borderRadius:10, padding:'14px 16px', marginBottom:14 }}>
+                        <div style={{ fontWeight:700, color:NAVY, fontSize:12, marginBottom:10 }}>📋 Dados do certificado</div>
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
+                          <CampoLabel label="Tipo">
+                            <div style={{ display:'flex', gap:6 }}>
+                              {['e-CNPJ','e-CPF'].map(t=>(<button key={t} onClick={()=>setC('cert_tipo',t)} style={{ flex:1,padding:'6px 0',borderRadius:7,cursor:'pointer',border:`2px solid ${(creds.cert_tipo||'e-CNPJ')===t?NAVY:'#ddd'}`,background:(creds.cert_tipo||'e-CNPJ')===t?NAVY+'15':'#fff',color:(creds.cert_tipo||'e-CNPJ')===t?NAVY:'#888',fontWeight:(creds.cert_tipo||'e-CNPJ')===t?700:400,fontSize:12 }}>{t}</button>))}
+                            </div>
+                          </CampoLabel>
+                          <CampoLabel label="Titular"><input value={creds.cert_titular||''} onChange={e=>setC('cert_titular',e.target.value)} placeholder="Nome no certificado" style={inp}/></CampoLabel>
+                          <CampoLabel label="CPF/CNPJ"><input value={creds.cert_cnpj_cpf||''} onChange={e=>setC('cert_cnpj_cpf',e.target.value)} placeholder={form.cnpj||'—'} style={inp}/></CampoLabel>
+                          <CampoLabel label="Validade">
+                            <input type="date" value={creds.cert_validade||''} onChange={e=>setC('cert_validade',e.target.value)} style={{ ...inp, borderColor:creds.cert_validade&&new Date(creds.cert_validade)<new Date()?'#e53935':creds.cert_validade&&new Date(creds.cert_validade)<new Date(Date.now()+30*864e5)?'#FF9800':'#ddd' }}/>
+                            {creds.cert_validade&&new Date(creds.cert_validade)<new Date()&&<div style={{ fontSize:10,color:'#e53935',marginTop:2,fontWeight:700 }}>⚠ VENCIDO</div>}
+                            {creds.cert_validade&&new Date(creds.cert_validade)>=new Date()&&new Date(creds.cert_validade)<new Date(Date.now()+30*864e5)&&<div style={{ fontSize:10,color:'#FF9800',marginTop:2,fontWeight:700 }}>⚠ Vence &lt;30 dias</div>}
+                          </CampoLabel>
+                          <CampoLabel label="Emissora AC">
+                            <select value={creds.cert_emissora||''} onChange={e=>setC('cert_emissora',e.target.value)} style={sel}>
+                              <option value="">Selecione...</option>
+                              {CERT_EMISSORAS.map(e=><option key={e} value={e}>{e}</option>)}
+                            </select>
+                          </CampoLabel>
+                          <CampoLabel label="Número de Série"><input value={creds.cert_serie||''} onChange={e=>setC('cert_serie',e.target.value)} placeholder="Ex: 1234567890" style={inp}/></CampoLabel>
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <button type="button" onClick={()=>{
-                        if(!editId){alert('Salve o cliente primeiro.');return}
-                        const b64=form.credenciais?.cert_b64||''
-                        if(b64) localStorage.setItem(`ep_cert_${editId}`,b64)
-                        if(form.credenciais?.cert_senha) localStorage.setItem(`ep_cert_senha_${editId}`,form.credenciais.cert_senha)
-                        const upd={...clientes.find(x=>x.id===editId),credenciais:{...CREDS_VAZIO,...form.credenciais,cert_b64:''}}
-                        const lista=clientes.map(x=>x.id===editId?upd:x)
-                        localStorage.setItem('ep_clientes',JSON.stringify(lista));setClientes(lista)
-                        alert('✅ Credenciais salvas!')
-                      }} style={{padding:'7px 16px',borderRadius:8,background:'#4CAF50',color:'#fff',fontSize:12,fontWeight:700,border:'none',cursor:'pointer',marginRight:8}}>💾 Salvar Credenciais</button>
-                      <button style={{ padding:'7px 16px', borderRadius:8, background:'#00BCD4', color:'#fff', fontSize:12, fontWeight:700, border:'none', cursor:'pointer' }}>🛒 Comprar / Renovar Certificado</button>
+                          if(!editId){alert('Salve o cliente primeiro.');return}
+                          const b64=form.credenciais?.cert_b64||''
+                          if(b64) localStorage.setItem(`ep_cert_${editId}`,b64)
+                          if(form.credenciais?.cert_senha) localStorage.setItem(`ep_cert_senha_${editId}`,form.credenciais.cert_senha)
+                          const upd={...clientes.find(x=>x.id===editId),credenciais:{...CREDS_VAZIO,...form.credenciais,cert_b64:''}}
+                          const lista=clientes.map(x=>x.id===editId?upd:x)
+                          localStorage.setItem('ep_clientes',JSON.stringify(lista));setClientes(lista)
+                          alert('✅ Certificado salvo!')
+                        }} style={{padding:'7px 16px',borderRadius:8,background:'#4CAF50',color:'#fff',fontSize:12,fontWeight:700,border:'none',cursor:'pointer'}}>💾 Salvar Certificado</button>
+                      <button style={{ padding:'7px 16px',borderRadius:8,background:'#00BCD4',color:'#fff',fontSize:12,fontWeight:700,border:'none',cursor:'pointer' }}>🛒 Comprar / Renovar</button>
                     </div>
                   </CredSection>
 
@@ -1003,14 +1009,15 @@ export default function Clientes() {
 
               {/* Rodapé botões */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:14, marginTop:14, borderTop:'1px solid #f0f0f0' }}>
-                <button onClick={()=>{ const idx=ABA_TABS.findIndex(a=>a.id===abaForm); if(idx>0) setAbaForm(ABA_TABS[idx-1].id); else setAba('lista') }} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:'#f0f4ff', color:NAVY, fontSize:13, fontWeight:700, border:'1px solid #c7d2fe', cursor:'pointer' }}>
-                  <ChevronLeft size={14}/> {ABA_TABS.findIndex(a=>a.id===abaForm)>0?'Anterior':'Cancelar'}
-                </button>
                 <div style={{ display:'flex', gap:8 }}>
-                  <button onClick={()=>setModalObrig(true)} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 16px', borderRadius:8, background:'#F0F4FF', color:NAVY, fontSize:13, fontWeight:700, border:`2px solid ${NAVY}30`, cursor:'pointer' }}>
-                    ✏️ Editar Vínculos
-                    <span style={{ background:form.obrigacoes_vinculadas.length>0?NAVY:'#ccc', color:'#fff', borderRadius:10, padding:'1px 8px', fontSize:12 }}>{form.obrigacoes_vinculadas.length}</span>
+                  <button onClick={()=>{ const idx=ABA_TABS.findIndex(a=>a.id===abaForm); if(idx>0) setAbaForm(ABA_TABS[idx-1].id); else setAba('lista') }} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:'#f0f4ff', color:NAVY, fontSize:13, fontWeight:700, border:'1px solid #c7d2fe', cursor:'pointer' }}>
+                    <ChevronLeft size={14}/> {ABA_TABS.findIndex(a=>a.id===abaForm)>0?'Anterior':'Cancelar'}
                   </button>
+                  <button onClick={()=>setAba('lista')} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:'#f5f5f5', color:'#555', fontSize:13, fontWeight:700, border:'1px solid #ddd', cursor:'pointer' }}>
+                    ← Voltar à lista
+                  </button>
+                </div>
+                <div style={{ display:'flex', gap:8 }}>
                   {editId&&<button onClick={()=>setModalGerar(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:'#FFFBF0', color:'#854D0E', fontSize:12, fontWeight:700, border:`1px solid ${GOLD}`, cursor:'pointer' }}>📅 Gerar Tarefas</button>}
                   <button onClick={salvar} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 20px', borderRadius:8, background:'#22c55e', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>
                     <Save size={14}/> Salvar
