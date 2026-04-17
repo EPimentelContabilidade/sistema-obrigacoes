@@ -475,10 +475,6 @@ export default function App() {
         </div>
       </div>
     </div>
-    </div>
-    </div>
-    </div>
-    </div>
   )}
 
   const sideW = sideOpen ? (collapsed ? 58 : 226) : 0
