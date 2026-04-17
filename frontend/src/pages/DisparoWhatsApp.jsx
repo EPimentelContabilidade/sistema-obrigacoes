@@ -5,7 +5,7 @@ import { Send, Upload, FileText, CheckCircle, Loader, Search, Users, MessageSqua
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 const WPP  = '#25D366'
-const API  = '/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 const inp = { padding:'7px 10px', borderRadius:7, border:'1px solid #ddd', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', color:'#333' }
 const sel = { ...inp, cursor:'pointer', background:'#fff' }
