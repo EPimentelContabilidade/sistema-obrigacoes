@@ -36,23 +36,30 @@ import EPInteligencia       from './pages/EPInteligencia'
 
 // ── Dados em tempo real para tela de login ───────────────────────────────────
 const LOGIN_NOTICIAS = [
-  { cat:'IRPF 2025', icon:'📋', titulo:'Declaração IRPF 2025: novos limites de isenção', resumo:'Rendimentos tributáveis acima de R$ 35.584 obrigam declaração. Prazo: 30 de maio de 2025.', tempo:'5 min' },
-  { cat:'REFORMA TRIBUTÁRIA', icon:'⚖️', titulo:'IVA Dual (CBS+IBS) entra em vigor em 2026', resumo:'LC 214/2025 define regras de transição de 7 anos. Empresas devem adaptar sistemas fiscais urgentemente.', tempo:'1h' },
-  { cat:'SIMPLES NACIONAL', icon:'📊', titulo:'Sublimites Simples Nacional 2025 confirmados', resumo:'Tabelas e alíquotas do regime simplificado divulgadas pela Receita Federal para o próximo exercício.', tempo:'3h' },
-  { cat:'MERCADO', icon:'💹', titulo:'SELIC mantida em 13,75% — BC sinaliza cortes', resumo:'Banco Central mantém taxa básica e sinaliza início de cortes apenas no segundo semestre de 2025.', tempo:'5h' },
-  { cat:'CONTABILIDADE', icon:'🏛️', titulo:'CFC aprova novas normas NBC TG 1000-R2', resumo:'Pequenas e médias empresas terão até 2026 para adequar demonstrações contábeis ao novo padrão.', tempo:'8h' },
-  { cat:'FOLHA DE PAGAMENTO', icon:'👥', titulo:'eSocial 2025: novas obrigações para MEI', resumo:'Micro empreendedores com funcionários devem adequar envio de eventos ao eSocial imediatamente.', tempo:'10h' },
-  { cat:'CONSTRUÇÃO CIVIL', icon:'🏗️', titulo:'RET e reconhecimento de receita POC em foco', resumo:'Patrimônio de afetação e CPC 47 são temas centrais para incorporadoras e construtoras em 2025.', tempo:'12h' },
+  { cat:'IRPF 2025', icon:'📋', titulo:'IRPF 2025: prazo final 30 de maio', resumo:'Rendimentos acima de R$ 35.584 obrigam declaração. Restituições em lote a partir de junho/2025.', tempo:'hoje' },
+  { cat:'REFORMA TRIBUTÁRIA', icon:'⚖️', titulo:'CBS e IBS já aparecem nas Notas Fiscais', resumo:'LC 214/2025: novos tributos em caráter informativo desde jan/2026. Transição de 7 anos em andamento.', tempo:'1h' },
+  { cat:'AGENDA TRIBUTÁRIA', icon:'📅', titulo:'Abril 2026: FGTS (07/04) · DAS e INSS (20/04)', resumo:'Vencimentos Receita Federal: FGTS dia 07, DAS Simples Nacional e INSS dia 20 de cada mês.', tempo:'hoje' },
+  { cat:'SIMPLES NACIONAL', icon:'📊', titulo:'DAS: atraso gera multa de 0,33% ao dia', resumo:'Máximo de 20% + Selic. PGDAS-D deve ser retificado antes do pagamento para evitar inconsistências.', tempo:'3h' },
+  { cat:'MERCADO', icon:'💹', titulo:'SELIC 13,75% — custo do crédito empresarial alto', resumo:'Copom mantém taxa. Empresas com dívidas atreladas à Selic devem revisar fluxo de caixa 2026.', tempo:'5h' },
+  { cat:'CONTABILIDADE', icon:'🏛️', titulo:'ECD vence maio — inicie a escrituração agora', resumo:'Escrituração Contábil Digital deve ser enviada antes da ECF (julho). Multa mínima de R$ 500.', tempo:'8h' },
+  { cat:'IRRF', icon:'💼', titulo:'IRRF sobre serviços: alíquotas 2026', resumo:'1,5% serviços profissionais, 1% limpeza/conservação, 0,65% intermediação. Recolher via DARF dia 20.', tempo:'10h' },
+]
+const LOGIN_AGENDA = [
+  { dia:'07', mes:'ABR', obrig:'FGTS Digital', desc:'Competência março/2026', cor:'#d97706' },
+  { dia:'20', mes:'ABR', obrig:'DAS Simples', desc:'Simples Nacional e MEI', cor:'#1B4D2E' },
+  { dia:'20', mes:'ABR', obrig:'INSS/DCTFWeb', desc:'Contribuição previdenciária', cor:'#2563eb' },
+  { dia:'30', mes:'MAI', obrig:'IRPF 2025', desc:'Prazo final — declaração', cor:'#dc2626' },
+  { dia:'31', mes:'MAI', obrig:'ECD 2025', desc:'Escrituração Contábil Digital', cor:'#7c3aed' },
+  { dia:'31', mes:'JUL', obrig:'ECF 2025', desc:'Escrituração Contábil Fiscal', cor:'#7c3aed' },
 ]
 const LOGIN_INDICADORES = [
-  { nome:'IPCA', valor:'4,83%', var:'+0.04', up:true },
-  { nome:'CDI', valor:'13,65%', var:'0.00', up:null },
-  { nome:'SELIC', valor:'13,75%', var:'0.00', up:null },
-  { nome:'USD', valor:'R$ 5,17', var:'-0.23', up:false },
-  { nome:'OURO', valor:'R$415/g', var:'+1.2%', up:true },
-  { nome:'IBOV', valor:'134.512', var:'+1.18%', up:true },
+  { nome:'IPCA',  valor:'4,83%',   var:'+0.04', up:true  },
+  { nome:'CDI',   valor:'13,65%',  var:'0.00',  up:null  },
+  { nome:'SELIC', valor:'13,75%',  var:'0.00',  up:null  },
+  { nome:'USD',   valor:'R$ 5,17', var:'-0.23', up:false },
+  { nome:'OURO',  valor:'R$415/g', var:'+1.2%', up:true  },
+  { nome:'IBOV',  valor:'134.512', var:'+1.18%',up:true  },
 ]
-
 const NAVY = '#1B4D2E'  // Instagram verde
 const GOLD = '#C8A840'  // Instagram dourado
 
@@ -343,85 +350,153 @@ export default function App() {
         </div>
       )}
 
-      {/* PAINEL ESQUERDO — Notícias */}
-      <div style={{flex:1,maxWidth:620,padding:'36px 48px',display:'flex',flexDirection:'column',position:'relative'}}>
-        {/* Header */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:28}}>
-          <div style={{display:'flex',alignItems:'center',gap:14}}>
-            <div style={{width:52,height:52,borderRadius:11,background:`linear-gradient(145deg,${VD},${VD}cc)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',boxShadow:`0 8px 24px ${VD}60`,border:`2px solid ${DR}44`}}>
-              <div style={{display:'flex',alignItems:'baseline'}}><span style={{color:DR,fontSize:17,fontWeight:900}}>E</span><span style={{color:'#fff',fontSize:17,fontWeight:900}}>P</span></div>
-              <div style={{color:`${DR}cc`,fontSize:6,fontWeight:700,letterSpacing:.5,textTransform:'uppercase'}}>CONTÁBIL</div>
+      {/* PAINEL ESQUERDO — Dashboard fiscal em tempo real */}
+      <div style={{flex:1,padding:'24px 36px',display:'flex',flexDirection:'column',position:'relative',gap:12,overflowY:'auto',minWidth:0}}>
+        {/* Header logo + relógio */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:46,height:46,borderRadius:10,background:`linear-gradient(145deg,${VD},${VD}cc)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',boxShadow:`0 8px 20px ${VD}60`,border:`2px solid ${DR}44`,flexShrink:0}}>
+              <div style={{display:'flex',alignItems:'baseline'}}><span style={{color:DR,fontSize:14,fontWeight:900}}>E</span><span style={{color:'#fff',fontSize:14,fontWeight:900}}>P</span></div>
+              <div style={{color:`${DR}cc`,fontSize:5.5,fontWeight:700,letterSpacing:.4,textTransform:'uppercase'}}>CONTÁBIL</div>
             </div>
             <div>
-              <div style={{color:'#fff',fontWeight:900,fontSize:20,letterSpacing:-.5}}>EPimentel</div>
-              <div style={{color:`${DR}99`,fontSize:10,textTransform:'uppercase',letterSpacing:2}}>Auditoria & Contabilidade</div>
-              <div style={{color:'rgba(255,255,255,.4)',fontSize:10,marginTop:1}}>(62) 9 9907-2483</div>
+              <div style={{color:'#fff',fontWeight:900,fontSize:17,letterSpacing:-.3}}>EPimentel</div>
+              <div style={{color:`${DR}99`,fontSize:8.5,textTransform:'uppercase',letterSpacing:2}}>Auditoria & Contabilidade</div>
+              <div style={{color:'rgba(255,255,255,.35)',fontSize:9}}>(62) 9 9907-2483</div>
             </div>
           </div>
           <div style={{textAlign:'right'}}>
-            <div style={{color:DR,fontSize:26,fontWeight:700,fontVariantNumeric:'tabular-nums',letterSpacing:-1.5}}>{hStr}</div>
-            <div style={{color:'rgba(255,255,255,.45)',fontSize:11,textTransform:'capitalize',marginTop:2}}>{dStr}</div>
+            <div style={{color:DR,fontSize:22,fontWeight:700,fontVariantNumeric:'tabular-nums',letterSpacing:-1}}>{hStr}</div>
+            <div style={{color:'rgba(255,255,255,.4)',fontSize:10,textTransform:'capitalize'}}>{dStr}</div>
           </div>
         </div>
 
-        {/* Indicadores */}
-        <div style={{background:'rgba(0,0,0,.35)',borderRadius:14,padding:'12px 14px',marginBottom:20,border:`1px solid ${DR}25`,backdropFilter:'blur(12px)'}}>
-          <div style={{color:DR,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5,marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
-            📊 Indicadores Econômicos
-            <span style={{marginLeft:'auto',fontSize:9,color:'rgba(255,255,255,.3)'}}>ao vivo</span>
+        {/* Indicadores econômicos */}
+        <div style={{background:'rgba(0,0,0,.32)',borderRadius:11,padding:'10px 12px',border:`1px solid ${DR}25`,backdropFilter:'blur(12px)'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+            <span style={{color:DR,fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5}}>📊 Indicadores Econômicos</span>
+            <span style={{fontSize:8,color:'rgba(255,255,255,.3)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,padding:'1px 6px'}}>AO VIVO</span>
           </div>
-          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+          <div style={{display:'flex',gap:4}}>
             {LOGIN_INDICADORES.map((ind,i)=>(
-              <div key={i} style={{flex:'1 1 65px',background:i===loginTick?`${DR}22`:'rgba(255,255,255,.05)',borderRadius:9,padding:'7px 9px',transition:'all .4s',border:`1px solid ${i===loginTick?DR+'44':'transparent'}`}}>
-                <div style={{color:'rgba(255,255,255,.45)',fontSize:9,fontWeight:700,textTransform:'uppercase'}}>{ind.nome}</div>
-                <div style={{color:'#fff',fontSize:12,fontWeight:800,margin:'2px 0',fontVariantNumeric:'tabular-nums'}}>{ind.valor}</div>
-                {ind.up!==null&&<div style={{fontSize:9,color:ind.up?'#4ade80':'#f87171',fontWeight:700}}>{ind.up?'▲':'▼'} {ind.var}</div>}
+              <div key={i} style={{flex:'1 1 55px',background:i===loginTick?`${DR}22`:'rgba(255,255,255,.05)',borderRadius:8,padding:'6px 8px',transition:'all .4s',border:`1px solid ${i===loginTick?DR+'44':'transparent'}`}}>
+                <div style={{color:'rgba(255,255,255,.4)',fontSize:8,fontWeight:700,textTransform:'uppercase'}}>{ind.nome}</div>
+                <div style={{color:'#fff',fontSize:11,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{ind.valor}</div>
+                {ind.up!==null&&<div style={{fontSize:8,color:ind.up?'#4ade80':'#f87171',fontWeight:700}}>{ind.up?'▲':'▼'} {ind.var}</div>}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Título notícias */}
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-          <span style={{color:'rgba(255,255,255,.4)',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:2}}>Últimas do Setor</span>
-          <div style={{flex:1,height:1,background:`linear-gradient(90deg,${DR}40,transparent)`}}/>
-          <span style={{fontSize:9,color:DR,fontWeight:700,background:`${DR}20`,padding:'2px 8px',borderRadius:10}}>AO VIVO</span>
-        </div>
-
-        {/* Notícia principal */}
-        <div style={{background:'rgba(0,0,0,.4)',borderRadius:14,padding:'16px 18px',marginBottom:8,border:`1px solid ${DR}25`,backdropFilter:'blur(10px)'}}>
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-            <span style={{fontSize:16}}>{nn.icon}</span>
-            <span style={{fontSize:9,fontWeight:800,color:DR,textTransform:'uppercase',letterSpacing:1.5,padding:'2px 8px',background:`${DR}22`,borderRadius:20}}>{nn.cat}</span>
-            <span style={{fontSize:10,color:'rgba(255,255,255,.3)',marginLeft:'auto'}}>{nn.tempo} atrás</span>
+        {/* Agenda Tributária — Receita Federal */}
+        <div style={{background:'rgba(0,0,0,.32)',borderRadius:11,padding:'10px 12px',border:`1px solid ${DR}25`}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <span style={{color:DR,fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5}}>📅 Agenda Tributária 2026</span>
+            <span style={{fontSize:8,color:'rgba(255,255,255,.3)',border:'1px solid rgba(255,255,255,.15)',borderRadius:8,padding:'1px 6px'}}>gov.br · Receita Federal</span>
           </div>
-          <div style={{color:'#fff',fontWeight:700,fontSize:14,lineHeight:1.45,marginBottom:6}}>{nn.titulo}</div>
-          <div style={{color:'rgba(255,255,255,.55)',fontSize:11,lineHeight:1.65}}>{nn.resumo}</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:5}}>
+            {LOGIN_AGENDA.map((ag,i)=>{
+              const hoje=new Date(); const meses=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+              const mesAtual=meses[hoje.getMonth()]; const d=parseInt(ag.dia);
+              const urgente=ag.mes===mesAtual&&d>=hoje.getDate()&&d<=hoje.getDate()+7;
+              return (
+                <div key={i} style={{background:urgente?`${ag.cor}20`:'rgba(255,255,255,.05)',borderRadius:9,padding:'7px 9px',border:`1px solid ${urgente?ag.cor+'50':'rgba(255,255,255,.07)'}`,position:'relative'}}>
+                  {urgente&&<div style={{position:'absolute',top:3,right:5,fontSize:7,color:ag.cor,fontWeight:800,textTransform:'uppercase'}}>PRÓXIMO</div>}
+                  <div style={{display:'flex',alignItems:'center',gap:7}}>
+                    <div style={{background:ag.cor,borderRadius:6,padding:'3px 7px',textAlign:'center',flexShrink:0}}>
+                      <div style={{color:'#fff',fontSize:13,fontWeight:900,lineHeight:1}}>{ag.dia}</div>
+                      <div style={{color:'rgba(255,255,255,.85)',fontSize:7,fontWeight:700}}>{ag.mes}</div>
+                    </div>
+                    <div>
+                      <div style={{color:'#fff',fontSize:10,fontWeight:700,lineHeight:1.2}}>{ag.obrig}</div>
+                      <div style={{color:'rgba(255,255,255,.4)',fontSize:8,marginTop:1}}>{ag.desc}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
-        {/* Sub-notícias */}
-        <div style={{display:'grid',gap:5}}>
-          {LOGIN_NOTICIAS.filter((_,i)=>i!==loginNIdx).slice(0,3).map((item,i)=>(
-            <div key={i} style={{display:'flex',gap:9,padding:'7px 10px',borderRadius:8,background:'rgba(0,0,0,.25)',border:'1px solid rgba(255,255,255,.06)'}}>
-              <span style={{fontSize:13,flexShrink:0}}>{item.icon}</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{color:'rgba(255,255,255,.75)',fontSize:11,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.titulo}</div>
-                <div style={{color:'rgba(255,255,255,.3)',fontSize:10}}>{item.cat} · {item.tempo} atrás</div>
+        {/* Duas colunas: Notícias + Info fiscal */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,flex:1,minHeight:0}}>
+          {/* Notícias */}
+          <div style={{display:'flex',flexDirection:'column',gap:6,minHeight:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{color:'rgba(255,255,255,.35)',fontSize:8.5,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5}}>Últimas do Setor</span>
+              <div style={{flex:1,height:1,background:`linear-gradient(90deg,${DR}40,transparent)`}}/>
+              <span style={{fontSize:7.5,color:DR,fontWeight:700,background:`${DR}20`,padding:'1px 6px',borderRadius:8}}>AO VIVO</span>
+            </div>
+            <div style={{background:'rgba(0,0,0,.35)',borderRadius:10,padding:'10px',border:`1px solid ${DR}20`,flex:1}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                <span style={{fontSize:13}}>{nn.icon}</span>
+                <span style={{fontSize:8,fontWeight:800,color:DR,textTransform:'uppercase',letterSpacing:1,padding:'1px 7px',background:`${DR}22`,borderRadius:20}}>{nn.cat}</span>
+                <span style={{fontSize:8.5,color:'rgba(255,255,255,.3)',marginLeft:'auto'}}>{nn.tempo}</span>
+              </div>
+              <div style={{color:'#fff',fontWeight:700,fontSize:11.5,lineHeight:1.4,marginBottom:5}}>{nn.titulo}</div>
+              <div style={{color:'rgba(255,255,255,.5)',fontSize:10,lineHeight:1.6}}>{nn.resumo}</div>
+            </div>
+            <div style={{display:'grid',gap:4}}>
+              {LOGIN_NOTICIAS.filter((_,i)=>i!==loginNIdx).slice(0,3).map((item,i)=>(
+                <div key={i} style={{display:'flex',gap:6,padding:'5px 7px',borderRadius:7,background:'rgba(0,0,0,.2)',border:'1px solid rgba(255,255,255,.05)'}}>
+                  <span style={{fontSize:10,flexShrink:0}}>{item.icon}</span>
+                  <div style={{minWidth:0}}>
+                    <div style={{color:'rgba(255,255,255,.7)',fontSize:9.5,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.titulo}</div>
+                    <div style={{color:'rgba(255,255,255,.3)',fontSize:8.5}}>{item.cat}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+              {LOGIN_NOTICIAS.map((_,i)=>(<div key={i} onClick={()=>setLoginNIdx(i)} style={{width:i===loginNIdx?16:5,height:5,borderRadius:3,background:i===loginNIdx?DR:'rgba(255,255,255,.2)',cursor:'pointer',transition:'all .3s'}}/>))}
+            </div>
+          </div>
+
+          {/* Info fiscal */}
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{color:'rgba(255,255,255,.35)',fontSize:8.5,fontWeight:700,textTransform:'uppercase',letterSpacing:1.5}}>Destaque Fiscal</span>
+              <div style={{flex:1,height:1,background:`linear-gradient(90deg,${DR}40,transparent)`}}/>
+            </div>
+            {/* Reforma Tributária */}
+            <div style={{background:'rgba(0,0,0,.35)',borderRadius:10,padding:'10px',border:`1px solid ${DR}20`,flex:1}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                <span style={{fontSize:14}}>⚖️</span>
+                <div>
+                  <div style={{color:DR,fontSize:10,fontWeight:800}}>Reforma Tributária</div>
+                  <div style={{color:'rgba(255,255,255,.35)',fontSize:8}}>LC 214/2025 — Em vigor</div>
+                </div>
+              </div>
+              {[
+                {icon:'📌',txt:'CBS e IBS nas NFs (informativo 2026)'},
+                {icon:'🔄',txt:'Transição de 7 anos (2026–2033)'},
+                {icon:'🏢',txt:'Simples Nacional: mudanças em 2027'},
+                {icon:'📊',txt:'57 novas normas tributárias por dia'},
+              ].map((item,i)=>(
+                <div key={i} style={{display:'flex',gap:5,alignItems:'flex-start',padding:'4px 6px',borderRadius:6,background:'rgba(255,255,255,.04)',marginBottom:3}}>
+                  <span style={{fontSize:10,flexShrink:0}}>{item.icon}</span>
+                  <span style={{color:'rgba(255,255,255,.65)',fontSize:9.5,lineHeight:1.4}}>{item.txt}</span>
+                </div>
+              ))}
+            </div>
+            {/* IRPF Alert */}
+            <div style={{background:`${DR}18`,borderRadius:10,padding:'9px 11px',border:`1px solid ${DR}45`}}>
+              <div style={{color:DR,fontSize:10,fontWeight:800,marginBottom:6}}>📋 IRPF 2025 — ATENÇÃO</div>
+              <div style={{color:'rgba(255,255,255,.65)',fontSize:9.5,lineHeight:1.65}}>
+                ⏰ <b style={{color:'#fff'}}>Prazo: 30/05/2025</b><br/>
+                👤 Rend. {'>'} R$ 35.584/ano<br/>
+                💰 1ª restituição: junho/2025<br/>
+                🌐 <span style={{color:DR}}>gov.br/irpf</span>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Nav dots */}
-        <div style={{display:'flex',gap:5,marginTop:12,alignItems:'center'}}>
-          {LOGIN_NOTICIAS.map((_,i)=>(
-            <div key={i} onClick={()=>setLoginNIdx(i)} style={{width:i===loginNIdx?20:6,height:6,borderRadius:3,background:i===loginNIdx?DR:'rgba(255,255,255,.2)',cursor:'pointer',transition:'all .3s'}}/>
-          ))}
-          <div style={{marginLeft:'auto',color:'rgba(255,255,255,.3)',fontSize:10}}>@ep.contabil</div>
+            <div style={{display:'flex',justifyContent:'space-between'}}>
+              <span style={{color:'rgba(255,255,255,.2)',fontSize:8}}>Fonte: Receita Federal</span>
+              <span style={{color:'rgba(255,255,255,.2)',fontSize:8}}>@ep.contabil</span>
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* PAINEL DIREITO — Formulário */}
+            {/* PAINEL DIREITO — Formulário */}
       <div style={{width:430,display:'flex',alignItems:'center',justifyContent:'center',padding:'36px'}}>
         <div style={{background:'#fff',borderRadius:24,padding:'40px 36px',width:'100%',boxShadow:`0 40px 100px rgba(0,0,0,.6),0 0 0 1px ${DR}20`}}>
           <div style={{textAlign:'center',marginBottom:26}}>
