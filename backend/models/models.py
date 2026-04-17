@@ -30,8 +30,9 @@ class Cliente(Base):
     __tablename__ = "clientes"
 
     id = Column(Integer, primary_key=True, index=True)
+    ep_id = Column(String(20), unique=True, nullable=True, index=True)
     nome = Column(String(200), nullable=False)
-    cnpj = Column(String(18), unique=True, nullable=False)
+    cnpj = Column(String(18), unique=True, nullable=True)
     nome_fantasia = Column(String(200))
     email = Column(String(200))
     email2 = Column(String(200))
@@ -68,6 +69,7 @@ class Cliente(Base):
     capital_social = Column(String(50))
     situacao_receita = Column(String(50))
     data_inicio = Column(String(20))
+    grupo = Column(String(100))
 
     obrigacoes = relationship("Obrigacao", back_populates="cliente")
     entregas = relationship("Entrega", back_populates="cliente")
