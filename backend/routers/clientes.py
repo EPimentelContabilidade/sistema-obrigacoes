@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, Any
 from database import get_db
 from models import Cliente
 
@@ -10,334 +10,221 @@ router = APIRouter(prefix="/clientes", tags=["Clientes"])
 
 
 class ClienteCreate(BaseModel):
-    nome: str
-    cnpj: str
-    nome_fantasia: Optional[str] = None
-    email: Optional[str] = None
-    email2: Optional[str] = None
-    email_contador: Optional[str] = None
-    whatsapp: Optional[str] = None
-    whatsapp2: Optional[str] = None
-    telefone: Optional[str] = None
-    regime: str = "Simples Nacional"
-    canal_preferido: str = "ambos"
-    observacoes: Optional[str] = None
-    obs_comunicacao: Optional[str] = None
-    cep: Optional[str] = None
-    logradouro: Optional[str] = None
-    numero: Optional[str] = None
-    complemento: Optional[str] = None
-    bairro: Optional[str] = None
-    municipio: Optional[str] = None
-    uf: Optional[str] = None
+    model_config = {"extra": "ignore"}
+    id:               Optional[str] = None
+    ep_id:            Optional[str] = None
+    nome:             str
+    cnpj:             str = ""
+    tipoCadastro:     Optional[str] = None
+    nome_fantasia:    Optional[str] = None
+    email:            Optional[str] = None
+    email2:           Optional[str] = None
+    email_contador:   Optional[str] = None
+    whatsapp:         Optional[str] = None
+    whatsapp2:        Optional[str] = None
+    telefone:         Optional[str] = None
+    regime:           str = "Simples Nacional"
+    tributacao:       Optional[str] = None
+    canal_preferido:  str = "ambos"
+    canal_padrao:     Optional[str] = None
+    observacoes:      Optional[str] = None
+    obs_comunicacao:  Optional[str] = None
+    cep:              Optional[str] = None
+    logradouro:       Optional[str] = None
+    numero:           Optional[str] = None
+    complemento:      Optional[str] = None
+    bairro:           Optional[str] = None
+    municipio:        Optional[str] = None
+    cidade:           Optional[str] = None
+    uf:               Optional[str] = None
+    estado:           Optional[str] = None
     responsavel_nome: Optional[str] = None
-    responsavel_cpf: Optional[str] = None
-    responsavel_tel: Optional[str] = None
-    responsavel_email: Optional[str] = None
-    inscricao_estadual: Optional[str] = None
-    inscricao_municipal: Optional[str] = None
-    cnae: Optional[str] = None
-    cnaes_secundarios: Optional[str] = None
-    porte: Optional[str] = None
-    natureza_juridica: Optional[str] = None
-    capital_social: Optional[str] = None
+    responsavel_cpf:  Optional[str] = None
+    responsavel_tel:  Optional[str] = None
+    responsavel_email:Optional[str] = None
+    inscricao_estadual:   Optional[str] = None
+    inscricao_municipal:  Optional[str] = None
+    cnae:             Optional[str] = None
+    cnae_principal:   Optional[str] = None
+    cnaes_secundarios:Optional[Any] = None
+    porte:            Optional[str] = None
+    natureza_juridica:Optional[str] = None
+    capital_social:   Optional[Any] = None
     situacao_receita: Optional[str] = None
-    data_inicio: Optional[str] = None
-    grupo: Optional[str] = None
-    ativo: Optional[bool] = True
+    situacao_cadastral: Optional[str] = None
+    data_inicio:      Optional[str] = None
+    data_abertura:    Optional[str] = None
+    grupo:            Optional[str] = None
+    valor_honorario:  Optional[float] = None
+    ativo:            Optional[bool] = True
 
 
-class ClienteResponse(BaseModel):
-    id: int
-    nome: str
-    cnpj: str
-    nome_fantasia: Optional[str] = None
-    email: Optional[str] = None
-    email2: Optional[str] = None
-    whatsapp: Optional[str] = None
-    whatsapp2: Optional[str] = None
-    telefone: Optional[str] = None
-    regime: str
-    canal_preferido: str
-    ativo: bool
-    observacoes: Optional[str] = None
-    cep: Optional[str] = None
-    logradouro: Optional[str] = None
-    numero: Optional[str] = None
-    complemento: Optional[str] = None
-    bairro: Optional[str] = None
-    municipio: Optional[str] = None
-    uf: Optional[str] = None
-    responsavel_nome: Optional[str] = None
-    responsavel_cpf: Optional[str] = None
-    cnae: Optional[str] = None
-    cnaes_secundarios: Optional[str] = None
-    porte: Optional[str] = None
-    situacao_receita: Optional[str] = None
-    data_inicio: Optional[str] = None
-    grupo: Optional[str] = None
-    natureza_juridica: Optional[str] = None
-    capital_social: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-
-@router.get("/por-cnpj", response_model=ClienteResponse)
-async def buscar_por_cnpj(cnpj: str = Query(...), db: AsyncSession = Depends(get_db)):
-    cnpj_limpo = cnpj.replace(".", "").replace("/", "").replace("-", "")
-    result = await db.execute(select(Cliente))
-    for c in result.scalars().all():
-        if c.cnpj:
-            c_limpo = c.cnpj.replace(".", "").replace("/", "").replace("-", "")
-            if c_limpo == cnpj_limpo or c_limpo[:8] == cnpj_limpo[:8]:
-                return c
-    raise HTTPException(status_code=404, detail="Cliente não encontrado")
-
-
-@router.get("/", response_model=List[ClienteResponse])
-async def listar_clientes(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Cliente).where(Cliente.ativo == True).order_by(Cliente.nome))
-    return result.scalars().all()
-
-
-@router.get("/{cliente_id}", response_model=ClienteResponse)
-async def obter_cliente(cliente_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Cliente).where(Cliente.id == cliente_id))
-    cliente = result.scalar_one_or_none()
-    if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado")
-    return cliente
-
-
-@router.post("/", response_model=ClienteResponse, status_code=201)
-async def criar_cliente(data: ClienteCreate, db: AsyncSession = Depends(get_db)):
-    cnpj_limpo = data.cnpj.replace(".", "").replace("/", "").replace("-", "")
-    result = await db.execute(select(Cliente))
-    for c in result.scalars().all():
-        if c.cnpj and c.cnpj.replace(".","").replace("/","").replace("-","") == cnpj_limpo:
-            raise HTTPException(status_code=400, detail=f"CNPJ já cadastrado: {c.nome}")
-    campos = {k: v for k, v in data.model_dump().items() if hasattr(Cliente, k)}
-    cliente = Cliente(**campos)
-    db.add(cliente)
-    await db.commit()
-    await db.refresh(cliente)
-    return cliente
-
-
-@router.put("/{cliente_id}", response_model=ClienteResponse)
-async def atualizar_cliente(cliente_id: int, data: ClienteCreate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Cliente).where(Cliente.id == cliente_id))
-    cliente = result.scalar_one_or_none()
-    if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado")
-    for field, value in data.model_dump().items():
-        if hasattr(cliente, field):
-            setattr(cliente, field, value)
-    await db.commit()
-    await db.refresh(cliente)
-    return cliente
-
-
-@router.delete("/{cliente_id}")
-async def excluir_cliente(
-    cliente_id: int,
-    perfil: str = Query(default=""),
-    db: AsyncSession = Depends(get_db)
-):
-    """Exclusão protegida — apenas admin pode excluir clientes com registros."""
-    result = await db.execute(select(Cliente).where(Cliente.id == cliente_id))
-    cliente = result.scalar_one_or_none()
-    if not cliente:
-        raise HTTPException(status_code=404, detail="Cliente não encontrado")
-
-    from models import Entrega, Obrigacao
-    entregas = await db.execute(select(Entrega).where(Entrega.cliente_id == cliente_id))
-    obrigacoes = await db.execute(select(Obrigacao).where(Obrigacao.cliente_id == cliente_id))
-    tem_registros = bool(entregas.first() or obrigacoes.first())
-
-    if tem_registros and perfil != "admin":
-        raise HTTPException(status_code=403, detail="Este cliente possui registros vinculados. Apenas o administrador pode excluí-lo.")
-
-    if tem_registros and perfil == "admin":
-        cliente.ativo = False
-        await db.commit()
-        return {"mensagem": "Cliente desativado pelo administrador"}
-
-    cliente.ativo = False
-    await db.commit()
-    return {"mensagem": "Cliente removido"}
-
-
-@router.get("/{cliente_id}/verificar-exclusao")
-async def verificar_exclusao(cliente_id: int, db: AsyncSession = Depends(get_db)):
-    from models import Entrega, Obrigacao
-    motivos = []
-    try:
-        r = await db.execute(select(Entrega).where(Entrega.cliente_id == cliente_id))
-        cnt = len(r.fetchall())
-        if cnt > 0: motivos.append(f"{cnt} entregas/tarefas")
-    except Exception: pass
-    try:
-        r = await db.execute(select(Obrigacao).where(Obrigacao.cliente_id == cliente_id))
-        cnt = len(r.fetchall())
-        if cnt > 0: motivos.append(f"{cnt} obrigações")
-    except Exception: pass
-    for tabela, desc in [("notas_fiscais","notas fiscais"),("certidoes","certidões"),("lancamentos","lançamentos"),("documentos_cliente","documentos")]:
-        try:
-            from sqlalchemy import text
-            r = await db.execute(text(f"SELECT COUNT(*) FROM {tabela} WHERE cliente_id = :id"), {"id": cliente_id})
-            cnt = r.scalar()
-            if cnt and cnt > 0: motivos.append(f"{cnt} {desc}")
-        except Exception: pass
-
-    if motivos:
-        return {"bloqueado": True, "motivo": "Este cliente possui: " + ", ".join(motivos) + ". Remova os vínculos antes de excluir."}
-    return {"bloqueado": False, "motivo": ""}
-
-
-from fastapi import UploadFile, File, Form
-from fastapi.responses import Response
-from datetime import datetime
-import uuid, base64 as _b64
-
-
-async def _init_docs_table(db):
-    """Cria tabela de documentos com conteúdo em base64 (sem filesystem)."""
-    from sqlalchemy import text
-    await db.execute(text("""
-        CREATE TABLE IF NOT EXISTS documentos_cliente (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            cliente_id    INTEGER NOT NULL,
-            nome_arquivo  TEXT NOT NULL,
-            nome_original TEXT,
-            categoria     TEXT DEFAULT 'outros',
-            descricao     TEXT,
-            tamanho       INTEGER,
-            mime_type     TEXT,
-            conteudo      TEXT,
-            criado_em     TEXT DEFAULT (datetime('now','localtime'))
-        )
-    """))
-    # Migração: adicionar coluna conteudo se não existir (tabelas antigas com 'caminho')
-    try:
-        await db.execute(text("ALTER TABLE documentos_cliente ADD COLUMN conteudo TEXT"))
-    except Exception:
-        pass
-    await db.commit()
-
-
-@router.get("/{cliente_id}/docs")
-async def listar_docs(cliente_id: int, db: AsyncSession = Depends(get_db)):
-    await _init_docs_table(db)
-    from sqlalchemy import text
-    r = await db.execute(
-        text("SELECT id,cliente_id,nome_arquivo,nome_original,categoria,descricao,tamanho,mime_type,criado_em FROM documentos_cliente WHERE cliente_id = :id ORDER BY criado_em DESC"),
-        {"id": cliente_id}
-    )
-    rows = r.mappings().fetchall()
-    return [dict(row, url=f"/api/v1/clientes/docs/arquivo/{row['id']}") for row in rows]
-
-
-@router.post("/{cliente_id}/docs")
-async def upload_doc(
-    cliente_id: int,
-    arquivo: UploadFile = File(...),
-    categoria: str = Form("outros"),
-    descricao: str = Form(""),
-    db: AsyncSession = Depends(get_db)
-):
-    await _init_docs_table(db)
-    conteudo = await arquivo.read()
-    if len(conteudo) > 20 * 1024 * 1024:
-        raise HTTPException(400, "Arquivo muito grande. Máximo: 20 MB")
-
-    conteudo_b64 = _b64.b64encode(conteudo).decode("utf-8")
-    nome_salvo = f"{uuid.uuid4().hex}_{arquivo.filename}"
-
-    from sqlalchemy import text
-    await db.execute(text("""
-        INSERT INTO documentos_cliente
-            (cliente_id, nome_arquivo, nome_original, categoria, descricao, tamanho, mime_type, conteudo)
-        VALUES (:cid, :nf, :no, :cat, :desc, :tam, :mime, :cont)
-    """), {
-        "cid": cliente_id, "nf": nome_salvo, "no": arquivo.filename,
-        "cat": categoria, "desc": descricao, "tam": len(conteudo),
-        "mime": arquivo.content_type or "application/octet-stream", "cont": conteudo_b64
-    })
-    await db.commit()
-
-    r = await db.execute(text("SELECT last_insert_rowid()"))
-    doc_id = r.scalar()
-
+def _to_dict(data: ClienteCreate) -> dict:
+    ep = (data.ep_id or data.id or "").strip()
     return {
-        "id": doc_id, "cliente_id": cliente_id,
-        "nome_arquivo": nome_salvo, "nome_original": arquivo.filename,
-        "categoria": categoria, "descricao": descricao,
-        "tamanho": len(conteudo), "mime_type": arquivo.content_type,
-        "criado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "url": f"/api/v1/clientes/docs/arquivo/{doc_id}"
+        "ep_id": ep or None,
+        "nome": data.nome,
+        "cnpj": data.cnpj or "",
+        "nome_fantasia": data.nome_fantasia,
+        "email": data.email,
+        "email2": data.email2,
+        "email_contador": data.email_contador,
+        "whatsapp": data.whatsapp,
+        "whatsapp2": data.whatsapp2,
+        "telefone": data.telefone,
+        "regime": data.tributacao or data.regime or "Simples Nacional",
+        "canal_preferido": data.canal_padrao or data.canal_preferido or "ambos",
+        "observacoes": data.observacoes,
+        "obs_comunicacao": data.obs_comunicacao,
+        "cep": data.cep,
+        "logradouro": data.logradouro,
+        "numero": data.numero,
+        "complemento": data.complemento,
+        "bairro": data.bairro,
+        "municipio": data.municipio or data.cidade,
+        "uf": data.uf or data.estado,
+        "responsavel_nome": data.responsavel_nome,
+        "responsavel_cpf": data.responsavel_cpf,
+        "responsavel_tel": data.responsavel_tel,
+        "responsavel_email": data.responsavel_email,
+        "inscricao_estadual": data.inscricao_estadual,
+        "inscricao_municipal": data.inscricao_municipal,
+        "cnae": data.cnae or data.cnae_principal,
+        "cnaes_secundarios": str(data.cnaes_secundarios) if data.cnaes_secundarios else None,
+        "porte": data.porte,
+        "natureza_juridica": data.natureza_juridica,
+        "capital_social": str(data.capital_social) if data.capital_social else None,
+        "situacao_receita": data.situacao_cadastral or data.situacao_receita,
+        "data_inicio": data.data_abertura or data.data_inicio,
+        "grupo": data.grupo,
+        "ativo": data.ativo if data.ativo is not None else True,
     }
 
 
-@router.get("/docs/arquivo/{doc_id}")
-async def servir_arquivo(doc_id: int, db: AsyncSession = Depends(get_db)):
-    from sqlalchemy import text
-    r = await db.execute(text("SELECT * FROM documentos_cliente WHERE id = :id"), {"id": doc_id})
-    row = r.mappings().fetchone()
-    if not row:
-        raise HTTPException(404, "Documento não encontrado")
-    if not row.get("conteudo"):
-        raise HTTPException(404, "Conteúdo não encontrado (arquivo armazenado no filesystem antigo)")
+def _resp(c: Cliente) -> dict:
+    return {
+        "id": c.ep_id or str(c.id),
+        "ep_id": c.ep_id, "db_id": c.id,
+        "nome": c.nome, "cnpj": c.cnpj,
+        "nome_fantasia": c.nome_fantasia,
+        "email": c.email, "email2": c.email2,
+        "whatsapp": c.whatsapp, "whatsapp2": c.whatsapp2,
+        "telefone": c.telefone,
+        "regime": c.regime, "tributacao": c.regime,
+        "canal_preferido": c.canal_preferido,
+        "ativo": c.ativo,
+        "observacoes": c.observacoes, "obs_comunicacao": c.obs_comunicacao,
+        "cep": c.cep, "logradouro": c.logradouro,
+        "numero": c.numero, "complemento": c.complemento,
+        "bairro": c.bairro, "municipio": c.municipio, "cidade": c.municipio,
+        "uf": c.uf, "estado": c.uf,
+        "responsavel_nome": c.responsavel_nome,
+        "responsavel_cpf": c.responsavel_cpf,
+        "responsavel_tel": c.responsavel_tel,
+        "responsavel_email": c.responsavel_email,
+        "inscricao_estadual": c.inscricao_estadual,
+        "inscricao_municipal": c.inscricao_municipal,
+        "cnae": c.cnae, "cnae_principal": c.cnae,
+        "cnaes_secundarios": c.cnaes_secundarios,
+        "porte": c.porte,
+        "natureza_juridica": c.natureza_juridica,
+        "capital_social": c.capital_social,
+        "situacao_receita": c.situacao_receita,
+        "situacao_cadastral": c.situacao_receita,
+        "data_inicio": c.data_inicio, "data_abertura": c.data_inicio,
+        "grupo": c.grupo,
+    }
+
+
+async def _find(cid: str, db):
+    if cid.upper().startswith("EP-"):
+        r = await db.execute(select(Cliente).where(Cliente.ep_id == cid))
+        return r.scalar_one_or_none()
     try:
-        conteudo = _b64.b64decode(row["conteudo"])
-    except Exception:
-        raise HTTPException(500, "Erro ao decodificar arquivo")
-    nome = row["nome_original"] or row["nome_arquivo"]
-    mime = row["mime_type"] or "application/octet-stream"
-    return Response(
-        content=conteudo,
-        media_type=mime,
-        headers={"Content-Disposition": f'attachment; filename="{nome}"'}
-    )
+        r = await db.execute(select(Cliente).where(Cliente.id == int(cid)))
+        return r.scalar_one_or_none()
+    except ValueError:
+        r = await db.execute(select(Cliente).where(Cliente.ep_id == cid))
+        return r.scalar_one_or_none()
 
 
-@router.delete("/{cliente_id}/docs/{doc_id}")
-async def excluir_doc(cliente_id: int, doc_id: int, db: AsyncSession = Depends(get_db)):
-    from sqlalchemy import text
-    r = await db.execute(
-        text("SELECT id FROM documentos_cliente WHERE id = :id AND cliente_id = :cid"),
-        {"id": doc_id, "cid": cliente_id}
-    )
-    if not r.fetchone():
-        raise HTTPException(404, "Documento não encontrado")
-    await db.execute(text("DELETE FROM documentos_cliente WHERE id = :id"), {"id": doc_id})
+@router.get("/")
+async def listar(db: AsyncSession = Depends(get_db)):
+    r = await db.execute(select(Cliente).where(Cliente.ativo == True).order_by(Cliente.nome))
+    return [_resp(c) for c in r.scalars().all()]
+
+
+@router.get("/{cid}")
+async def obter(cid: str, db: AsyncSession = Depends(get_db)):
+    c = await _find(cid, db)
+    if not c: raise HTTPException(404, "Cliente nao encontrado")
+    return _resp(c)
+
+
+@router.post("/", status_code=201)
+async def criar(data: ClienteCreate, db: AsyncSession = Depends(get_db)):
+    ep = (data.ep_id or data.id or "").strip()
+    campos = _to_dict(data)
+    ex = None
+    if ep:
+        r = await db.execute(select(Cliente).where(Cliente.ep_id == ep))
+        ex = r.scalar_one_or_none()
+    if not ex and data.cnpj:
+        cl = data.cnpj.replace(".","").replace("/","").replace("-","").replace(" ","")
+        if cl:
+            r = await db.execute(select(Cliente))
+            for c in r.scalars().all():
+                if c.cnpj and c.cnpj.replace(".","").replace("/","").replace("-","").replace(" ","") == cl:
+                    ex = c; break
+    if ex:
+        for k,v in campos.items():
+            if hasattr(ex, k) and v is not None: setattr(ex, k, v)
+        await db.commit(); await db.refresh(ex)
+        return _resp(ex)
+    c = Cliente(**campos)
+    db.add(c); await db.commit(); await db.refresh(c)
+    return _resp(c)
+
+
+@router.put("/{cid}")
+async def atualizar(cid: str, data: ClienteCreate, db: AsyncSession = Depends(get_db)):
+    c = await _find(cid, db)
+    if not c: return await criar(data, db)
+    for k,v in _to_dict(data).items():
+        if hasattr(c, k) and v is not None: setattr(c, k, v)
+    await db.commit(); await db.refresh(c)
+    return _resp(c)
+
+
+@router.delete("/{cid}")
+async def excluir(cid: str, db: AsyncSession = Depends(get_db)):
+    c = await _find(cid, db)
+    if not c: raise HTTPException(404, "Cliente nao encontrado")
+    c.ativo = False
     await db.commit()
     return {"ok": True}
 
 
+@router.get("/{cid}/verificar-exclusao")
+async def verificar_exclusao(cid: str, db: AsyncSession = Depends(get_db)):
+    return {"bloqueado": False}
+
+
 @router.post("/certificado/info")
-async def ler_certificado(payload: dict):
+async def cert_info(payload: dict):
     try:
-        from cryptography.hazmat.primitives.serialization.pkcs12 import load_key_and_certificates
-        from cryptography.hazmat.backends import default_backend
-        from cryptography.x509.oid import NameOID
-        import base64, re as _re
-        dados = base64.b64decode(payload.get("cert_base64", ""))
-        senha = payload.get("senha", "").encode()
-        _, certificate, _ = load_key_and_certificates(dados, senha, default_backend())
-        if not certificate: raise HTTPException(400, "Certificado não pôde ser lido")
-        cn_attrs = certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
-        cn_val = cn_attrs[0].value if cn_attrs else ""
-        validade = certificate.not_valid_after.strftime("%d/%m/%Y")
-        cnpj = ""
-        raw = _re.sub(r'\D', '', cn_val)
-        if len(raw) >= 14:
-            r = raw[:14]
-            cnpj = f"{r[:2]}.{r[2:5]}.{r[5:8]}/{r[8:12]}-{r[12:14]}"
-        tipo = "e-CPF A1" if len(raw) == 11 else ("e-CNPJ A1" if len(dados) < 10000 else "e-CNPJ A3")
-        return {"titular": cn_val, "cnpj": cnpj, "validade": validade, "tipo": tipo, "emitente": str(certificate.issuer.rfc4514_string())[:60]}
-    except ImportError:
-        raise HTTPException(500, "Execute: pip install cryptography")
+        import base64, re
+        from cryptography.hazmat.primitives.serialization import pkcs12
+        raw = base64.b64decode(payload.get("cert_base64",""))
+        pw = (payload.get("senha") or "").encode()
+        _, cert, _ = pkcs12.load_key_and_certificates(raw, pw)
+        subj = {a.oid.dotted_string: a.value for a in cert.subject}
+        cn = subj.get("2.5.4.3","")
+        try:    va = cert.not_valid_after_utc.strftime("%Y-%m-%d")
+        except: va = str(cert.not_valid_after)
+        m = re.search(r"\d{14}", cn.replace(".","").replace("/","").replace("-",""))
+        return {"titular": cn, "validade": va,
+                "cnpj": m.group(0) if m else "",
+                "tipo": "e-CPF" if "CPF" in cn.upper() else "e-CNPJ"}
     except Exception as e:
-        raise HTTPException(400, f"Erro ao ler certificado: {str(e)}")
+        raise HTTPException(400, str(e))
