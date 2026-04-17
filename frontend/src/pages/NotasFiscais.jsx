@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Search, Download, FileText, AlertCircle, CheckCircle, Loader, Eye } from 'lucide-react'
 import ClienteSelector from '../components/ClienteSelector'
 
-const API = '/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 const PORTAIS = [
   { id: 'sefaz_nfe', label: 'NF-e SEFAZ Nacional', tipo: 'nfe', desc: 'Nota Fiscal Eletrônica - Receita Federal' },
