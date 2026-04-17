@@ -1,0 +1,3 @@
+# Usa o Caddyfile customizado em /app/Caddyfile (com proxy /api/ para o backend)
+[start]
+cmd = "caddy run --config /app/Caddyfile --adapter caddyfile 2>&1"
