@@ -49,6 +49,7 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
   const [showBuscaObrig, setShowBuscaObrig] = useState(false)
   const [buscaObrigTexto, setBuscaObrigTexto] = useState('')
   const [obrigSelecionadas, setObrigSelecionadas] = useState(null)
+  const [regimeFiltro, setRegimeFiltro] = useState('__todos__')
 
   // Catálogo via Config. Tarefas (lê ep_obrigacoes_catalogo_v2 com fallback padrão)
   const getCatalogo = () => {
