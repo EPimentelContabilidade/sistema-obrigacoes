@@ -201,9 +201,9 @@ export default function EntregasTarefas() {
   const [mRenomear,  setMRenomear]  = useState(null)
   const [novoNome,   setNovoNome]   = useState('')
   const [fEdit,      setFEdit]      = useState({nome:'',departamento:'',exigir_robo:false})
-  const [filt, setFilt] = useState({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false})
+  const [filt, setFilt] = useState({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false,com_multa:false,com_protocolo:false,sem_protocolo:false})
   const setF = (k,v) => setFilt(f=>({...f,[k]:v}))
-  const limpar = () => { setFilt({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false}); setFiltEmpresas([]); setFiltObrig([]) }
+  const limpar = () => { setFilt({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false,com_multa:false,com_protocolo:false,sem_protocolo:false}); setFiltEmpresas([]); setFiltObrig([]) }
 
   // ── Multi-filtros: empresas e obrigações ──────────────────────────────────
   const [filtEmpresas,    setFiltEmpresas]    = useState([])   // IDs selecionados
@@ -254,7 +254,17 @@ export default function EntregasTarefas() {
           nome: t.obrigacao,
           codigo: t.codigo,
           departamento: getDeptFromCatalog(t.codigo) || DEPT_MAP[t.codigo] || t.departamento || 'Fiscal',
-          responsavel: t.responsavel || USUARIO.nome,
+          responsavel: (() => {
+            // Buscar responsável do catálogo de obrigações
+            try {
+              const regime = cli?.tributacao || cli?.regime || ''
+              const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'null')
+              const obrig = cat?.[regime]?.find(o => o.codigo === t.codigo)
+              return obrig?.responsavel || t.responsavel || USUARIO.nome
+            } catch { return t.responsavel || USUARIO.nome }
+          })(),
+          passivel_multa: t.passivel_multa || false,
+          protocolo: t.protocolo || '',
           status: t.status === 'Entregue' ? 'entregue' : 'pendente',
           data_entrega: t.data_entrega || null,
           entregue_por: t.entregue_por || null,
@@ -400,6 +410,20 @@ export default function EntregasTarefas() {
       if (filt.entregue)    statusOk.push('entregue')
       if (filt.dispensada)  statusOk.push('dispensada')
       if (!statusOk.includes(t.status)) return false
+    }
+    // Filtro responsável
+    if (filt.responsavel && !(t.responsavel||'').toLowerCase().includes(filt.responsavel.toLowerCase())) return false
+    // Filtro passível de multa
+    if (filt.com_multa && !t.passivel_multa) return false
+    // Filtro protocolo
+    if (filt.com_protocolo && !t.protocolo) return false
+    if (filt.sem_protocolo && t.protocolo)  return false
+    // Filtro competência
+    if (filt.competencia_de || filt.competencia_ate) {
+      const comp = (t.competencia||'').split('/') // MM/YYYY
+      const compDate = comp.length===2 ? comp[1]+'-'+comp[0] : ''
+      if (filt.competencia_de && compDate < filt.competencia_de) return false
+      if (filt.competencia_ate && compDate > filt.competencia_ate) return false
     }
     return true
   })
@@ -604,14 +628,29 @@ export default function EntregasTarefas() {
               {/* Linha 2: Filtros avançados (colapsável) */}
               {showFilt&&(
                 <div style={{padding:'7px 14px 10px'}}>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(8,1fr)',gap:7}}>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:8}}>
                     {[
                       {l:'Departamento',el:<select value={filt.departamento} onChange={e=>setF('departamento',e.target.value)} style={{...inp,width:'100%'}}><option value="">Todos</option><option>Fiscal</option><option>Pessoal</option><option>Contábil</option><option>Bancos</option></select>},
+                      {l:'Responsável',el:<input value={filt.responsavel||''} onChange={e=>setF('responsavel',e.target.value)} placeholder="Nome do responsável..." style={{...inp,width:'100%'}}/>},
                       {l:'Competência de',el:<input type="month" value={filt.competencia_de} onChange={e=>setF('competencia_de',e.target.value)} style={{...inp,width:'100%'}}/>},
                       {l:'Competência até',el:<input type="month" value={filt.competencia_ate} onChange={e=>setF('competencia_ate',e.target.value)} style={{...inp,width:'100%'}}/>},
-                      {l:'Prazo téc. de',el:<input type="date" value={filt.prazo_tec_de} onChange={e=>setF('prazo_tec_de',e.target.value)} style={{...inp,width:'100%'}}/>},
-                      {l:'Prazo téc. até',el:<input type="date" value={filt.prazo_tec_ate} onChange={e=>setF('prazo_tec_ate',e.target.value)} style={{...inp,width:'100%'}}/>},
+                      {l:'Vencimento de',el:<input type="date" value={filt.prazo_tec_de} onChange={e=>setF('prazo_tec_de',e.target.value)} style={{...inp,width:'100%'}}/>},
+                      {l:'Vencimento até',el:<input type="date" value={filt.prazo_tec_ate} onChange={e=>setF('prazo_tec_ate',e.target.value)} style={{...inp,width:'100%'}}/>},
+                      {l:'Entregue de',el:<input type="date" value={filt.entrega_de||''} onChange={e=>setF('entrega_de',e.target.value)} style={{...inp,width:'100%'}}/>},
+                      {l:'Entregue até',el:<input type="date" value={filt.entrega_ate||''} onChange={e=>setF('entrega_ate',e.target.value)} style={{...inp,width:'100%'}}/>},
                     ].map(f=><div key={f.l}><div style={{fontSize:9,color:'#aaa',fontWeight:700,marginBottom:3,textTransform:'uppercase'}}>{f.l}</div>{f.el}</div>)}
+                  </div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                    <span style={{fontSize:10,color:'#aaa',fontWeight:700,textTransform:'uppercase'}}>Marcadores:</span>
+                    {[
+                      {k:'com_multa',    l:'⚠️ Passível de Multa', bg:'#FEF2F2', c:'#dc2626'},
+                      {k:'com_protocolo',l:'🔖 Com Protocolo',      bg:'#F0FDF4', c:'#16a34a'},
+                      {k:'sem_protocolo',l:'📭 Sem Protocolo',      bg:'#FFF7ED', c:'#d97706'},
+                    ].map(b=>(
+                      <button key={b.k} onClick={()=>setF(b.k,!filt[b.k])} style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:filt[b.k]?700:400,cursor:'pointer',border:'1px solid '+(filt[b.k]?b.c:'#ddd'),background:filt[b.k]?b.bg:'#fff',color:filt[b.k]?b.c:'#888'}}>
+                        {b.l}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -634,7 +673,7 @@ export default function EntregasTarefas() {
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                 <thead>
                   <tr style={{background:'#fff',borderBottom:'2px solid #e8e8e8',position:'sticky',top:0,zIndex:1}}>
-                    {['','Obrigação / Tarefa','Status · Prazo','Dpto — Resp.','Vencimento','Prazo Meta','Competência','Protocolo','Rastreio','Ações'].map(h=>(
+                    {['','Obrigação / Tarefa','Status · Prazo','Dpto — Resp.','Vencimento','Prazo Meta','Competência','Protocolo / Ref.','Anexos','Ações'].map(h=>(
                       <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#888',whiteSpace:'nowrap'}}>{h}</th>
                     ))}
                   </tr>
@@ -707,8 +746,8 @@ export default function EntregasTarefas() {
                             }
                           </td>
                           <td style={{padding:'9px 10px'}} onClick={e=>e.stopPropagation()}>
-                            <button onClick={()=>setMRastreio(t)} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,background:viN>0?'#EBF5FF':'#f5f5f5',color:viN>0?'#1D6FA4':'#aaa',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}}>
-                              <Eye size={12}/> {viN}
+                            <button onClick={()=>setMRastreio(t)} style={{display:'flex',alignItems:'center',gap:4,padding:'4px 9px',borderRadius:7,background:viN>0?'#EBF5FF':'#f5f5f5',color:viN>0?'#1D6FA4':'#aaa',border:'none',cursor:'pointer',fontSize:11,fontWeight:600}} title="Ver rastreio e documentos">
+                              <Eye size={12}/> {viN} {viN>0?'doc':''}
                             </button>
                           </td>
                           <td style={{padding:'9px 10px'}} onClick={e=>e.stopPropagation()}>
