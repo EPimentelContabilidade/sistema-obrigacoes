@@ -212,13 +212,13 @@ export default function App() {
   React.useEffect(() => {
     carregarTema()  // Aplicar tema personalizado salvo
 
-    // Limpeza única v4: remover dados stale de ep_clientes_excluidos e forçar
-    // recarga limpa ao usuário (roda só na primeira vez com esse bundle)
-    if (!localStorage.getItem('ep_clean_v4')) {
-      localStorage.removeItem('ep_clientes_excluidos')
-      localStorage.removeItem('ep_tarefas_excluidas')
-      localStorage.setItem('ep_clean_v4', '1')
-      console.log('[EPimentel] Limpeza v4: dados stale removidos')
+    // Limpeza única v5: limpar TODOS os dados stale incluindo ep_clientes
+    // Resolve problema de clientes antigos travados no localStorage
+    if (!localStorage.getItem('ep_clean_v5')) {
+      ;['ep_clientes','ep_clientes_excluidos','ep_tarefas_excluidas',
+        'ep_monitor_cnpj','ep_clean_v4'].forEach(function(k) { localStorage.removeItem(k) })
+      localStorage.setItem('ep_clean_v5', '1')
+      console.log('[EPimentel] Limpeza v5: localStorage limpo para nova sessão')
     }
 
     const syncInBackground = async () => {
