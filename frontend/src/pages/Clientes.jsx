@@ -495,6 +495,22 @@ export default function Clientes() {
       )
       epSet('ep_tarefas_entregas', tarefasSemCliente)
     } catch(e) {}
+    // Limpar Monitor CNPJ: remover histórico e cache da Receita Federal
+    try {
+      const cnpjExcluido = (clientes.find(c=>String(c.id)===String(id))?.cnpj||'').replace(/\D/g,'')
+      // Remover cache RF do cliente
+      if (cnpjExcluido) localStorage.removeItem('ep_rf_' + cnpjExcluido)
+      // Filtrar histórico do Monitor — remover registros deste CNPJ
+      const monitorHist = JSON.parse(localStorage.getItem('ep_monitor_cnpj')||'[]')
+      const monitorLimpo = monitorHist.map(rodada => ({
+        ...rodada,
+        resultados: (rodada.resultados||[]).filter(r =>
+          (r.cliente?.cnpj||'').replace(/\D/g,'') !== cnpjExcluido &&
+          String(r.cliente?.id) !== String(id)
+        )
+      })).filter(rodada => (rodada.resultados||[]).length > 0)
+      epSet('ep_monitor_cnpj', monitorLimpo)
+    } catch(e) {}
     showToast('✅ Cliente excluído com sucesso!')
     try { await fetch(`${API}/clientes/${id}`,{method:'DELETE'}) } catch(e) {}
   }
