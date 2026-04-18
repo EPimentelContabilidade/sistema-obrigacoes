@@ -225,9 +225,12 @@ export default function Clientes() {
         const back = d.clientes||d||[]
         if (back.length>0) {
           const local = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
-          const merged = back.map(bc=>{ const lc=local.find(x=>String(x.id)===String(bc.id)); return lc?{...bc,...lc}:bc })
-          local.forEach(lc=>{ if(!merged.find(m=>String(m.id)===String(lc.id))) merged.push(lc) })
-          setClientes(merged); localStorage.setItem('ep_clientes',JSON.stringify(merged))
+          // Merge: clientes locais têm prioridade (evita restaurar clientes deletados)
+          // Se localStorage tem dados, só atualiza campos do backend sem adicionar novos
+          const merged = local.length > 0
+            ? local.map(lc => { const bc=back.find(x=>String(x.id)===String(lc.id)); return bc?{...bc,...lc}:lc })
+            : back  // localStorage vazio = primeira carga, usar tudo do backend
+          setClientes(merged); salvarClientes(merged)
         }
       }
     } catch {}
@@ -278,8 +281,9 @@ export default function Clientes() {
       } catch(e) { console.warn('BrasilAPI CNPJ:', e) }
       finally { setBuscandoCNPJ(false) }
     }
-    else if (digits.length === 11) setF('tipoCadastro','CPF')
     else if (digits.length === 20) setF('tipoCadastro','CAEPF')
+    // CPF é selecionado manualmente — não auto-detectar em 11 dígitos
+    // (evita troca prematura durante digitação de CNPJ de 14 dígitos)
   }
   const salvarGrupoLS = (nomeGrupo) => {
     if (!nomeGrupo?.trim()) return
@@ -455,8 +459,10 @@ export default function Clientes() {
       }
     } catch {}
     const novaLista = clientes.filter(c=>c.id!==id)
-    setClientes(novaLista); localStorage.setItem('ep_clientes',JSON.stringify(novaLista))
+    salvarClientes(novaLista)  // salva localStorage + PostgreSQL (epSet)
+    setClientes(novaLista)
     setModalExcluir(null)
+    showToast('✅ Cliente excluído com sucesso!')
     try { await fetch(`${API}/clientes/${id}`,{method:'DELETE'}) } catch {}
   }
 
