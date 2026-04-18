@@ -71,8 +71,21 @@ export default function MonitorCNPJ() {
     const comCNPJ = cli.filter(c => c.ativo!==false && (c.cnpj||'').replace(/\D/g,'').length===14)
     setClientes(comCNPJ)
     setSelecionados(comCNPJ.map(c=>c.id))
+    // Limpar histórico: remover rodadas com clientes que não existem mais
+    const cnpjsAtivos = new Set(comCNPJ.map(c=>(c.cnpj||'').replace(/\D/g,'')))
     const hist = JSON.parse(localStorage.getItem(LS_KEY)||'[]')
-    setHistorico(hist)
+    const histLimpo = hist.map(function(rodada) {
+      return Object.assign({}, rodada, {
+        resultados: (rodada.resultados||[]).filter(function(r) {
+          const cnpj = (r.cliente?.cnpj||'').replace(/\D/g,'')
+          return cnpjsAtivos.has(cnpj)
+        })
+      })
+    }).filter(function(rodada) { return (rodada.resultados||[]).length > 0 })
+    if(histLimpo.length !== hist.length) {
+      localStorage.setItem(LS_KEY, JSON.stringify(histLimpo))
+    }
+    setHistorico(histLimpo)
     setUltimaRodada(localStorage.getItem(LS_LAST))
   }, [])
 
