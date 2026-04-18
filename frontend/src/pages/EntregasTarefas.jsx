@@ -734,14 +734,27 @@ export default function EntregasTarefas() {
 {/* Tabela */}
             <div style={{flex:1,overflowY:'auto'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                <thead style={{position:'sticky',top:0,zIndex:10}}>
-                  {/* Linha 1: Cabeçalhos */}
-                  <tr style={{background:'#fff',borderBottom:'1px solid #e8e8e8'}}>
-                    {['','Obrigação / Tarefa','Status · Prazo','Dpto — Resp.','Vencimento','Prazo Meta','Competência','Protocolo / Ref.','Anexos','Ações'].map(h=>(
-                      <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#888',whiteSpace:'nowrap',background:'#fff'}}>{h}</th>
+                <thead>
+                  <tr style={{background:'#F8F9FB',borderBottom:'2px solid #e0e0e0',borderTop:'1px solid #e8e8e8'}}>
+                    {/* Checkbox (apenas admin) */}
+                    {isAdmin&&<th style={{width:28,padding:'8px 6px'}}/>}
+                    {/* Semáforo */}
+                    <th style={{width:36,padding:'8px 6px'}}/>
+                    {/* Colunas nomeadas */}
+                    {['Obrigação / Tarefa','Status · Prazo','Dpto — Resp.','Vencimento','Prazo Meta','Competência','Protocolo / Ref.','Anexos','Ações'].map(h=>(
+                      <th key={h} style={{
+                        padding:'7px 10px',
+                        textAlign:'left',
+                        fontSize:10,
+                        fontWeight:700,
+                        color:'#999',
+                        whiteSpace:'nowrap',
+                        textTransform:'uppercase',
+                        letterSpacing:.4,
+                        background:'#F8F9FB'
+                      }}>{h}</th>
                     ))}
                   </tr>
-
                 </thead>
                 <tbody>
                   {filtradas.filter(t=>t&&t.id).map((t,i)=>{
