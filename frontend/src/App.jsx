@@ -212,13 +212,18 @@ export default function App() {
   React.useEffect(() => {
     carregarTema()  // Aplicar tema personalizado salvo
 
-    // Limpeza única v5: limpar TODOS os dados stale incluindo ep_clientes
-    // Resolve problema de clientes antigos travados no localStorage
-    if (!localStorage.getItem('ep_clean_v5')) {
+    // Reset via URL: app.epimentel.com.br/?reset=1
+    if (new URLSearchParams(window.location.search).get('reset') === '1') {
+      Object.keys(localStorage).forEach(function(k) { localStorage.removeItem(k) })
+      window.history.replaceState({}, '', window.location.pathname)
+      console.log('[EPimentel] Reset completo via URL')
+    }
+    // Limpeza v6: remove ep_clientes stale uma vez (cliente voltava do backend antigo)
+    if (!localStorage.getItem('ep_clean_v6')) {
       ;['ep_clientes','ep_clientes_excluidos','ep_tarefas_excluidas',
-        'ep_monitor_cnpj','ep_clean_v4'].forEach(function(k) { localStorage.removeItem(k) })
-      localStorage.setItem('ep_clean_v5', '1')
-      console.log('[EPimentel] Limpeza v5: localStorage limpo para nova sessão')
+        'ep_monitor_cnpj','ep_clean_v4','ep_clean_v5'].forEach(function(k) { localStorage.removeItem(k) })
+      localStorage.setItem('ep_clean_v6', '1')
+      console.log('[EPimentel] Limpeza v6: ep_clientes stale removido')
     }
 
     const syncInBackground = async () => {
