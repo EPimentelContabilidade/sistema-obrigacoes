@@ -1205,6 +1205,21 @@ function TabProcessos({ templates }) {
       )}
 
       {modalIA&&<ModalIA onClose={()=>setModalIA(false)} onVincular={dados=>{setModalIA(false);abrirNovo({titulo:"Processo — "+(dados.arquivo?.split(".")[0]||"IA"),texto:dados.texto});}} />}
+
+      {/* Modal Confirmação: Excluir / Desistir */}
+      {confirmModal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:14,padding:'28px 32px',maxWidth:400,width:'90%',boxShadow:'0 8px 40px rgba(0,0,0,.2)',textAlign:'center'}}>
+            <div style={{fontSize:38,marginBottom:10}}>⚠️</div>
+            <div style={{fontWeight:700,color:NAVY,fontSize:16,marginBottom:8}}>Atenção</div>
+            <div style={{fontSize:14,color:'#555',marginBottom:24,lineHeight:1.5}}>{confirmModal.msg}</div>
+            <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+              <button onClick={()=>setConfirmModal(null)} style={{padding:'9px 22px',borderRadius:8,border:'1px solid #ddd',background:'#f5f5f5',color:'#555',fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
+              <button onClick={()=>{confirmModal.onOk();setConfirmModal(null);}} style={{padding:'9px 22px',borderRadius:8,border:'none',background:'#dc2626',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer'}}>Confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
