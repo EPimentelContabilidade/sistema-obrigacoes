@@ -1,3 +1,4 @@
+import ThemeCustomizer from '../components/ThemeCustomizer'
 import BackupRestore from '../components/BackupRestore'
 import { epSet, epGet } from '../utils/storage'
 import React, { useState, useEffect } from 'react'
@@ -272,7 +273,7 @@ export default function Admin() {
       {msg && <div style={{ padding:'10px 16px', background:msg.includes('✅')?'#f0fdf4':'#fef2f2', borderRadius:8, fontSize:13, marginBottom:16, color:msg.includes('✅')?'#16a34a':'#dc2626', fontWeight:500 }}>{msg}</div>}
 
       <div style={{ display:'flex', gap:4, marginBottom:20, background:'#f1f5f9', borderRadius:10, padding:4 }}>
-        {[{id:'usuarios',label:'👥 Usuários'},{id:'departamentos',label:'🏢 Departamentos'},{id:'perfis',label:'👔 Perfis'},{id:'notificacoes',label:'🔔 Notificações'},{id:'permissoes',label:'🔐 Permissões'},{id:'config',label:'⚙️ Sistema'}].map(({id,label}) => (
+        {[{id:'usuarios',label:'👥 Usuários'},{id:'departamentos',label:'🏢 Departamentos'},{id:'perfis',label:'👔 Perfis'},{id:'notificacoes',label:'🔔 Notificações'},{id:'permissoes',label:'🔐 Permissões'},{id:'config',label:'⚙️ Sistema'},{id:'banco',label:'🗄️ Banco'},{id:'tema',label:'🎨 Tema'}].map(({id,label}) => (
           <button key={id} onClick={() => setAba(id)} style={{
             flex:1, padding:'9px 12px', borderRadius:8, border:'none',
             background:aba===id?'#fff':'transparent', color:aba===id?NAVY:'#888',
@@ -914,6 +915,7 @@ export default function Admin() {
         </div>
       )}
       {aba==='banco'&&<BackupRestore/>}
+      {aba==='tema'&&<ThemeCustomizer/>}
     </div>
   )
 }
