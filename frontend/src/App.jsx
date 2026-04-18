@@ -1,5 +1,6 @@
 import { epSyncAll, epCheckBackend } from './utils/storage'
 import { carregarTema } from './components/ThemeCustomizer'
+import ThemeToggle, { carregarThemeToggle } from './components/ThemeToggle'
 // build: 2026-04-17T11:47
 import React, { useState, useEffect } from 'react'
 import {
@@ -155,7 +156,8 @@ function BotaoNotificacoes({ usuario }) {
   return (
     <div style={{position:'relative'}}>
       <button onClick={()=>setOpen(v=>!v)} style={{position:'relative',background:'none',border:'none',cursor:'pointer',color:'#bbb',padding:5,borderRadius:7}}>
-        <Bell size={15}/>
+        <ThemeToggle />
+          <Bell size={15}/>
         {naolidas>0&&<div style={{position:'absolute',top:1,right:1,minWidth:16,height:16,borderRadius:8,background:'#f87171',border:'2px solid #fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'#fff',padding:'0 3px'}}>{naolidas>9?'9+':naolidas}</div>}
       </button>
       {open&&(<>
@@ -211,6 +213,7 @@ export default function App() {
   // Sincronizacao automatica com PostgreSQL
   React.useEffect(() => {
     carregarTema()  // Aplicar tema personalizado salvo
+    carregarThemeToggle()  // Aplicar theme toggle salvo
 
     // Reset via URL: app.epimentel.com.br/?reset=1
     if (new URLSearchParams(window.location.search).get('reset') === '1') {
