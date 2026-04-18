@@ -1,3 +1,4 @@
+import { epSet, epGet } from '../utils/storage'
 // build: 2026-04-16T21:31
 import React, { useState, useEffect, useRef } from 'react'
 import { CheckCircle, Send, Settings, Search, X, AlertTriangle, Filter, Save, Eye, ChevronDown, ChevronUp, Edit2, Trash2, FileText, Upload, Download, Paperclip, Monitor, Smartphone, MapPin } from 'lucide-react'
@@ -250,7 +251,7 @@ export default function EntregasTarefas() {
         : `${String(new Date().getMonth()+1).padStart(2,'0')}/${new Date().getFullYear()}`
 
       // 1. Buscar tarefas geradas via catálogo (principal)
-      const todas = JSON.parse(localStorage.getItem('ep_tarefas_entregas') || '[]')
+      const todas = JSON.parse(JSON.stringify(epGet('ep_tarefas_entregas',[])))
             const excluidas = JSON.parse(localStorage.getItem('ep_tarefas_excluidas') || '[]')
       // Match por ID direto OU por CNPJ (migração EP-XXXX → numérico)
       const cnpjCli = (cli?.cnpj||'').replace(/\D/g,'')
@@ -330,7 +331,7 @@ export default function EntregasTarefas() {
     try {
       const todas=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]')
       const updated=todas.map(t=>t.id===id?{...t,status:'Entregue',data_entrega:agora,entregue_por:USUARIO.nome}:t)
-      localStorage.setItem('ep_tarefas_entregas',JSON.stringify(updated))
+      epSet('ep_tarefas_entregas',updated)
     } catch {}
   }
 
@@ -367,7 +368,7 @@ export default function EntregasTarefas() {
   }
 
   const salvarRen  = () => { setTarefas(p=>p.map(x=>x.id===mRenomear.id?{...x,nome:novoNome}:x)); setMRenomear(null) }
-    const excluir = (id) => { setTarefas(p=>p.filter(x=>x.id!==id)); setVinc(v=>v.filter(x=>x!==id)); setMExcluir(null); try { const t=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]'); localStorage.setItem('ep_tarefas_entregas',JSON.stringify(t.filter(x=>String(x.id)!==String(id)))); const ex=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]'); if(!ex.includes(String(id))){ex.push(String(id));localStorage.setItem('ep_tarefas_excluidas',JSON.stringify(ex))} } catch {} }
+    const excluir = (id) => { setTarefas(p=>p.filter(x=>x.id!==id)); setVinc(v=>v.filter(x=>x!==id)); setMExcluir(null); try { const t=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]'); localStorage.setItem('ep_tarefas_entregas',JSON.stringify(t.filter(x=>String(x.id)!==String(id)))); const ex=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]'); if(!ex.includes(String(id))){ex.push(String(id));epSet('ep_tarefas_excluidas',ex)} } catch {} }
   const addAnexo   = (arq) => {
     if(!arq||!mAnexo) return
     setTarefas(p=>p.map(x=>x.id===mAnexo.id?{...x,anexos:[...(x.anexos||[]),{nome:arq.name,tamanho:(arq.size/1024).toFixed(0)+' KB',data:new Date().toLocaleDateString('pt-BR')}]}:x))
