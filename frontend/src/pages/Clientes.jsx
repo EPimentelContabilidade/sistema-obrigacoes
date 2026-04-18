@@ -224,16 +224,24 @@ export default function Clientes() {
         const d = await r.json()
         const back = d.clientes||d||[]
         if (back.length>0) {
+          // Lista negra: IDs/CNPJs excluídos nunca voltam do backend
+          const excluidos = JSON.parse(localStorage.getItem('ep_clientes_excluidos')||'[]')
+          const backFiltrado = back.filter(bc=>
+            !excluidos.includes(String(bc.id)) &&
+            !excluidos.includes((bc.cnpj||'').replace(/\D/g,''))
+          )
           const local = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
-          // Merge: clientes locais têm prioridade (evita restaurar clientes deletados)
-          // Se localStorage tem dados, só atualiza campos do backend sem adicionar novos
-          const merged = local.length > 0
-            ? local.map(lc => { const bc=back.find(x=>String(x.id)===String(lc.id)); return bc?{...bc,...lc}:lc })
-            : back  // localStorage vazio = primeira carga, usar tudo do backend
+          const localFiltrado = local.filter(lc=>
+            !excluidos.includes(String(lc.id)) &&
+            !excluidos.includes((lc.cnpj||'').replace(/\D/g,''))
+          )
+          const merged = localFiltrado.length > 0
+            ? localFiltrado.map(lc=>{ const bc=backFiltrado.find(x=>String(x.id)===String(lc.id)); return bc?{...bc,...lc}:lc })
+            : backFiltrado
           setClientes(merged)
           try { localStorage.setItem('ep_clientes',JSON.stringify(merged)); epSet('ep_clientes',merged) } catch {}
         }
-      }
+      }}
     } catch {}
   }
 
@@ -460,7 +468,17 @@ export default function Clientes() {
       }
     } catch {}
     const novaLista = clientes.filter(c=>String(c.id)!==String(id))
-    // Salvar direto — evita ReferenceError quando salvarClientes não está no escopo async
+    // Lista negra permanente — impede que o backend restaure o cliente excluído
+    try {
+      const cliExcluido = clientes.find(c=>String(c.id)===String(id))
+      const excluidos = JSON.parse(localStorage.getItem('ep_clientes_excluidos')||'[]')
+      if (!excluidos.includes(String(id))) excluidos.push(String(id))
+      const cnpj = (cliExcluido?.cnpj||'').replace(/\D/g,'')
+      if (cnpj && !excluidos.includes(cnpj)) excluidos.push(cnpj)
+      localStorage.setItem('ep_clientes_excluidos', JSON.stringify(excluidos))
+      epSet('ep_clientes_excluidos', excluidos)
+    } catch {}
+    // Salvar lista atualizada
     try {
       localStorage.setItem('ep_clientes', JSON.stringify(novaLista))
       epSet('ep_clientes', novaLista)
