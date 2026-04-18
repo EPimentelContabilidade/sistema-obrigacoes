@@ -1,3 +1,4 @@
+import { epSet, epGet } from '../utils/storage'
 import { useState, useEffect, useRef, useMemo } from 'react'
 const _V = import.meta.env.VITE_BUILD_TIMESTAMP || 'dev' // força rebuild
 import { Search, Plus, X, Save, ChevronLeft, ChevronRight, User, MapPin, Phone, CheckCircle, Zap, Trash2, Eye, EyeOff, ExternalLink, Shield, FileText } from 'lucide-react'
@@ -284,7 +285,7 @@ export default function Clientes() {
     if (!nomeGrupo?.trim()) return
     try {
       const grupos = JSON.parse(localStorage.getItem('ep_grupos_cadastrados')||'[]')
-      if (!grupos.includes(nomeGrupo.trim())) { grupos.push(nomeGrupo.trim()); localStorage.setItem('ep_grupos_cadastrados', JSON.stringify(grupos)) }
+      if (!grupos.includes(nomeGrupo.trim())) { grupos.push(nomeGrupo.trim()); epSet('ep_grupos_cadastrados', JSON.stringify(grupos)) }
     } catch {}
   }
   const listarGruposLS = () => { try { return JSON.parse(localStorage.getItem('ep_grupos_cadastrados')||'[]') } catch { return [] } }
