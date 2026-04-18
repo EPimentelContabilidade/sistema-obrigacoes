@@ -224,16 +224,15 @@ export default function Clientes() {
         const d = await r.json()
         const back = d.clientes||d||[]
         if (back.length>0) {
-          // Lista negra: IDs/CNPJs excluídos nunca voltam do backend
+          // Lista negra: usa APENAS CNPJ (IDs podem ser reutilizados!)
           const excluidos = JSON.parse(localStorage.getItem('ep_clientes_excluidos')||'[]')
+          const cnpjsExcluidos = excluidos.filter(x => x.length >= 11) // apenas CNPJs, não IDs
           const backFiltrado = back.filter(bc=>
-            !excluidos.includes(String(bc.id)) &&
-            !excluidos.includes((bc.cnpj||'').replace(/\D/g,''))
+            !cnpjsExcluidos.includes((bc.cnpj||'').replace(/\D/g,''))
           )
           const local = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
           const localFiltrado = local.filter(lc=>
-            !excluidos.includes(String(lc.id)) &&
-            !excluidos.includes((lc.cnpj||'').replace(/\D/g,''))
+            !cnpjsExcluidos.includes((lc.cnpj||'').replace(/\D/g,''))
           )
           const merged = localFiltrado.length > 0
             ? localFiltrado.map(lc=>{ const bc=backFiltrado.find(x=>String(x.id)===String(lc.id)); return bc?{...bc,...lc}:lc })
@@ -468,15 +467,16 @@ export default function Clientes() {
       }
     } catch(e) {}
     const novaLista = clientes.filter(c=>String(c.id)!==String(id))
-    // Lista negra permanente — impede que o backend restaure o cliente excluído
+    // Lista negra: salva APENAS o CNPJ (IDs são reutilizáveis)
     try {
       const cliExcluido = clientes.find(c=>String(c.id)===String(id))
-      const excluidos = JSON.parse(localStorage.getItem('ep_clientes_excluidos')||'[]')
-      if (!excluidos.includes(String(id))) excluidos.push(String(id))
       const cnpj = (cliExcluido?.cnpj||'').replace(/\D/g,'')
-      if (cnpj && !excluidos.includes(cnpj)) excluidos.push(cnpj)
-      localStorage.setItem('ep_clientes_excluidos', JSON.stringify(excluidos))
-      epSet('ep_clientes_excluidos', excluidos)
+      if (cnpj && cnpj.length >= 11) {
+        const excluidos = JSON.parse(localStorage.getItem('ep_clientes_excluidos')||'[]')
+        if (!excluidos.includes(cnpj)) excluidos.push(cnpj)
+        localStorage.setItem('ep_clientes_excluidos', JSON.stringify(excluidos))
+        epSet('ep_clientes_excluidos', excluidos)
+      }
     } catch(e) {}
     // Salvar lista atualizada
     try {
