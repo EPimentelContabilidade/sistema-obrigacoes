@@ -211,6 +211,16 @@ export default function App() {
   // Sincronizacao automatica com PostgreSQL
   React.useEffect(() => {
     carregarTema()  // Aplicar tema personalizado salvo
+
+    // Limpeza única v4: remover dados stale de ep_clientes_excluidos e forçar
+    // recarga limpa ao usuário (roda só na primeira vez com esse bundle)
+    if (!localStorage.getItem('ep_clean_v4')) {
+      localStorage.removeItem('ep_clientes_excluidos')
+      localStorage.removeItem('ep_tarefas_excluidas')
+      localStorage.setItem('ep_clean_v4', '1')
+      console.log('[EPimentel] Limpeza v4: dados stale removidos')
+    }
+
     const syncInBackground = async () => {
       const online = await epCheckBackend()
       if (online) { await epSyncAll(); console.log('[EPimentel] Dados sincronizados com PostgreSQL') }
