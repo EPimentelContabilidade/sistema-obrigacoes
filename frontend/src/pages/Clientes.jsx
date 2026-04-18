@@ -236,30 +236,47 @@ export default function Clientes() {
 
   const onTributacaoChange = (novoRegime) => {
     setF('tributacao', novoRegime); setF('regime', novoRegime)
+    // Buscar obrigações do catálogo (conf. tarefas) ou fallback REGIME_OBRIG_AUTO
+    const obrigsCat = obrigacoesPorTributacao(novoRegime)
+    const obrigIds  = obrigsCat.length > 0
+      ? obrigsCat.map(o => o.id || o.codigo)
+      : (REGIME_OBRIG_AUTO[novoRegime] || [])
     if (!editId) {
-      // Cliente NOVO: auto-preencher com obrigações padrão do regime
-      const obrigObjs = obrigsCatalogo(novoRegime)
-      const obrigIds  = obrigObjs.map(o => o.id)
+      // Cliente NOVO: auto-preencher com obrigações do regime
       if (obrigIds.length > 0) {
         setF('obrigacoes_vinculadas', obrigIds)
-        setF('obrigacoes_catalogo', obrigObjs)
-      } else {
-        // Fallback: usar IDs hardcoded se catálogo não estiver configurado
-        const ids = REGIME_OBRIG_AUTO[novoRegime] || []
-        setF('obrigacoes_vinculadas', ids)
+        setF('obrigacoes_catalogo', obrigsCat)
+      }
+    } else {
+      // Cliente EXISTENTE: perguntar se quer sincronizar
+      if (obrigIds.length > 0 && confirm(
+        'Sincronizar obrigações com o regime "' + novoRegime + '"?\n\n' +
+        obrigsCat.slice(0,5).map(o=>o.nome).join(', ') +
+        (obrigsCat.length > 5 ? ' ...' : '') +
+        '\n\nIsso substituirá as obrigações vinculadas atuais.'
+      )) {
+        setF('obrigacoes_vinculadas', obrigIds)
+        setF('obrigacoes_catalogo', obrigsCat)
       }
     }
-    // Cliente EXISTENTE: apenas muda o regime tributário.
-    // As obrigações vinculadas NÃO são alteradas — use "Editar Vínculos" para ajustar.
   }
 
   const gerarObrigacoes = () => {
     if (!form.tributacao) return
-    const obrigEsp = REGIME_OBRIG_AUTO[form.tributacao]||[]
-    const todas = [...new Set([...obrigEsp])]
-    setF('obrigacoes_vinculadas',todas); setF('obrigacoes_catalogo',obrigsCatalogo(form.tributacao)); if (editId) {
-      const updated = JSON.parse(localStorage.getItem('ep_clientes')||'[]').map(c=>String(c.id)===String(editId)?{...c,obrigacoes_vinculadas:todas,obrigacoes_catalogo:obrigsCatalogo(form.tributacao)}:c)
-      localStorage.setItem('ep_clientes',JSON.stringify(updated)); setClientes(updated)
+    // Prioridade 1: catálogo da conf. tarefas (ep_obrigacoes_catalogo_v2)
+    const cat = obrigacoesPorTributacao(form.tributacao)
+    const todas = cat.length > 0
+      ? cat.map(o => o.id || o.codigo)
+      : (REGIME_OBRIG_AUTO[form.tributacao] || [])
+    const catalogo = cat.length > 0 ? cat : obrigsCatalogo(form.tributacao)
+    setF('obrigacoes_vinculadas', todas)
+    setF('obrigacoes_catalogo', catalogo)
+    if (editId) {
+      const updated = JSON.parse(localStorage.getItem('ep_clientes')||'[]').map(c =>
+        String(c.id)===String(editId) ? {...c, obrigacoes_vinculadas:todas, obrigacoes_catalogo:catalogo} : c
+      )
+      localStorage.setItem('ep_clientes', JSON.stringify(updated))
+      setClientes(updated)
     }
   }
 
