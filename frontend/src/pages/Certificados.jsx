@@ -276,8 +276,23 @@ export default function Certificados() {
   const [modalIA,setModalIA]=useState(false)
   const fileRef=useRef()
 
-  useEffect(()=>{ setClientes(getClientes()) },[])
+  useEffect(()=>{ const limpos=limparCertsManuais(); setClientes(limpos) },[])
   const reload=()=>setClientes(getClientes())
+
+  // Limpa certificados inseridos manualmente (sem arquivo de importação)
+  const limparCertsManuais = () => {
+    const todos = getClientes()
+    const atualizados = todos.map(c => {
+      const cred = c.credenciais || {}
+      // Se tem CNPJ de cert mas não tem arquivo importado → limpar dados de cert
+      if (cred.cert_cnpj_cpf && !cred.cert_arquivo) {
+        return { ...c, credenciais: { ...cred, cert_cnpj_cpf:'', cert_titular:'', cert_tipo:'', cert_emissora:'', cert_validade:'', cert_serial:'' } }
+      }
+      return c
+    })
+    salvarClientes(atualizados)
+    return atualizados
+  }
 
   // Tentar parse com senha quando senha for preenchida
   useEffect(()=>{
@@ -313,6 +328,13 @@ export default function Certificados() {
 
   const confirmarImportacao=()=>{
     if(!modalImportar?.cliente) return
+    // Validar: CNPJ/CPF do certificado deve corresponder ao cliente selecionado
+    const cnpjCert = (modalImportar.cnpj_cpf||'').replace(/\D/g,'')
+    const cnpjCli  = (modalImportar.cliente.cnpj||'').replace(/\D/g,'')
+    if (cnpjCert && cnpjCli && cnpjCert !== cnpjCli) {
+      alert(`⚠️ CNPJ do certificado (${modalImportar.cnpj_cpf}) não corresponde ao cliente selecionado (${modalImportar.cliente.cnpj}).\nSelecione o cliente correto ou verifique o certificado.`)
+      return
+    }
     const lista=getClientes().map(c=>c.id!==modalImportar.cliente.id?c:{...c,credenciais:{...(c.credenciais||{}),cert_arquivo:modalImportar.arquivo,cert_tipo:modalImportar.tipo,cert_titular:modalImportar.titular,cert_cnpj_cpf:modalImportar.cnpj_cpf,cert_emissora:modalImportar.emissora,cert_validade:modalImportar.validade,cert_serial:modalImportar.serial||'',cert_issuer:modalImportar.issuer||''}})
     salvarClientes(lista); setClientes(lista)
     logLGPD('importacao_certificado',{arquivo:modalImportar.arquivo,cliente:modalImportar.cliente.nome})
@@ -489,7 +511,18 @@ export default function Certificados() {
             {/* Dados extraídos/confirmação */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
               <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Tipo</label><div style={{display:'flex',gap:6}}>{['e-CNPJ','e-CPF'].map(t=><button key={t} onClick={()=>setModalImportar(m=>({...m,tipo:t}))} style={{flex:1,padding:'7px 0',borderRadius:7,cursor:'pointer',border:`2px solid ${modalImportar.tipo===t?NAVY:'#ddd'}`,background:modalImportar.tipo===t?NAVY+'15':'#fff',color:modalImportar.tipo===t?NAVY:'#888',fontWeight:modalImportar.tipo===t?700:400,fontSize:12}}>{t==='e-CPF'?'👤 ':'🏢 '}{t}</button>)}</div></div>
-              <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>CPF/CNPJ detectado</label><input value={modalImportar.cnpj_cpf||''} onChange={e=>setModalImportar(m=>({...m,cnpj_cpf:e.target.value}))} style={inp}/></div>
+              <div>
+                <label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>
+                  CPF/CNPJ do Certificado
+                  {modalImportar.cnpj_cpf
+                    ? <span style={{marginLeft:6,fontSize:10,color:'#16a34a',fontWeight:700}}>✅ Extraído automaticamente</span>
+                    : <span style={{marginLeft:6,fontSize:10,color:'#f59e0b',fontWeight:700}}>⚠️ Não detectado no arquivo</span>}
+                </label>
+                <div style={{...inp,background:'#f8f9fb',color:NAVY,fontWeight:700,fontFamily:'monospace',display:'flex',alignItems:'center',gap:8}}>
+                  {modalImportar.cnpj_cpf||<span style={{color:'#aaa',fontWeight:400,fontFamily:'inherit'}}>Não identificado</span>}
+                  <span style={{marginLeft:'auto',fontSize:10,color:'#aaa',fontFamily:'inherit',fontWeight:400}}>🔒 somente leitura</span>
+                </div>
+              </div>
               <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Titular</label><input value={modalImportar.titular||''} onChange={e=>setModalImportar(m=>({...m,titular:e.target.value}))} style={inp}/></div>
               <div><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Emissora</label><select value={modalImportar.emissora||''} onChange={e=>setModalImportar(m=>({...m,emissora:e.target.value}))} style={sel}><option value="">—</option>{CERT_EMISSORAS.map(e=><option key={e}>{e}</option>)}</select></div>
               <div>
@@ -503,12 +536,40 @@ export default function Certificados() {
             </div>
             <div style={{marginBottom:14}}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>Vincular ao Cliente *</label>
               {modalImportar.cliente&&<div style={{marginBottom:6,padding:'8px 12px',borderRadius:7,background:'#F0FDF4',border:'1px solid #bbf7d0',fontSize:12,color:'#166534',fontWeight:700}}>✅ Cliente identificado: {modalImportar.cliente.nome} {modalImportar.eh_socio&&'(e-CPF de sócio)'}</div>}
-              <select value={modalImportar.cliente?.id||''} onChange={e=>{const cli=clientes.find(c=>String(c.id)===e.target.value);setModalImportar(m=>({...m,cliente:cli||null}))}} style={sel}><option value="">Selecione...</option>{clientes.map(c=><option key={c.id} value={c.id}>{c.nome} — {c.cnpj}</option>)}</select>
+              <select value={modalImportar.cliente?.id||''} onChange={e=>{
+                  const cli=clientes.find(c=>String(c.id)===e.target.value)
+                  if(cli&&modalImportar.cnpj_cpf){
+                    const cnpjCert=(modalImportar.cnpj_cpf||'').replace(/\D/g,'')
+                    const cnpjCli=(cli.cnpj||'').replace(/\D/g,'')
+                    if(cnpjCert&&cnpjCli&&cnpjCert!==cnpjCli){
+                      setModalImportar(m=>({...m,cliente:cli||null,_cnpjDivergente:true}))
+                      return
+                    }
+                  }
+                  setModalImportar(m=>({...m,cliente:cli||null,_cnpjDivergente:false}))
+                }} style={sel}>
+                  <option value="">Selecione...</option>
+                  {clientes.map(c=>{
+                    const cnpjCert=(modalImportar.cnpj_cpf||'').replace(/\D/g,'')
+                    const cnpjCli=(c.cnpj||'').replace(/\D/g,'')
+                    const match=cnpjCert&&cnpjCli&&cnpjCert===cnpjCli
+                    return <option key={c.id} value={c.id}>{match?'✅ ':''}{c.nome} — {c.cnpj}</option>
+                  })}
+                </select>
+                {modalImportar._cnpjDivergente&&(
+                  <div style={{marginTop:6,padding:'6px 10px',borderRadius:7,background:'#FEF2F2',border:'1px solid #fca5a5',fontSize:12,color:'#dc2626',fontWeight:600}}>
+                    ⚠️ CNPJ do certificado ({modalImportar.cnpj_cpf}) diverge do cliente selecionado. Não será possível confirmar.
+                  </div>
+                )}
             </div>
             <div style={{marginBottom:16,padding:'10px 14px',borderRadius:8,background:'#FFF3E0',border:'1px solid #FFB74D',fontSize:11,color:'#E65100'}}><Lock size={11} style={{marginRight:5}}/> <b>LGPD Art. 7º II:</b> Dados armazenados para cumprimento de obrigação legal tributária.</div>
             <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
               <button onClick={()=>{setModalImportar(null);setArquivoImport(null);setSenhaImport('')}} style={{padding:'8px 16px',borderRadius:8,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:13}}>Cancelar</button>
-              <button onClick={confirmarImportacao} disabled={!modalImportar.cliente} style={{padding:'8px 20px',borderRadius:8,background:modalImportar.cliente?NAVY:'#ccc',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:modalImportar.cliente?'pointer':'default'}}>✅ Confirmar</button>
+              <button onClick={confirmarImportacao}
+              disabled={!modalImportar.cliente||modalImportar._cnpjDivergente}
+              style={{padding:'8px 20px',borderRadius:8,background:(modalImportar.cliente&&!modalImportar._cnpjDivergente)?NAVY:'#ccc',color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:(modalImportar.cliente&&!modalImportar._cnpjDivergente)?'pointer':'default'}}>
+              ✅ Confirmar
+            </button>
             </div>
           </div>
         </div>
@@ -520,10 +581,10 @@ export default function Certificados() {
           <div style={{padding:'14px 22px',borderBottom:'1px solid #eee',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{fontWeight:700,color:NAVY,fontSize:15}}>✏️ {modalEditar.nome}</div><button onClick={()=>setModalEditar(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:22,color:'#999'}}>×</button></div>
           <div style={{padding:22}}>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
-              {[['Tipo','cert_tipo','select',['e-CNPJ','e-CPF']],['Titular','cert_titular','text'],['CPF/CNPJ','cert_cnpj_cpf','text'],['Emissora','cert_emissora','select',CERT_EMISSORAS],['Validade','cert_validade','date'],['Arquivo','cert_arquivo','text']].map(([l,k,t,opts])=>(
+              {[['Tipo','cert_tipo','select',['e-CNPJ','e-CPF']],['Titular','cert_titular','text'],['CPF/CNPJ (somente leitura)','cert_cnpj_cpf','readonly'],['Emissora','cert_emissora','select',CERT_EMISSORAS],['Validade','cert_validade','date'],['Arquivo','cert_arquivo','text']].map(([l,k,t,opts])=>(
                 <div key={k}><label style={{fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4}}>{l}</label>
                 {t==='select'?<select value={modalEditar[k]||''} onChange={e=>setModalEditar(m=>({...m,[k]:e.target.value}))} style={sel}><option value="">—</option>{(opts||[]).map(o=><option key={o}>{o}</option>)}</select>
-                :<input type={t} value={modalEditar[k]||''} onChange={e=>setModalEditar(m=>({...m,[k]:e.target.value}))} style={inp}/>}
+                :t==='readonly'?<div style={{...inp,background:'#f8f9fb',color:NAVY,fontWeight:700,fontFamily:'monospace',display:'flex',alignItems:'center',gap:8}}>{modalEditar[k]||'—'}<span style={{marginLeft:'auto',fontSize:10,color:'#aaa',fontFamily:'inherit',fontWeight:400}}>🔒</span></div>:<input type={t} value={modalEditar[k]||''} onChange={e=>setModalEditar(m=>({...m,[k]:e.target.value}))} style={inp}/>}
                 {k==='cert_validade'&&modalEditar.cert_validade&&<div style={{fontSize:11,marginTop:2,color:statusCert(diasParaVencer(modalEditar.cert_validade)).cor}}>{statusCert(diasParaVencer(modalEditar.cert_validade)).icon} {statusCert(diasParaVencer(modalEditar.cert_validade)).label}</div>}
                 </div>
               ))}
