@@ -1,4 +1,5 @@
 import { epSyncAll, epCheckBackend } from './utils/storage'
+import { carregarTema } from './components/ThemeCustomizer'
 // build: 2026-04-17T11:47
 import React, { useState, useEffect } from 'react'
 import {
@@ -209,6 +210,7 @@ class ErrorBoundary extends React.Component {
 export default function App() {
   // Sincronizacao automatica com PostgreSQL
   React.useEffect(() => {
+    carregarTema()  // Aplicar tema personalizado salvo
     const syncInBackground = async () => {
       const online = await epCheckBackend()
       if (online) { await epSyncAll(); console.log('[EPimentel] Dados sincronizados com PostgreSQL') }
