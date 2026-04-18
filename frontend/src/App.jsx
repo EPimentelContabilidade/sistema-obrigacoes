@@ -26,6 +26,7 @@ import RelatorioFiscal       from './pages/RelatorioFiscal'
 import RoboObrigacoes        from './pages/RoboObrigacoes'
 import ConfiguracoesTarefas  from './pages/ConfiguracoesTarefas'
 import AnaliseRetencoes      from './pages/AnaliseRetencoes'
+import MonitorCNPJ           from './pages/MonitorCNPJ'
 import Processos             from './pages/Processos'
 import DisparoWhatsApp       from './pages/DisparoWhatsApp'
 import BoasVindas            from './pages/BoasVindas'
@@ -96,6 +97,7 @@ const NAV_GROUPS = [
   ]},
   { id:'automacao', label:'Automação & IA', items:[
     { id:'robo_obrig',      label:'Robô de Obrigações', icon:Repeat   },
+    { id:'monitor_cnpj',    label:'Monitor CNPJ',       icon:RefreshCw },
     { id:'robo',            label:'Robô IA',            icon:Bot      },
     { id:'ep_inteligencia', label:'EP Inteligência',    icon:Sparkles },
   ]},
@@ -112,7 +114,7 @@ const PAGES = {
   certificados:Certificados, certidoes:Certidoes, conversas:Conversas,
   disparo_wa:DisparoWhatsApp, robo:Robo, comunicados:Comunicados,
   contratos:Contratos, goiania_nfse:GoianiaNFSe, relatorio:RelatorioFiscal,
-  robo_obrig:RoboObrigacoes, configuracoes_tarefas:ConfiguracoesTarefas,
+  robo_obrig:RoboObrigacoes, configuracoes_tarefas:ConfiguracoesTarefas, monitor_cnpj:MonitorCNPJ,
   admin:Admin, boas_vindas:BoasVindas, alvaras:Alvaras, ep_inteligencia:EPInteligencia,
 }
 
