@@ -1,3 +1,4 @@
+// v2026-04-18T14:35
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, Plus, X, Save, ChevronLeft, ChevronRight, User, MapPin, Phone, CheckCircle, Zap, Trash2, Eye, EyeOff, ExternalLink, Shield, FileText } from 'lucide-react'
 import GerarObrigacoes from './GerarObrigacoes'
