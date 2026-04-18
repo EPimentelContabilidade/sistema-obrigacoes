@@ -163,7 +163,15 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
         }
       }
 
-      localStorage.setItem('ep_tarefas_entregas', JSON.stringify(lista))
+      // Salvar tarefas no PostgreSQL + localStorage
+      epSet('ep_tarefas_entregas', lista)
+      // Limpar IDs gerados de ep_tarefas_excluidas (re-geração sempre deve aparecer)
+      try {
+        const novosIds = new Set(preview.map(t=>String(t.id)))
+        const exclAtual = JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]')
+        const exclFiltrado = exclAtual.filter(id=>!novosIds.has(String(id)))
+        epSet('ep_tarefas_excluidas', exclFiltrado)
+      } catch {}
       setQtdGerada(preview.length)
       setGerado(true)
       onGerado?.(preview.length)
