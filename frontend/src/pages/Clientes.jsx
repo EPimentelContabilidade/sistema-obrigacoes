@@ -283,10 +283,18 @@ export default function Clientes() {
 
   // ── BUSCA CNPJ COMPLETO na Receita Federal ────────────────────────────────
   const buscarCNPJ = async () => {
-    if (!form.cnpj || form.cnpj.replace(/\D/g,'').length<14) return
+    const digits = (form.cnpj||'').replace(/\D/g,'')
+    const tipo = form.tipoCadastro || 'CNPJ'
+    if (!digits || (tipo==='CNPJ' && digits.length!==14) || (tipo==='CPF' && digits.length!==11)) return
     setBuscandoCNPJ(true); setCnpjDados(null)
     try {
-      const cnpj = form.cnpj.replace(/\D/g,'')
+      const cnpj = digits
+      // CPF: buscar no e-CAC (sem API pública) — exibir aviso
+      if (tipo === 'CPF') {
+        setBuscandoCNPJ(false)
+        alert('ℹ️ Busca automática para CPF não disponível.\nPreencha os dados manualmente ou use o e-CAC.')
+        return
+      }
       const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`)
       if (r.ok) {
         const d = await r.json()
@@ -319,6 +327,16 @@ export default function Clientes() {
           tipoCadastro: 'CNPJ'
         }))
         try { localStorage.setItem('ep_rf_'+(form.cnpj||'').replace(/\D/g,''), JSON.stringify(d)); if(form.grupo) salvarGrupoLS(form.grupo) } catch {}
+        // Auto-salvar no localStorage e backend quando editando cliente existente
+        if (editId) {
+          setTimeout(async () => {
+            setClientes(prev => {
+              const updated = prev.map(c => String(c.id)===String(editId) ? {...c, nome:d.razao_social||c.nome, nome_fantasia:d.nome_fantasia||c.nome_fantasia, cidade:d.municipio||c.cidade, estado:d.uf||c.estado, cep:d.cep||c.cep, logradouro:d.logradouro||c.logradouro, numero:d.numero||c.numero, bairro:d.bairro||c.bairro, email:d.email||c.email, porte:d.porte||c.porte, natureza_juridica:d.natureza_juridica||c.natureza_juridica, capital_social:d.capital_social||c.capital_social, situacao_cadastral:d.descricao_situacao_cadastral||c.situacao_cadastral, socios:(d.qsa||[]).map(s=>({nome:s.nome_socio,qualificacao:s.qualificacao_socio})) } : c)
+              localStorage.setItem('ep_clientes', JSON.stringify(updated))
+              return updated
+            })
+          }, 100)
+        }
       }
     } catch (e) { console.error('CNPJ:', e) }
     setBuscandoCNPJ(false)
@@ -593,7 +611,7 @@ export default function Clientes() {
                         <input value={form.cnpj} onChange={e=>handleCnpjChange(e.target.value)}
                           placeholder={(form.tipoCadastro||'CNPJ')==='CNPJ'?'00.000.000/0001-00':(form.tipoCadastro||'CNPJ')==='CPF'?'000.000.000-00':'00.000.00000/000-0'}
                           style={{ ...inp, flex:1 }}/>
-                        {(form.tipoCadastro||'CNPJ')==='CNPJ'&&<button onClick={buscarCNPJ} disabled={buscandoCNPJ} style={{ padding:'7px 14px', borderRadius:7, background:GOLD, color:NAVY, fontWeight:700, fontSize:12, border:'none', cursor:'pointer', whiteSpace:'nowrap', opacity:buscandoCNPJ?0.6:1 }}>
+                        {((form.tipoCadastro||'CNPJ')==='CNPJ'||(form.tipoCadastro)==='CPF'||(form.tipoCadastro)==='CAEPF')&&<button onClick={buscarCNPJ} disabled={buscandoCNPJ} style={{ padding:'7px 14px', borderRadius:7, background:GOLD, color:NAVY, fontWeight:700, fontSize:12, border:'none', cursor:'pointer', whiteSpace:'nowrap', opacity:buscandoCNPJ?0.6:1 }}>
                           {buscandoCNPJ?'Buscando...':'🔍 Buscar Receita'}
                         </button>}
                       </div>
