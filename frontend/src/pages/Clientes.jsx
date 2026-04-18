@@ -5,7 +5,7 @@ import GerarObrigacoes from './GerarObrigacoes'
 import AbaDocumentos from '../components/AbaDocumentos'
 import { OBRIGACOES_SISTEMA } from './obrigacoes_data'
 
-const NAVY = '#1B2A4A'
+const NAVY = '#1F4A33'
 const GOLD  = '#C5A55A'
 const API   = window.location.hostname === 'localhost' ? '/api/v1' : 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
 
@@ -151,6 +151,7 @@ export default function Clientes() {
   const [modalExcluir, setModalExcluir] = useState(null)
   const [abaObrig,     setAbaObrig]     = useState('lista')
   const [buscaObrig,   setBuscaObrig]   = useState('')
+  const [toastMsg,     setToastMsg]     = useState('')
   const [deptSel,      setDeptSel]      = useState('Todos')
   const [mostrarSenhas, setMostrarSenhas] = useState({})
   // Obrigação avulsa
@@ -180,12 +181,45 @@ export default function Clientes() {
     } catch {}
   }
 
+  const showToast = (msg) => { setToastMsg(msg); setTimeout(()=>setToastMsg(''),3000) }
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
   const setC = (k,v) => setForm(f=>({...f, credenciais:{...(f.credenciais||{}), [k]:v}}))
 
+  // Máscaras de formatação de documento
+  const mascaraDoc = (digits, tipo) => {
+    if (tipo === 'CPF' || digits.length <= 11) {
+      // CPF: 000.000.000-00
+      const d = digits.slice(0,11)
+      if (d.length <= 3) return d
+      if (d.length <= 6) return d.slice(0,3)+'.'+d.slice(3)
+      if (d.length <= 9) return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6)
+      return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6,9)+'-'+d.slice(9,11)
+    } else if (tipo === 'CAEPF' || digits.length > 14) {
+      // CAEPF: 000.000.000/000-00
+      const d = digits.slice(0,14)
+      if (d.length <= 3) return d
+      if (d.length <= 6) return d.slice(0,3)+'.'+d.slice(3)
+      if (d.length <= 9) return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6)
+      if (d.length <= 12) return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6,9)+'/'+d.slice(9)
+      return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6,9)+'/'+d.slice(9,12)+'-'+d.slice(12,14)
+    } else {
+      // CNPJ: 00.000.000/0000-00
+      const d = digits.slice(0,14)
+      if (d.length <= 2) return d
+      if (d.length <= 5) return d.slice(0,2)+'.'+d.slice(2)
+      if (d.length <= 8) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5)
+      if (d.length <= 12) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8)
+      return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8,12)+'-'+d.slice(12,14)
+    }
+  }
+
+
   const handleCnpjChange = async (v) => {
     const digits = v.replace(/\D/g,'')
-    setF('cnpj', v)
+    // Determinar tipo pelo número de dígitos digitados
+    const tipoAtual = form.tipoCadastro || 'CNPJ'
+    const valorFormatado = mascaraDoc(digits, tipoAtual)
+    setF('cnpj', valorFormatado)
     if (digits.length === 14) {
       setF('tipoCadastro','CNPJ')
       try {
@@ -379,7 +413,7 @@ export default function Clientes() {
     const novoCliente = { ...form, id:novoId, seq:novoSeq, ativo:form.ativo!==false, obrigacoes_vinculadas:form.obrigacoes_vinculadas||[], credenciais:{...CREDS_VAZIO,...credsSemB64}, responsaveis:form.responsaveis||[], contatos:form.contatos||[] }
     let novaLista = []
     setClientes(p=>{ novaLista=editId?p.map(x=>x.id===editId?novoCliente:x):[...p,novoCliente]; localStorage.setItem('ep_clientes',JSON.stringify(novaLista)); return novaLista })
-    setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setAba('lista')
+    setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setAba('lista'); showToast('✅ Cliente salvo com sucesso!')
     try { await fetch(editId?`${API}/clientes/${editId}`:`${API}/clientes/`,{method:editId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(novoCliente)}) } catch {}
   }
 
@@ -1193,6 +1227,12 @@ export default function Clientes() {
           </div>
         )
       })()}
+      {/* Toast de confirmação */}
+      {toastMsg && (
+        <div style={{position:'fixed',bottom:28,left:'50%',transform:'translateX(-50%)',background:'#1F4A33',color:'#fff',padding:'12px 28px',borderRadius:12,fontWeight:700,fontSize:14,boxShadow:'0 6px 24px rgba(0,0,0,.2)',zIndex:9999,display:'flex',alignItems:'center',gap:10,animation:'fadeIn .2s'}}>
+          {toastMsg}
+        </div>
+      )}
     </div>
   )
 }
