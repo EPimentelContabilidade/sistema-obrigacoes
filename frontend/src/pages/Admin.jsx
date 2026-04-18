@@ -1,3 +1,5 @@
+import BackupRestore from '../components/BackupRestore'
+import { epSet, epGet } from '../utils/storage'
 import React, { useState, useEffect } from 'react'
 import { Shield, Plus, Trash2, Save, X, Check, Eye, EyeOff, Lock, Unlock, Key, Users, Settings, Activity, Mail, Send, AlertTriangle } from 'lucide-react'
 
@@ -65,7 +67,7 @@ const USUARIOS_PADRAO = [
 function carregarUsuarios() {
   try { const s = localStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : USUARIOS_PADRAO } catch { return USUARIOS_PADRAO }
 }
-function salvarStorage(users) { localStorage.setItem(STORAGE_KEY, JSON.stringify(users)) }
+function salvarStorage(users) { localStorage.setItem(STORAGE_KEY, JSON.stringify(users)); epSet(STORAGE_KEY, users) }
 
 function carregarClientes() {
   try {
@@ -112,6 +114,7 @@ const GOLD = '#C5A55A'
 
 export default function Admin() {
   const [aba, setAba] = useState('usuarios')
+  // aba banco de dados disponível
   const [deptsAdmin, setDeptsAdmin] = useState(getDepartamentos)
   const [novoDepto, setNovoDepto] = useState('')
   const [perfisCustom, setPerfisCustom] = useState(()=>{ try{return JSON.parse(localStorage.getItem('ep_perfis_custom')||'null')||[]}catch{return []} })
@@ -334,12 +337,12 @@ export default function Admin() {
         <div>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
             <h3 style={{color:NAVY,margin:0,fontSize:16}}>🏢 Departamentos</h3>
-            {selDepts.length>0&&<button type='button' onClick={()=>{if(!confirm('Excluir '+selDepts.length+'?')) return;const nd=deptsAdmin.filter((_,i)=>!selDepts.includes(i));setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setSelDepts([]);}} style={{padding:'5px 14px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',border:'1px solid #fca5a5',cursor:'pointer',fontWeight:700,fontSize:12}}>🗑️ Excluir {selDepts.length}</button>}
+            {selDepts.length>0&&<button type='button' onClick={()=>{if(!confirm('Excluir '+selDepts.length+'?')) return;const nd=deptsAdmin.filter((_,i)=>!selDepts.includes(i));setDeptsAdmin(nd);epSet('ep_departamentos_admin',JSON.stringify(nd));epSet('ep_departamentos',JSON.stringify(nd.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setSelDepts([]);}} style={{padding:'5px 14px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',border:'1px solid #fca5a5',cursor:'pointer',fontWeight:700,fontSize:12}}>🗑️ Excluir {selDepts.length}</button>}
           </div>
           <div style={{background:'#fff',borderRadius:10,padding:12,border:'1px solid #e2e8f0',marginBottom:12}}>
             <div style={{display:'flex',gap:8}}>
-              <input value={novoDepto} onChange={e=>setNovoDepto(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&novoDepto.trim()){const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);localStorage.setItem('ep_departamentos_admin',JSON.stringify(d));localStorage.setItem('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}}} placeholder='Novo departamento...' style={{flex:1,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13}}/>
-              <button type='button' onClick={()=>{if(!novoDepto.trim()) return;const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);localStorage.setItem('ep_departamentos_admin',JSON.stringify(d));localStorage.setItem('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}} style={{padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Adicionar</button>
+              <input value={novoDepto} onChange={e=>setNovoDepto(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&novoDepto.trim()){const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);epSet('ep_departamentos_admin',JSON.stringify(d));epSet('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}}} placeholder='Novo departamento...' style={{flex:1,padding:'8px 12px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13}}/>
+              <button type='button' onClick={()=>{if(!novoDepto.trim()) return;const d=[...deptsAdmin,novoDepto.trim()];setDeptsAdmin(d);epSet('ep_departamentos_admin',JSON.stringify(d));epSet('ep_departamentos',JSON.stringify(d.map((n,i)=>({id:i+1,nome:n,cor:'#2563eb'}))));setNovoDepto('');}} style={{padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Adicionar</button>
             </div>
           </div>
           <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden'}}>
@@ -353,13 +356,13 @@ export default function Admin() {
                 <input type='checkbox' checked={selDepts.includes(i)} onChange={()=>setSelDepts(p=>p.includes(i)?p.filter(x=>x!==i):[...p,i])} style={{accentColor:NAVY,width:13,height:13,cursor:'pointer',flexShrink:0}}/>
                 <div style={{width:8,height:8,borderRadius:'50%',background:'#2563eb',flexShrink:0}}/>
                 {editDepto?.idx===i
-                  ? <input autoFocus value={editDepto.nome} onChange={e=>setEditDepto({idx:i,nome:e.target.value})} onKeyDown={e=>{if(e.key==='Enter'){const nd=[...deptsAdmin];nd[i]=editDepto.nome.trim()||d;setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setEditDepto(null);}if(e.key==='Escape')setEditDepto(null);}} style={{flex:1,padding:'4px 8px',border:'1.5px solid #2563eb',borderRadius:6,fontSize:13}}/>
+                  ? <input autoFocus value={editDepto.nome} onChange={e=>setEditDepto({idx:i,nome:e.target.value})} onKeyDown={e=>{if(e.key==='Enter'){const nd=[...deptsAdmin];nd[i]=editDepto.nome.trim()||d;setDeptsAdmin(nd);epSet('ep_departamentos_admin',JSON.stringify(nd));epSet('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setEditDepto(null);}if(e.key==='Escape')setEditDepto(null);}} style={{flex:1,padding:'4px 8px',border:'1.5px solid #2563eb',borderRadius:6,fontSize:13}}/>
                   : <span style={{flex:1,fontWeight:600,color:NAVY,fontSize:13}}>{d}</span>
                 }
                 <div style={{display:'flex',gap:4}}>
                   {editDepto?.idx===i
-                    ? <><button type='button' onClick={()=>{const nd=[...deptsAdmin];nd[i]=editDepto.nome.trim()||d;setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setEditDepto(null);}} style={{padding:'3px 9px',borderRadius:6,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700}}>💾</button><button type='button' onClick={()=>setEditDepto(null)} style={{padding:'3px 7px',borderRadius:6,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:11}}>✕</button></>
-                    : <><button type='button' onClick={()=>setEditDepto({idx:i,nome:d})} style={{padding:'3px 9px',borderRadius:6,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11}}>✏️</button><button type='button' onClick={()=>{if(!confirm('Excluir "'+d+'"?')) return;const nd=deptsAdmin.filter((_,j)=>j!==i);setDeptsAdmin(nd);localStorage.setItem('ep_departamentos_admin',JSON.stringify(nd));localStorage.setItem('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setSelDepts(p=>p.filter(x=>x!==i).map(x=>x>i?x-1:x));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button></>
+                    ? <><button type='button' onClick={()=>{const nd=[...deptsAdmin];nd[i]=editDepto.nome.trim()||d;setDeptsAdmin(nd);epSet('ep_departamentos_admin',JSON.stringify(nd));epSet('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setEditDepto(null);}} style={{padding:'3px 9px',borderRadius:6,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700}}>💾</button><button type='button' onClick={()=>setEditDepto(null)} style={{padding:'3px 7px',borderRadius:6,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:11}}>✕</button></>
+                    : <><button type='button' onClick={()=>setEditDepto({idx:i,nome:d})} style={{padding:'3px 9px',borderRadius:6,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11}}>✏️</button><button type='button' onClick={()=>{if(!confirm('Excluir "'+d+'"?')) return;const nd=deptsAdmin.filter((_,j)=>j!==i);setDeptsAdmin(nd);epSet('ep_departamentos_admin',JSON.stringify(nd));epSet('ep_departamentos',JSON.stringify(nd.map((n,k)=>({id:k+1,nome:n,cor:'#2563eb'}))));setSelDepts(p=>p.filter(x=>x!==i).map(x=>x>i?x-1:x));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button></>
                   }
                 </div>
               </div>
@@ -371,7 +374,7 @@ export default function Admin() {
         <div>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
             <h3 style={{color:NAVY,margin:0,fontSize:16}}>👔 Perfis</h3>
-            {selPerfis.length>0&&<button type='button' onClick={()=>{if(!confirm('Excluir '+selPerfis.length+'?')) return;const nl=perfisCustom.filter(p=>!selPerfis.includes(p.id));setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));setSelPerfis([]);}} style={{padding:'5px 14px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',border:'1px solid #fca5a5',cursor:'pointer',fontWeight:700,fontSize:12}}>🗑️ Excluir {selPerfis.length}</button>}
+            {selPerfis.length>0&&<button type='button' onClick={()=>{if(!confirm('Excluir '+selPerfis.length+'?')) return;const nl=perfisCustom.filter(p=>!selPerfis.includes(p.id));setPerfisCustom(nl);epSet('ep_perfis_custom',JSON.stringify(nl));setSelPerfis([]);}} style={{padding:'5px 14px',borderRadius:8,background:'#FEF2F2',color:'#dc2626',border:'1px solid #fca5a5',cursor:'pointer',fontWeight:700,fontSize:12}}>🗑️ Excluir {selPerfis.length}</button>}
           </div>
           <div style={{marginBottom:14}}>
             <div style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',marginBottom:8}}>Perfis Padrão</div>
@@ -383,7 +386,7 @@ export default function Admin() {
           <div style={{background:'#fff',borderRadius:10,padding:12,border:'1px solid #e2e8f0',marginBottom:12}}>
             <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:8,alignItems:'end',marginBottom:8}}>
               <input value={formPerfil.nome} onChange={e=>setFormPerfil(f=>({...f,nome:e.target.value}))} placeholder='Nome do novo perfil...' style={{width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:7,fontSize:13,boxSizing:'border-box'}}/>
-              <button type='button' onClick={()=>{if(!formPerfil.nome.trim()) return;const np={id:'custom_'+Date.now(),label:formPerfil.nome,cor:formPerfil.cor||'#2563eb',custom:true};const lista=[...perfisCustom,np];setPerfisCustom(lista);localStorage.setItem('ep_perfis_custom',JSON.stringify(lista));setFormPerfil({nome:'',cor:'#2563eb'});alert('✅ Perfil criado!');}} style={{padding:'8px 14px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Criar</button>
+              <button type='button' onClick={()=>{if(!formPerfil.nome.trim()) return;const np={id:'custom_'+Date.now(),label:formPerfil.nome,cor:formPerfil.cor||'#2563eb',custom:true};const lista=[...perfisCustom,np];setPerfisCustom(lista);epSet('ep_perfis_custom',JSON.stringify(lista));setFormPerfil({nome:'',cor:'#2563eb'});alert('✅ Perfil criado!');}} style={{padding:'8px 14px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>+ Criar</button>
             </div>
             <div style={{display:'flex',gap:5}}>{['#dc2626','#2563eb','#16a34a','#f59e0b','#7c3aed','#0891b2','#64748b','#db2777'].map(cor=>(<div key={cor} onClick={()=>setFormPerfil(f=>({...f,cor}))} style={{width:22,height:22,borderRadius:'50%',background:cor,cursor:'pointer',border:formPerfil.cor===cor?'3px solid #000':'2px solid transparent'}}/>))}</div>
           </div>
@@ -404,8 +407,8 @@ export default function Admin() {
                     }
                     <div style={{display:'flex',gap:4}}>
                       {editPerfil?.id===p.id
-                        ? <><button type='button' onClick={()=>{const nl=perfisCustom.map(x=>x.id===p.id?{...x,label:editPerfil.label}:x);setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));setEditPerfil(null);}} style={{padding:'3px 9px',borderRadius:6,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700}}>💾</button><button type='button' onClick={()=>setEditPerfil(null)} style={{padding:'3px 7px',borderRadius:6,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:11}}>✕</button></>
-                        : <><button type='button' onClick={()=>setEditPerfil({...p})} style={{padding:'3px 9px',borderRadius:6,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11}}>✏️</button><button type='button' onClick={()=>{if(!confirm('Excluir "'+p.label+'"?')) return;const nl=perfisCustom.filter(x=>x.id!==p.id);setPerfisCustom(nl);localStorage.setItem('ep_perfis_custom',JSON.stringify(nl));setSelPerfis(prev=>prev.filter(x=>x!==p.id));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button></>
+                        ? <><button type='button' onClick={()=>{const nl=perfisCustom.map(x=>x.id===p.id?{...x,label:editPerfil.label}:x);setPerfisCustom(nl);epSet('ep_perfis_custom',JSON.stringify(nl));setEditPerfil(null);}} style={{padding:'3px 9px',borderRadius:6,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700}}>💾</button><button type='button' onClick={()=>setEditPerfil(null)} style={{padding:'3px 7px',borderRadius:6,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer',fontSize:11}}>✕</button></>
+                        : <><button type='button' onClick={()=>setEditPerfil({...p})} style={{padding:'3px 9px',borderRadius:6,background:'#EBF5FF',color:'#1D6FA4',border:'none',cursor:'pointer',fontSize:11}}>✏️</button><button type='button' onClick={()=>{if(!confirm('Excluir "'+p.label+'"?')) return;const nl=perfisCustom.filter(x=>x.id!==p.id);setPerfisCustom(nl);epSet('ep_perfis_custom',JSON.stringify(nl));setSelPerfis(prev=>prev.filter(x=>x!==p.id));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button></>
                       }
                     </div>
                   </div>
@@ -476,14 +479,14 @@ export default function Admin() {
                 </div>
               </div>
             </div>
-            <button type='button' onClick={()=>{const nova={id:Date.now(),...notifForm,popup:notifForm.popup!==false,email:notifForm.email!==false,whatsapp:notifForm.whatsapp!==false};const lista=[...notifRules,nova];setNotifRules(lista);localStorage.setItem('ep_notif_rules',JSON.stringify(lista));alert('✅ Regra salva!');}} style={{padding:'8px 22px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>💾 Salvar Regra</button>
+            <button type='button' onClick={()=>{const nova={id:Date.now(),...notifForm,popup:notifForm.popup!==false,email:notifForm.email!==false,whatsapp:notifForm.whatsapp!==false};const lista=[...notifRules,nova];setNotifRules(lista);epSet('ep_notif_rules',JSON.stringify(lista));alert('✅ Regra salva!');}} style={{padding:'8px 22px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13}}>💾 Salvar Regra</button>
           </div>
           {notifRules.length===0
             ? <div style={{textAlign:'center',padding:24,color:'#aaa',fontSize:13,background:'#f8fafc',borderRadius:10,border:'2px dashed #e2e8f0'}}>Nenhuma regra configurada.</div>
             : <div style={{background:'#fff',borderRadius:10,border:'1px solid #e2e8f0',overflow:'hidden'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:'#f8fafc',borderBottom:'1px solid #e2e8f0'}}>
                   <span style={{fontSize:11,fontWeight:700,color:'#64748b'}}>{notifRules.length} REGRA(S) ATIVA(S)</span>
-                  <button type='button' onClick={()=>{if(!confirm('Apagar todas?')) return;setNotifRules([]);localStorage.setItem('ep_notif_rules','[]');}} style={{fontSize:11,padding:'3px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer'}}>🗑️ Limpar tudo</button>
+                  <button type='button' onClick={()=>{if(!confirm('Apagar todas?')) return;setNotifRules([]);epSet('ep_notif_rules','[]');}} style={{fontSize:11,padding:'3px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer'}}>🗑️ Limpar tudo</button>
                 </div>
                 {notifRules.map((r,i)=>{
                   const GL={vencimento_7d:'Vence 7d',vencimento_3d:'Vence 3d',vencimento_hoje:'HOJE',vencimento_passou:'VENCIDA',nova_obrigacao:'Nova obrigação',entregue:'Entregue',novo_processo:'Novo processo',processo_concluido:'Concluído',processo_atrasado:'Atrasado',processo_atribuido:'Atribuído',novo_cliente:'Novo cliente',cert_vencendo:'Cert. vencendo',ia_detecta:'IA detecta',ia_alerta:'IA alerta'}
@@ -497,7 +500,7 @@ export default function Admin() {
                       </div>
                       <div style={{fontSize:10,color:'#888',marginTop:2}}>{r.popup?'🔔 ':''}{r.email?'📧 ':''}{r.whatsapp?'💬 ':''}</div>
                     </div>
-                    <button type='button' onClick={()=>{const nl=notifRules.filter((_,j)=>j!==i);setNotifRules(nl);localStorage.setItem('ep_notif_rules',JSON.stringify(nl));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button>
+                    <button type='button' onClick={()=>{const nl=notifRules.filter((_,j)=>j!==i);setNotifRules(nl);epSet('ep_notif_rules',JSON.stringify(nl));}} style={{padding:'3px 9px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer',fontSize:11}}>🗑️</button>
                   </div>
                 })}
               </div>
@@ -910,6 +913,7 @@ export default function Admin() {
           </div>
         </div>
       )}
+      {aba==='banco'&&<BackupRestore/>}
     </div>
   )
 }
