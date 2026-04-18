@@ -174,6 +174,23 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
 
   const inp = { width:'100%',padding:'8px 11px',borderRadius:8,border:'1px solid #ddd',fontSize:13,boxSizing:'border-box',outline:'none' }
 
+  const TODOS_REGIMES = ['Simples Nacional','MEI','Lucro Presumido','Lucro Real','RET/Imobiliário','Imune/Isento','Social/IRH','Condomínio','Autônomo','Produtor Rural']
+  const getObrigacoesFiltradas = () => {
+    try {
+      const catV2 = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'null')
+      if (regimeFiltro === '__todos__') {
+        const visto = new Set(); const lista = []
+        TODOS_REGIMES.forEach(reg => {
+          const rObr = catV2?.[reg] || []; rObr.forEach(o => { const id=o.codigo||o.id||o.nome; if(!visto.has(id)){visto.add(id);lista.push({...o,_regime:reg})} })
+        })
+        if (lista.length > 0) return lista
+      } else {
+        if (catV2?.[regimeFiltro]?.length > 0) return catV2[regimeFiltro].map(o=>({...o,_regime:regimeFiltro}))
+      }
+    } catch {}
+    return getCatalogo()
+  }
+
   return (
     <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}>
       <div style={{ background:'#fff',borderRadius:14,width:'100%',maxWidth:680,maxHeight:'90vh',overflow:'auto',boxShadow:'0 8px 40px rgba(0,0,0,.2)' }}>
@@ -262,16 +279,7 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
 
               {/* Painel inline de busca/seleção de obrigações */}
               {!preview && showBuscaObrig && (()=>{
-                const todosDisp = (() => {
-                  try {
-                    const regime = cliente.tributacao || cliente.regime || ''
-                    const mapa = {'Simples Nacional':'Simples Nacional','MEI':'MEI','Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real','RET':'RET/Imobiliário','RET/Imobiliário':'RET/Imobiliário','Imune/Isento':'Imune/Isento','Produtor Rural':'Produtor Rural','Social/IRH':'Social/IRH','Condomínio':'Condomínio','Autônomo':'Autônomo'}
-                    const chave = mapa[regime] || regime
-                    const catV2 = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'null')
-                    if (catV2?.[chave]?.length > 0) return catV2[chave]
-                  } catch {}
-                  return getCatalogo()
-                })()
+                const todosDisp = getObrigacoesFiltradas()
                 const filtradas = todosDisp.filter(o => !buscaObrigTexto || o.nome?.toLowerCase().includes(buscaObrigTexto.toLowerCase()) || o.codigo?.toLowerCase().includes(buscaObrigTexto.toLowerCase()))
                 const base = obrigSelecionadas !== null ? obrigSelecionadas : getCatalogo()
                 const selIds = new Set(base.map(o => o.codigo || o.id))
@@ -281,8 +289,12 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
                       <span style={{fontSize:12,fontWeight:700,color:NAVY,flex:1}}>🔍 Selecionar obrigações</span>
                       {obrigSelecionadas !== null && <button onClick={()=>setObrigSelecionadas(null)} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer'}}>↺ Padrão do regime</button>}
                     </div>
-                    <div style={{padding:'8px 14px',borderBottom:'1px solid #c7d2fe'}}>
-                      <input value={buscaObrigTexto} onChange={e=>setBuscaObrigTexto(e.target.value)} placeholder="Buscar por nome ou código..." style={{...inp,fontSize:12}} autoFocus/>
+                    <div style={{padding:'8px 14px',borderBottom:'1px solid #c7d2fe',display:'flex',gap:8}}>
+                      <input value={buscaObrigTexto} onChange={e=>setBuscaObrigTexto(e.target.value)} placeholder="Buscar por nome ou código..." style={{...inp,fontSize:12,flex:1}} autoFocus/>
+                      <select value={regimeFiltro} onChange={e=>setRegimeFiltro(e.target.value)} style={{...inp,width:'auto',fontSize:11,padding:'4px 8px',flexShrink:0}}>
+                        <option value="__todos__">📋 Todos os regimes</option>
+                        {['Simples Nacional','MEI','Lucro Presumido','Lucro Real','RET/Imobiliário','Imune/Isento','Social/IRH','Condomínio','Autônomo','Produtor Rural'].map(r=><option key={r} value={r}>{r}</option>)}
+                      </select>
                     </div>
                     <div style={{maxHeight:200,overflowY:'auto'}}>
                       {filtradas.length===0 && <div style={{padding:'10px 14px',fontSize:12,color:'#aaa',textAlign:'center'}}>Nenhuma obrigação encontrada.</div>}
