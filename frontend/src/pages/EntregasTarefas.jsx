@@ -210,6 +210,12 @@ export default function EntregasTarefas() {
   const [filtObrig,       setFiltObrig]       = useState([])   // nomes de obrigação selecionados
   const [dropEmpresas,    setDropEmpresas]    = useState(false)
   const [dropObrig,       setDropObrig]       = useState(false)
+  const [dropResp,        setDropResp]        = useState(false)
+  const [dropDept,        setDropDept]        = useState(false)
+  const [filtResp,        setFiltResp]        = useState([])
+  const [filtDept,        setFiltDept]        = useState([])
+  const [buscaRespDrop,   setBuscaRespDrop]   = useState('')
+  const [buscaDeptDrop,   setBuscaDeptDrop]   = useState('')
   const [buscaEmpDrop,    setBuscaEmpDrop]    = useState('')
   const [buscaObrigDrop,  setBuscaObrigDrop]  = useState('')
   // Modo multi-empresa: mostra tarefas de todos os clientes selecionados
