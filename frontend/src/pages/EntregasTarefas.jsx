@@ -708,20 +708,7 @@ export default function EntregasTarefas() {
                     <div style={{fontSize:9,color:'#aaa',fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Até</div>
                     <input type="month" value={filt.competencia_ate} onChange={e=>setF('competencia_ate',e.target.value)} style={{...inp,padding:'4px 7px',fontSize:11,width:130}}/>
                   </div>
-                  {/* Separador */}
-                  <div style={{height:28,width:1,background:'#e8e8e8',alignSelf:'flex-end',marginBottom:2}}/>
-                  {/* Marcadores */}
-                  <div style={{display:'flex',gap:6,alignItems:'center',alignSelf:'flex-end',marginBottom:2}}>
-                    {[
-                      {k:'com_multa',    l:'⚠️ Multa',      bg:'#FEF2F2',c:'#dc2626'},
-                      {k:'com_protocolo',l:'🔖 Com Prot.',   bg:'#F0FDF4',c:'#16a34a'},
-                      {k:'sem_protocolo',l:'📭 Sem Prot.',   bg:'#FFF7ED',c:'#d97706'},
-                    ].map(b=>(
-                      <button key={b.k} onClick={()=>setF(b.k,!filt[b.k])} style={{padding:'4px 10px',borderRadius:20,fontSize:11,fontWeight:filt[b.k]?700:400,cursor:'pointer',border:'1px solid '+(filt[b.k]?b.c:'#ddd'),background:filt[b.k]?b.bg:'#fff',color:filt[b.k]?b.c:'#888',whiteSpace:'nowrap'}}>
-                        {b.l}
-                      </button>
-                    ))}
-                  </div>
+
                 </div>
               )}
 
