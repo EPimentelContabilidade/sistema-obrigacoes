@@ -218,25 +218,8 @@ export default function Clientes() {
       const local = localStorage.getItem('ep_clientes')
       if (local) { const p=JSON.parse(local); if(p?.length>0) setClientes(p) }
     } catch(e) {}
-    try {
-      const r = await fetch(`${API}/clientes/`)
-      if (r.ok) {
-        const d = await r.json()
-        const back = d.clientes||d||[]
-        if (back.length>0) {
-          const local = JSON.parse(localStorage.getItem('ep_clientes')||'[]')
-          // localStorage é fonte de verdade absoluta
-          // Se tem dados locais: usa local (evita restaurar excluídos)
-          // Se localStorage vazio: carrega do backend (primeira vez)
-          const merged = local.length > 0
-            ? local.map(lc=>{ const bc=back.find(x=>String(x.id)===String(lc.id)); return bc?{...bc,...lc}:lc })
-            : back
-          setClientes(merged)
-          try { localStorage.setItem('ep_clientes',JSON.stringify(merged)); epSet('ep_clientes',merged) } catch(e) {}
-        }
-      }
-    } catch(e) {}
-  }
+    // Backend fetch removido — localStorage é fonte única de verdade
+    }
 
   const showToast = (msg) => { setToastMsg(msg); setTimeout(()=>setToastMsg(''),3000) }
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
