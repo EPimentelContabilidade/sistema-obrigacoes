@@ -1,3 +1,4 @@
+import { epSet, epGet } from '../utils/storage'
 import { useState, useEffect, useRef } from "react"; // v2.1
 
 
@@ -671,7 +672,7 @@ function TabProcessos({ templates }) {
   const [buscaCliente, setBuscaCliente] = useState("");
   const [mostrarBuscaCliente, setMostrarBuscaCliente] = useState(false);
 
-  const salvarProcessos = lista => { setProcessos(lista); localStorage.setItem("ep_processos",JSON.stringify(lista)); };
+  const salvarProcessos = lista => { setProcessos(lista); epSet("ep_processos", lista); };
 
   const verificarAtrasos = async () => {
     const hoje_dt = new Date();
