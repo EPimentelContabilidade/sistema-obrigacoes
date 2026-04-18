@@ -5,6 +5,57 @@ import GerarObrigacoes from './GerarObrigacoes'
 import AbaDocumentos from '../components/AbaDocumentos'
 import { OBRIGACOES_SISTEMA } from './obrigacoes_data'
 
+// ── MaskedInput — máscara de input sem dependências externas ──────────────
+// Funciona como react-input-mask: aplica pontos, barras e traços enquanto digita
+// Máscara: '0' = dígito obrigatório, outros caracteres = literais fixos
+function applyMask(raw, mask) {
+  const digits = raw.replace(/\D/g, '')
+  let out = '', di = 0
+  for (let i = 0; i < mask.length; i++) {
+    if (di >= digits.length) break
+    if (mask[i] === '0') { out += digits[di++] }
+    else { out += mask[i]; if (mask[i+1]==='0' && digits[di] && !/\D/.test(digits[di-1]||'')) {/*auto-avança*/} }
+  }
+  return out
+}
+
+function MaskedInput({ mask, value, onChange, onComplete, ...props }) {
+  const ref = useRef(null)
+  const handleChange = (e) => {
+    const raw = e.target.value
+    const newVal = applyMask(raw, mask)
+    const maxDigits = mask.split('').filter(c=>c==='0').length
+    const digits = newVal.replace(/\D/g,'')
+    // Calcular posição do cursor após formatação
+    const oldCursor = e.target.selectionStart
+    onChange(newVal)
+    // Reposicionar cursor após React re-render
+    requestAnimationFrame(() => {
+      if (!ref.current) return
+      let pos = 0, d = 0
+      const targetDigits = Math.min(digits.length, maxDigits)
+      for (let i = 0; i < mask.length && d < targetDigits; i++) {
+        if (mask[i] === '0') d++
+        pos = i + 1
+      }
+      ref.current.setSelectionRange(pos, pos)
+    })
+    if (digits.length === maxDigits && onComplete) onComplete(digits, newVal)
+  }
+  const handleKeyDown = (e) => {
+    // Pular separadores ao apertar Backspace
+    if (e.key === 'Backspace') {
+      const pos = e.target.selectionStart
+      if (pos > 0 && mask[pos-1] && mask[pos-1] !== '0') {
+        e.preventDefault()
+        const newPos = pos - 1
+        ref.current.setSelectionRange(newPos, newPos)
+      }
+    }
+  }
+  return <input ref={ref} {...props} value={value||''} onChange={handleChange} onKeyDown={handleKeyDown} maxLength={mask.length}/>
+}
+
 const NAVY = '#1F4A33'
 const GOLD  = '#C5A55A'
 const API   = window.location.hostname === 'localhost' ? '/api/v1' : 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
@@ -185,41 +236,10 @@ export default function Clientes() {
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
   const setC = (k,v) => setForm(f=>({...f, credenciais:{...(f.credenciais||{}), [k]:v}}))
 
-  // Máscaras de formatação de documento
-  const mascaraDoc = (digits, tipo) => {
-    if (tipo === 'CPF' || digits.length <= 11) {
-      // CPF: 000.000.000-00
-      const d = digits.slice(0,11)
-      if (d.length <= 3) return d
-      if (d.length <= 6) return d.slice(0,3)+'.'+d.slice(3)
-      if (d.length <= 9) return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6)
-      return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6,9)+'-'+d.slice(9,11)
-    } else if (tipo === 'CAEPF' || digits.length > 14) {
-      // CAEPF: 000.000.000/000-00
-      const d = digits.slice(0,14)
-      if (d.length <= 3) return d
-      if (d.length <= 6) return d.slice(0,3)+'.'+d.slice(3)
-      if (d.length <= 9) return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6)
-      if (d.length <= 12) return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6,9)+'/'+d.slice(9)
-      return d.slice(0,3)+'.'+d.slice(3,6)+'.'+d.slice(6,9)+'/'+d.slice(9,12)+'-'+d.slice(12,14)
-    } else {
-      // CNPJ: 00.000.000/0000-00
-      const d = digits.slice(0,14)
-      if (d.length <= 2) return d
-      if (d.length <= 5) return d.slice(0,2)+'.'+d.slice(2)
-      if (d.length <= 8) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5)
-      if (d.length <= 12) return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8)
-      return d.slice(0,2)+'.'+d.slice(2,5)+'.'+d.slice(5,8)+'/'+d.slice(8,12)+'-'+d.slice(12,14)
-    }
-  }
-
 
   const handleCnpjChange = async (v) => {
     const digits = v.replace(/\D/g,'')
-    // Determinar tipo pelo número de dígitos digitados
-    const tipoAtual = form.tipoCadastro || 'CNPJ'
-    const valorFormatado = mascaraDoc(digits, tipoAtual)
-    setF('cnpj', valorFormatado)
+    setF('cnpj', v)
     if (digits.length === 14) {
       setF('tipoCadastro','CNPJ')
       try {
@@ -642,8 +662,14 @@ export default function Clientes() {
                     <div>
                       <label style={{ fontSize:11,color:'#888',fontWeight:600,display:'block',marginBottom:4 }}>{form.tipoCadastro||'CNPJ'} *</label>
                       <div style={{ display:'flex', gap:8 }}>
-                        <input value={form.cnpj} onChange={e=>handleCnpjChange(e.target.value)}
-                          placeholder={(form.tipoCadastro||'CNPJ')==='CNPJ'?'00.000.000/0001-00':(form.tipoCadastro||'CNPJ')==='CPF'?'000.000.000-00':'00.000.00000/000-0'}
+                        <MaskedInput
+                          mask={(form.tipoCadastro||'CNPJ')==='CPF'?'000.000.000-00':(form.tipoCadastro||'CNPJ')==='CAEPF'?'000.000.000/000-00':'00.000.000/0000-00'}
+                          value={form.cnpj}
+                          onChange={v=>handleCnpjChange(v)}
+                          onComplete={(digits)=>{
+                            if((form.tipoCadastro||'CNPJ')==='CNPJ') handleCnpjChange(form.cnpj)
+                          }}
+                          placeholder={(form.tipoCadastro||'CNPJ')==='CNPJ'?'00.000.000/0001-00':(form.tipoCadastro||'CNPJ')==='CPF'?'000.000.000-00':'000.000.000/000-00'}
                           style={{ ...inp, flex:1 }}/>
                         {((form.tipoCadastro||'CNPJ')==='CNPJ'||(form.tipoCadastro)==='CPF'||(form.tipoCadastro)==='CAEPF')&&<button onClick={buscarCNPJ} disabled={buscandoCNPJ} style={{ padding:'7px 14px', borderRadius:7, background:GOLD, color:NAVY, fontWeight:700, fontSize:12, border:'none', cursor:'pointer', whiteSpace:'nowrap', opacity:buscandoCNPJ?0.6:1 }}>
                           {buscandoCNPJ?'Buscando...':'🔍 Buscar Receita'}
