@@ -46,7 +46,6 @@ class Cliente(Base):
     criado_em = Column(DateTime, default=datetime.utcnow)
     observacoes = Column(Text)
     obs_comunicacao = Column(Text)
-    # Endereço
     cep = Column(String(10))
     logradouro = Column(String(300))
     numero = Column(String(20))
@@ -54,12 +53,10 @@ class Cliente(Base):
     bairro = Column(String(100))
     municipio = Column(String(100))
     uf = Column(String(2))
-    # Responsável
     responsavel_nome = Column(String(200))
     responsavel_cpf = Column(String(14))
     responsavel_tel = Column(String(20))
     responsavel_email = Column(String(200))
-    # Dados Fiscais
     inscricao_estadual = Column(String(50))
     inscricao_municipal = Column(String(50))
     cnae = Column(String(200))
@@ -81,7 +78,7 @@ class TipoObrigacao(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(100), nullable=False)
     descricao = Column(Text)
-    periodicidade = Column(String(50))  # mensal, trimestral, anual
+    periodicidade = Column(String(50))
     dia_vencimento = Column(Integer)
     ativo = Column(Boolean, default=True)
 
@@ -94,7 +91,7 @@ class Obrigacao(Base):
     id = Column(Integer, primary_key=True, index=True)
     cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
     tipo_id = Column(Integer, ForeignKey("tipos_obrigacao.id"), nullable=False)
-    competencia = Column(String(7), nullable=False)  # AAAA-MM
+    competencia = Column(String(7), nullable=False)
     vencimento = Column(DateTime)
     valor = Column(Float)
     arquivo_path = Column(String(500))
@@ -123,3 +120,18 @@ class Entrega(Base):
 
     cliente = relationship("Cliente", back_populates="entregas")
     obrigacao = relationship("Obrigacao", back_populates="entregas")
+
+
+class AppStorage(Base):
+    """
+    Tabela universal de persistencia — substitui localStorage para todos os modulos.
+    Qualquer modulo do frontend salva via: POST /api/v1/storage/{key}
+    Novos modulos automaticamente persistem sem configuracao extra.
+    """
+    __tablename__ = "app_storage"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    key        = Column(String(200), unique=True, nullable=False, index=True)
+    data       = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
