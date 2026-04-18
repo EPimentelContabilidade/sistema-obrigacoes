@@ -89,7 +89,7 @@ export function obrigacoesPorTributacao(regime) {
     const chave = mapa[regime] || regime
     const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2') || 'null')
     if (cat?.[chave]?.length > 0) return cat[chave].filter(o => o.ativo !== false)
-  } catch {}
+  } catch(e) {}
   // 2. Fallback: usar OBRIGACOES_SISTEMA filtrado pelo regime
   const ids = REGIME_OBRIG_AUTO[regime] || []
   if (ids.length > 0) return OBRIGACOES_SISTEMA.filter(o => ids.includes(o.id) && o.ativa !== false)
@@ -103,7 +103,7 @@ function obrigsCatalogo(regime) {
     const chave = mapa[regime] || regime
     const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2') || 'null')
     if (cat?.[chave]?.length > 0) return cat[chave].filter(o => o.ativo !== false)
-  } catch {}
+  } catch(e) {}
   // Retornar objetos do OBRIGACOES_SISTEMA para o regime
   const ids = REGIME_OBRIG_AUTO[regime] || []
   return OBRIGACOES_SISTEMA.filter(o => ids.includes(o.id) && o.ativa !== false)
@@ -217,7 +217,7 @@ export default function Clientes() {
     try {
       const local = localStorage.getItem('ep_clientes')
       if (local) { const p=JSON.parse(local); if(p?.length>0) setClientes(p) }
-    } catch {}
+    } catch(e) {}
     try {
       const r = await fetch(`${API}/clientes/`)
       if (r.ok) {
@@ -239,10 +239,10 @@ export default function Clientes() {
             ? localFiltrado.map(lc=>{ const bc=backFiltrado.find(x=>String(x.id)===String(lc.id)); return bc?{...bc,...lc}:lc })
             : backFiltrado
           setClientes(merged)
-          try { localStorage.setItem('ep_clientes',JSON.stringify(merged)); epSet('ep_clientes',merged) } catch {}
+          try { localStorage.setItem('ep_clientes',JSON.stringify(merged)); epSet('ep_clientes',merged) } catch(e) {}
         }
-      }}
-    } catch {}
+      }
+    } catch(e) {}
   }
 
   const showToast = (msg) => { setToastMsg(msg); setTimeout(()=>setToastMsg(''),3000) }
@@ -299,7 +299,7 @@ export default function Clientes() {
     try {
       const grupos = JSON.parse(localStorage.getItem('ep_grupos_cadastrados')||'[]')
       if (!grupos.includes(nomeGrupo.trim())) { grupos.push(nomeGrupo.trim()); epSet('ep_grupos_cadastrados', JSON.stringify(grupos)) }
-    } catch {}
+    } catch(e) {}
   }
   const listarGruposLS = () => { try { return JSON.parse(localStorage.getItem('ep_grupos_cadastrados')||'[]') } catch { return [] } }
 
@@ -394,7 +394,7 @@ export default function Clientes() {
           socios: (d.qsa||[]).map(s=>({nome:s.nome_socio, qualificacao:s.qualificacao_socio})),
           tipoCadastro: 'CNPJ'
         }))
-        try { localStorage.setItem('ep_rf_'+(form.cnpj||'').replace(/\D/g,''), JSON.stringify(d)); if(form.grupo) salvarGrupoLS(form.grupo) } catch {}
+        try { localStorage.setItem('ep_rf_'+(form.cnpj||'').replace(/\D/g,''), JSON.stringify(d)); if(form.grupo) salvarGrupoLS(form.grupo) } catch(e) {}
         // Auto-salvar no localStorage e backend quando editando cliente existente
         if (editId) {
           setTimeout(async () => {
@@ -448,7 +448,7 @@ export default function Clientes() {
     let novaLista = []
     setClientes(p=>{ novaLista=editId?p.map(x=>x.id===editId?novoCliente:x):[...p,novoCliente]; localStorage.setItem('ep_clientes',JSON.stringify(novaLista)); return novaLista })
     setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setAba('lista'); showToast('✅ Cliente salvo com sucesso!')
-    try { await fetch(editId?`${API}/clientes/${editId}`:`${API}/clientes/`,{method:editId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(novoCliente)}) } catch {}
+    try { await fetch(editId?`${API}/clientes/${editId}`:`${API}/clientes/`,{method:editId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(novoCliente)}) } catch(e) {}
   }
 
   const excluirCliente = async (id) => {
@@ -457,7 +457,7 @@ export default function Clientes() {
       const cli=clientes.find(x=>String(x.id)===String(id))
       const pVinc=procs.filter(p=>String(p.clienteId||p.cliente_id||'')===String(id)||p.cliente===cli?.nome)
       if(pVinc.length>0){alert(`⛔ Não é possível excluir.\n• ${pVinc.length} processo(s) vinculado(s)\nRemova os vínculos antes de excluir.`);setModalExcluir(null);return}
-    } catch {}
+    } catch(e) {}
     try {
       const check = await fetch(`${API}/clientes/${id}/verificar-exclusao`)
       const res = await check.json()
@@ -466,7 +466,7 @@ export default function Clientes() {
         setModalExcluir(null)
         return
       }
-    } catch {}
+    } catch(e) {}
     const novaLista = clientes.filter(c=>String(c.id)!==String(id))
     // Lista negra permanente — impede que o backend restaure o cliente excluído
     try {
@@ -477,12 +477,12 @@ export default function Clientes() {
       if (cnpj && !excluidos.includes(cnpj)) excluidos.push(cnpj)
       localStorage.setItem('ep_clientes_excluidos', JSON.stringify(excluidos))
       epSet('ep_clientes_excluidos', excluidos)
-    } catch {}
+    } catch(e) {}
     // Salvar lista atualizada
     try {
       localStorage.setItem('ep_clientes', JSON.stringify(novaLista))
       epSet('ep_clientes', novaLista)
-    } catch {}
+    } catch(e) {}
     setClientes(novaLista)
     setModalExcluir(null)
     // Remover tarefas do cliente excluído de ep_tarefas_entregas
@@ -494,9 +494,9 @@ export default function Clientes() {
         (cnpjExcluido==='' || (t.cnpj||'').replace(/\D/g,'')!==cnpjExcluido)
       )
       epSet('ep_tarefas_entregas', tarefasSemCliente)
-    } catch {}
+    } catch(e) {}
     showToast('✅ Cliente excluído com sucesso!')
-    try { await fetch(`${API}/clientes/${id}`,{method:'DELETE'}) } catch {}
+    try { await fetch(`${API}/clientes/${id}`,{method:'DELETE'}) } catch(e) {}
   }
 
   const nova = () => { setForm({...FORM_VAZIO,responsaveis:[],contatos:[],credenciais:{...CREDS_VAZIO}}); setEditId(null); setCnpjDados(null); setAba('cadastro'); setAbaForm('dados') }
@@ -1007,7 +1007,7 @@ export default function Clientes() {
                                 alert('✅ Certificado reconhecido!\nTitular: '+(info.titular||'—')+'\nValidade: '+(info.validade||'—'))
                                 return
                               }
-                            } catch {}
+                            } catch(e) {}
                             alert('✅ Arquivo carregado!\n\nAPI de reconhecimento indisponível. Preencha manualmente os dados abaixo.')
                           }}
                           style={{ marginTop:10,width:'100%',padding:'9px',borderRadius:8,background:`linear-gradient(135deg,${NAVY},#2D7A4F)`,color:'#fff',fontWeight:700,fontSize:13,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8 }}>
