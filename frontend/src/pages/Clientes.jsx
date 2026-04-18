@@ -467,6 +467,16 @@ export default function Clientes() {
     } catch {}
     setClientes(novaLista)
     setModalExcluir(null)
+    // Remover tarefas do cliente excluído de ep_tarefas_entregas
+    try {
+      const cnpjExcluido = clientes.find(c=>String(c.id)===String(id))?.cnpj?.replace(/\D/g,'') || ''
+      const todasTarefas = JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]')
+      const tarefasSemCliente = todasTarefas.filter(t=>
+        String(t.cliente_id)!==String(id) &&
+        (cnpjExcluido==='' || (t.cnpj||'').replace(/\D/g,'')!==cnpjExcluido)
+      )
+      epSet('ep_tarefas_entregas', tarefasSemCliente)
+    } catch {}
     showToast('✅ Cliente excluído com sucesso!')
     try { await fetch(`${API}/clientes/${id}`,{method:'DELETE'}) } catch {}
   }
