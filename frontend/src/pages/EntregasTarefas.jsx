@@ -203,7 +203,7 @@ export default function EntregasTarefas() {
   const [fEdit,      setFEdit]      = useState({nome:'',departamento:'',exigir_robo:false})
   const [filt, setFilt] = useState({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false,com_multa:false,com_protocolo:false,sem_protocolo:false})
   const setF = (k,v) => setFilt(f=>({...f,[k]:v}))
-  const limpar = () => { setFilt({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false,com_multa:false,com_protocolo:false,sem_protocolo:false}); setFiltEmpresas([]); setFiltObrig([]) }
+  const limpar = () => { setFilt({busca:'',empresa:'',departamento:'',responsavel:'',competencia_de:'',competencia_ate:'',prazo_tec_de:'',prazo_tec_ate:'',prazo_legal_de:'',prazo_legal_ate:'',entrega_de:'',entrega_ate:'',pendente:false,justificada:false,entregue:false,dispensada:false,com_multa:false,com_protocolo:false,sem_protocolo:false}); setFiltEmpresas([]); setFiltObrig([]); setFiltResp([]); setFiltDept([]) }
 
   // ── Multi-filtros: empresas e obrigações ──────────────────────────────────
   const [filtEmpresas,    setFiltEmpresas]    = useState([])   // IDs selecionados
@@ -404,6 +404,8 @@ export default function EntregasTarefas() {
 
   // Lista de todas as obrigações disponíveis (para dropdown multi-obrig)
   const todasObrigDisponiveis = [...new Set(fonteBase.map(t => t.nome).filter(Boolean))].sort()
+  const todosRespDisponiveis = [...new Set(fonteBase.map(t=>t.responsavel).filter(Boolean))].sort()
+  const todosDeptDisponiveis = [...new Set(fonteBase.map(t=>t.departamento).filter(Boolean))].sort()
   // Obrigações disponíveis do catálogo (conf. tarefas) para o regime do cliente
   const obrigsDoCatalogo = (() => {
     try {
@@ -428,8 +430,10 @@ export default function EntregasTarefas() {
       if (filt.dispensada)  statusOk.push('dispensada')
       if (!statusOk.includes(t.status)) return false
     }
-    // Filtro responsável
-    if (filt.responsavel && !(t.responsavel||'').toLowerCase().includes(filt.responsavel.toLowerCase())) return false
+    // Multi-filtro responsável
+    if (filtResp.length>0 && !filtResp.includes(t.responsavel)) return false
+    // Multi-filtro departamento  
+    if (filtDept.length>0 && !filtDept.includes(t.departamento)) return false
     // Filtro passível de multa
     if (filt.com_multa && !t.passivel_multa) return false
     // Filtro protocolo
@@ -547,13 +551,16 @@ export default function EntregasTarefas() {
             </div>
 
                         {/* ── Multi-filtros: Empresas + Obrigações ─────────────────────── */}
+            {/* ── Barra de Filtros Dinâmicos — Multi-select Combobox ─────── */}
             <div style={{background:'#fff',borderBottom:'2px solid #e8e8e8'}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',flexWrap:'wrap'}}>
 
-              {/* Linha 1: Busca + Status + Modo Multi */}
-              <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 14px',borderBottom:'1px solid #f0f0f0',flexWrap:'wrap'}}>
-                <div style={{position:'relative',flex:'0 0 200px'}}>
-                  <Search size={11} style={{position:'absolute',left:7,top:7,color:'#bbb'}}/>
-                  <input value={filt.busca} onChange={e=>setF('busca',e.target.value)} placeholder="Buscar obrigação..." style={{...inp,width:'100%',paddingLeft:22}}/>
+                {/* Busca com autocomplete */}
+                <div style={{position:'relative',flex:'0 0 190px'}}>
+                  <Search size={11} style={{position:'absolute',left:7,top:'50%',transform:'translateY(-50%)',color:'#bbb'}}/>
+                  <input value={filt.busca} onChange={e=>setF('busca',e.target.value)} placeholder="Buscar obrigação..." list="obrig-list-top"
+                    style={{...inp,paddingLeft:22,width:'100%',fontSize:12}}/>
+                  <datalist id="obrig-list-top">{[...new Set([...todasObrigDisponiveis,...obrigsDoCatalogo])].map(n=><option key={n} value={n}/>)}</datalist>
                 </div>
 
                 {/* ── Multi-Empresa Dropdown ── */}
@@ -615,6 +622,44 @@ export default function EntregasTarefas() {
                   )}
                 </div>
 
+                {/* Responsável Multi-select Combobox */}
+                <div style={{position:'relative'}}>
+                  <button onClick={()=>{setDropResp(v=>!v);setDropEmpresas(false);setDropObrig(false);setDropDept(false)}}
+                    style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:7,background:filtResp.length>0?'#F0FDF4':'#f5f5f5',color:filtResp.length>0?'#166534':'#555',border:'1px solid '+(filtResp.length>0?'#86efac':'#ddd'),fontSize:12,fontWeight:filtResp.length>0?700:400,cursor:'pointer',whiteSpace:'nowrap'}}>
+                    <span>👤</span><span>{filtResp.length>0?(filtResp.length===1?filtResp[0].split(' ')[0]:filtResp.length+' resp.'):'Responsável'}</span><ChevronDown size={11}/>
+                  </button>
+                  {dropResp&&(<><div style={{position:'fixed',inset:0,zIndex:49}} onClick={()=>setDropResp(false)}/>
+                    <div style={{position:'absolute',top:'100%',left:0,zIndex:50,background:'#fff',border:'1px solid #ddd',borderRadius:10,boxShadow:'0 4px 20px rgba(0,0,0,.12)',padding:8,minWidth:220,maxHeight:280,overflowY:'auto',marginTop:4}}>
+                      <input value={buscaRespDrop} onChange={e=>setBuscaRespDrop(e.target.value)} placeholder="Buscar..." style={{...inp,width:'100%',marginBottom:6,fontSize:12}}/>
+                      {filtResp.length>0&&<button onClick={()=>setFiltResp([])} style={{width:'100%',marginBottom:4,padding:'3px 8px',borderRadius:6,background:'#dcfce7',color:'#166534',border:'none',cursor:'pointer',fontSize:11}}>x Limpar ({filtResp.length})</button>}
+                      {todosRespDisponiveis.filter(r=>!buscaRespDrop||r.toLowerCase().includes(buscaRespDrop.toLowerCase())).map(r=>{const sel=filtResp.includes(r);return(
+                        <label key={r} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 4px',cursor:'pointer',borderRadius:5,background:sel?'#F0FDF4':'transparent',marginBottom:2}}>
+                          <input type="checkbox" checked={sel} onChange={()=>setFiltResp(p=>sel?p.filter(x=>x!==r):[...p,r])} style={{accentColor:'#22c55e'}}/>
+                          <span style={{fontSize:12,fontWeight:sel?700:400,color:'#333'}}>{r}</span>
+                        </label>
+                      )})}
+                    </div></>)}
+                </div>
+
+                {/* Departamento Multi-select Combobox */}
+                <div style={{position:'relative'}}>
+                  <button onClick={()=>{setDropDept(v=>!v);setDropEmpresas(false);setDropObrig(false);setDropResp(false)}}
+                    style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:7,background:filtDept.length>0?'#EFF6FF':'#f5f5f5',color:filtDept.length>0?'#1d4ed8':'#555',border:'1px solid '+(filtDept.length>0?'#93c5fd':'#ddd'),fontSize:12,fontWeight:filtDept.length>0?700:400,cursor:'pointer',whiteSpace:'nowrap'}}>
+                    <span>🗂️</span><span>{filtDept.length>0?(filtDept.length===1?filtDept[0]:filtDept.length+' depts'):'Departamento'}</span><ChevronDown size={11}/>
+                  </button>
+                  {dropDept&&(<><div style={{position:'fixed',inset:0,zIndex:49}} onClick={()=>setDropDept(false)}/>
+                    <div style={{position:'absolute',top:'100%',left:0,zIndex:50,background:'#fff',border:'1px solid #ddd',borderRadius:10,boxShadow:'0 4px 20px rgba(0,0,0,.12)',padding:8,minWidth:200,maxHeight:260,overflowY:'auto',marginTop:4}}>
+                      <input value={buscaDeptDrop} onChange={e=>setBuscaDeptDrop(e.target.value)} placeholder="Buscar..." style={{...inp,width:'100%',marginBottom:6,fontSize:12}}/>
+                      {filtDept.length>0&&<button onClick={()=>setFiltDept([])} style={{width:'100%',marginBottom:4,padding:'3px 8px',borderRadius:6,background:'#dbeafe',color:'#1d4ed8',border:'none',cursor:'pointer',fontSize:11}}>x Limpar ({filtDept.length})</button>}
+                      {todosDeptDisponiveis.filter(d=>!buscaDeptDrop||d.toLowerCase().includes(buscaDeptDrop.toLowerCase())).map(d=>{const sel=filtDept.includes(d);return(
+                        <label key={d} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 4px',cursor:'pointer',borderRadius:5,background:sel?'#EFF6FF':'transparent',marginBottom:2}}>
+                          <input type="checkbox" checked={sel} onChange={()=>setFiltDept(p=>sel?p.filter(x=>x!==d):[...p,d])} style={{accentColor:'#2563eb'}}/>
+                          <span style={{fontSize:12,fontWeight:sel?700:400,color:'#333'}}>{d}</span>
+                        </label>
+                      )})}
+                    </div></>)}
+                </div>
+
                 {/* Modo multi-empresa toggle */}
                 <button onClick={()=>{ setModoMulti(v=>!v); if(!modoMulti&&filtEmpresas.length===0){ const todos=clientes.slice(0,10).map(c=>String(c.id)); setFiltEmpresas(todos) } }}
                   style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:modoMulti?NAVY:'#f5f5f5',color:modoMulti?'#fff':'#555',fontSize:12,border:`1px solid ${modoMulti?NAVY:'#ddd'}`,cursor:'pointer',fontWeight:modoMulti?700:400}}>
@@ -642,19 +687,41 @@ export default function EntregasTarefas() {
                 </button>
               </div>
 
-              {/* Filtros inline — marcadores rápidos */}
+              {/* Painel de filtros avançados — colapsável */}
               {showFilt&&(
-                <div style={{padding:'5px 14px 8px',display:'flex',gap:7,flexWrap:'wrap',alignItems:'center',borderTop:'1px solid #f0f0f0',background:'#FAFAFA'}}>
-                  <span style={{fontSize:10,color:'#aaa',fontWeight:700,textTransform:'uppercase',marginRight:2}}>Filtros:</span>
-                  {[
-                    {k:'com_multa',    l:'⚠️ Multa',       bg:'#FEF2F2', c:'#dc2626'},
-                    {k:'com_protocolo',l:'🔖 Com Protocol.', bg:'#F0FDF4', c:'#16a34a'},
-                    {k:'sem_protocolo',l:'📭 Sem Protocol.', bg:'#FFF7ED', c:'#d97706'},
-                  ].map(b=>(
-                    <button key={b.k} onClick={()=>setF(b.k,!filt[b.k])} style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:filt[b.k]?700:400,cursor:'pointer',border:'1px solid '+(filt[b.k]?b.c:'#ddd'),background:filt[b.k]?b.bg:'#fff',color:filt[b.k]?b.c:'#888'}}>
-                      {b.l}
-                    </button>
-                  ))}
+                <div style={{padding:'8px 14px',borderTop:'1px solid #f0f0f0',background:'#FAFAFA',display:'flex',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
+                  {/* Vencimento */}
+                  <div>
+                    <div style={{fontSize:9,color:'#aaa',fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Vencimento de</div>
+                    <input type="date" value={filt.prazo_tec_de} onChange={e=>setF('prazo_tec_de',e.target.value)} style={{...inp,padding:'4px 7px',fontSize:11,width:130}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:9,color:'#aaa',fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Até</div>
+                    <input type="date" value={filt.prazo_tec_ate} onChange={e=>setF('prazo_tec_ate',e.target.value)} style={{...inp,padding:'4px 7px',fontSize:11,width:130}}/>
+                  </div>
+                  {/* Competência */}
+                  <div>
+                    <div style={{fontSize:9,color:'#aaa',fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Competência de</div>
+                    <input type="month" value={filt.competencia_de} onChange={e=>setF('competencia_de',e.target.value)} style={{...inp,padding:'4px 7px',fontSize:11,width:130}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:9,color:'#aaa',fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Até</div>
+                    <input type="month" value={filt.competencia_ate} onChange={e=>setF('competencia_ate',e.target.value)} style={{...inp,padding:'4px 7px',fontSize:11,width:130}}/>
+                  </div>
+                  {/* Separador */}
+                  <div style={{height:28,width:1,background:'#e8e8e8',alignSelf:'flex-end',marginBottom:2}}/>
+                  {/* Marcadores */}
+                  <div style={{display:'flex',gap:6,alignItems:'center',alignSelf:'flex-end',marginBottom:2}}>
+                    {[
+                      {k:'com_multa',    l:'⚠️ Multa',      bg:'#FEF2F2',c:'#dc2626'},
+                      {k:'com_protocolo',l:'🔖 Com Prot.',   bg:'#F0FDF4',c:'#16a34a'},
+                      {k:'sem_protocolo',l:'📭 Sem Prot.',   bg:'#FFF7ED',c:'#d97706'},
+                    ].map(b=>(
+                      <button key={b.k} onClick={()=>setF(b.k,!filt[b.k])} style={{padding:'4px 10px',borderRadius:20,fontSize:11,fontWeight:filt[b.k]?700:400,cursor:'pointer',border:'1px solid '+(filt[b.k]?b.c:'#ddd'),background:filt[b.k]?b.bg:'#fff',color:filt[b.k]?b.c:'#888',whiteSpace:'nowrap'}}>
+                        {b.l}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -681,73 +748,7 @@ export default function EntregasTarefas() {
                       <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#888',whiteSpace:'nowrap',background:'#fff'}}>{h}</th>
                     ))}
                   </tr>
-                  {/* Linha 2: Filtros inline alinhados com as colunas */}
-                  <tr style={{background:'#F8F9FB',borderBottom:'2px solid #e8e8e8'}}>
-                    {/* checkbox */}
-                    <th style={{padding:'4px 8px'}}/>
-                    {/* Obrigação — busca livre */}
-                    <th style={{padding:'3px 6px'}}>
-                      <input value={filt.busca} onChange={e=>setF('busca',e.target.value)} placeholder="🔍 Buscar..." list="obrig-list" style={{...inp,width:'100%',padding:'4px 7px',fontSize:11,background:'#fff'}}/>
-                      <datalist id="obrig-list">{[...new Set([...todasObrigDisponiveis,...obrigsDoCatalogo])].map(n=><option key={n} value={n}/>)}</datalist>
-                    </th>
-                    {/* Status · Prazo */}
-                    <th style={{padding:'3px 6px'}}>
-                      <select value={filt.pendente?'pendente':filt.entregue?'entregue':filt.justificada?'justificada':filt.dispensada?'dispensada':''} onChange={e=>{const v=e.target.value;setFilt(f=>({...f,pendente:v==='pendente',entregue:v==='entregue',justificada:v==='justificada',dispensada:v==='dispensada'}))}} style={{...inp,width:'100%',padding:'4px 7px',fontSize:11,background:'#fff'}}>
-                        <option value="">Todos status</option>
-                        <option value="pendente">⏳ Pendentes</option>
-                        <option value="entregue">✅ Entregues</option>
-                        <option value="justificada">📝 Justificadas</option>
-                        <option value="dispensada">🚫 Dispensadas</option>
-                      </select>
-                    </th>
-                    {/* Dpto — Resp. */}
-                    <th style={{padding:'3px 6px'}}>
-                      <div style={{display:'flex',gap:3,flexDirection:'column'}}>
-                        <select value={filt.departamento} onChange={e=>setF('departamento',e.target.value)} style={{...inp,width:'100%',padding:'3px 5px',fontSize:10,background:'#fff'}}>
-                          <option value="">Todos depts</option>
-                          {(()=>{try{const ds=JSON.parse(localStorage.getItem('ep_departamentos')||'null');if(ds?.length)return ds.map(d=><option key={d.id||d.nome}>{d.nome||d}</option>)}catch{}return['Fiscal','Pessoal','Contábil','Bancos'].map(d=><option key={d}>{d}</option>)})()}
-                        </select>
-                        <select value={filt.responsavel||''} onChange={e=>setF('responsavel',e.target.value)} style={{...inp,width:'100%',padding:'3px 5px',fontSize:10,background:'#fff'}}>
-                        <option value="">Todos resp.</option>
-                        {(()=>{try{return JSON.parse(localStorage.getItem('ep_usuarios')||'[]').map(u=><option key={u.id||u.nome} value={u.nome}>{u.nome}</option>)}catch{return[]}})()}
-                      </select>
-                      </div>
-                    </th>
-                    {/* Vencimento de/até */}
-                    <th style={{padding:'3px 6px'}}>
-                      <div style={{display:'flex',gap:2,flexDirection:'column'}}>
-                        <input type="date" value={filt.prazo_tec_de} onChange={e=>setF('prazo_tec_de',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Vencimento de"/>
-                        <input type="date" value={filt.prazo_tec_ate} onChange={e=>setF('prazo_tec_ate',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Vencimento até"/>
-                      </div>
-                    </th>
-                    {/* Prazo Meta — sem filtro */}
-                    <th style={{padding:'3px 6px'}}/>
-                    {/* Competência de/até */}
-                    <th style={{padding:'3px 6px'}}>
-                      <div style={{display:'flex',gap:2,flexDirection:'column'}}>
-                        <input type="month" value={filt.competencia_de} onChange={e=>setF('competencia_de',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Competência de"/>
-                        <input type="month" value={filt.competencia_ate} onChange={e=>setF('competencia_ate',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Competência até"/>
-                      </div>
-                    </th>
-                    {/* Protocolo — com/sem */}
-                    <th style={{padding:'3px 6px'}}>
-                      <select value={filt.com_protocolo?'com':filt.sem_protocolo?'sem':''} onChange={e=>{const v=e.target.value;setFilt(f=>({...f,com_protocolo:v==='com',sem_protocolo:v==='sem'}))}} style={{...inp,width:'100%',padding:'4px 5px',fontSize:10,background:'#fff'}}>
-                        <option value="">Todos</option>
-                        <option value="com">🔖 Com protocolo</option>
-                        <option value="sem">📭 Sem protocolo</option>
-                      </select>
-                    </th>
-                    {/* Multa */}
-                    <th style={{padding:'3px 6px'}}>
-                      <button onClick={()=>setF('com_multa',!filt.com_multa)} style={{width:'100%',padding:'4px 4px',borderRadius:6,border:'1px solid '+(filt.com_multa?'#dc2626':'#ddd'),background:filt.com_multa?'#FEF2F2':'#fff',color:filt.com_multa?'#dc2626':'#aaa',fontSize:10,cursor:'pointer',fontWeight:filt.com_multa?700:400}}>
-                        ⚠️ {filt.com_multa?'Multa ON':'Multa'}
-                      </button>
-                    </th>
-                    {/* Ações */}
-                    <th style={{padding:'3px 6px'}}>
-                      <button onClick={limpar} style={{padding:'3px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',fontSize:10,cursor:'pointer',fontWeight:700,width:'100%'}}>✕ Limpar</button>
-                    </th>
-                  </tr>
+
                 </thead>
                 <tbody>
                   {filtradas.filter(t=>t&&t.id).map((t,i)=>{
