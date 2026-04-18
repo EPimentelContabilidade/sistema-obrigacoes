@@ -182,10 +182,46 @@ export default function Clientes() {
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
   const setC = (k,v) => setForm(f=>({...f, credenciais:{...(f.credenciais||{}), [k]:v}}))
 
-  const handleCnpjChange = (v) => {
+    const handleCnpjChange = async (v) => {
     const digits = v.replace(/\D/g,'')
     setF('cnpj', v)
-    if (digits.length === 14) setF('tipoCadastro','CNPJ')
+    if (digits.length === 14) {
+      setF('tipoCadastro','CNPJ')
+      try {
+        setBuscandoCNPJ(true)
+        const r = await fetch('https://brasilapi.com.br/api/cnpj/v1/'+digits)
+        if (r.ok) {
+          const d = await r.json()
+          setCnpjDados(d)
+          setForm(f => ({
+            ...f, cnpj: v, tipoCadastro: 'CNPJ',
+            nome: d.razao_social || f.nome,
+            nome_fantasia: d.nome_fantasia || f.nome_fantasia,
+            logradouro: d.logradouro || f.logradouro,
+            numero: d.numero || f.numero,
+            complemento: d.complemento || f.complemento,
+            bairro: d.bairro || f.bairro,
+            municipio: d.municipio || f.municipio,
+            cidade: d.municipio || f.cidade,
+            uf: d.uf || f.uf, estado: d.uf || f.estado,
+            cep: (d.cep||'').replace(/\D/g,'') || f.cep,
+            cnae: d.cnae_fiscal ? String(d.cnae_fiscal) : f.cnae,
+            cnae_principal: d.cnae_fiscal_descricao || f.cnae_principal,
+            cnaes_secundarios: d.cnaes_secundarias?.map(c=>c.codigo+' '+c.descricao).join('; ') || f.cnaes_secundarios,
+            natureza_juridica: d.natureza_juridica || f.natureza_juridica,
+            porte: d.porte || f.porte,
+            capital_social: d.capital_social ? String(d.capital_social) : f.capital_social,
+            situacao_receita: d.descricao_situacao_cadastral || f.situacao_receita,
+            situacao_cadastral: d.descricao_situacao_cadastral || f.situacao_cadastral,
+            data_inicio: d.data_inicio_atividade || f.data_inicio,
+            data_abertura: d.data_inicio_atividade || f.data_abertura,
+            email: d.email || f.email,
+            telefone: d.ddd_telefone_1 ? '('+d.ddd_telefone_1+') '+(d.telefone_1||'') : f.telefone,
+          }))
+        }
+      } catch(e) { console.warn('BrasilAPI CNPJ:', e) }
+      finally { setBuscandoCNPJ(false) }
+    }
     else if (digits.length === 11) setF('tipoCadastro','CPF')
     else if (digits.length === 20) setF('tipoCadastro','CAEPF')
   }
@@ -292,7 +328,7 @@ export default function Clientes() {
       novoSeq = maxSeq + 1
       const counter = parseInt(localStorage.getItem('ep_cliente_counter') || '0') + 1
       localStorage.setItem('ep_cliente_counter', String(counter))
-      novoId = `EP-${String(counter).padStart(4,'0')}`
+      novoId = String(counter)
     } else {
       novoSeq = clientes.find(c=>String(c.id)===String(editId))?.seq
     }
