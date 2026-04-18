@@ -1,3 +1,4 @@
+import { epSyncAll, epCheckBackend } from './utils/storage'
 // build: 2026-04-17T11:47
 import React, { useState, useEffect } from 'react'
 import {
@@ -206,6 +207,15 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function App() {
+  // Sincronizacao automatica com PostgreSQL
+  React.useEffect(() => {
+    const syncInBackground = async () => {
+      const online = await epCheckBackend()
+      if (online) { await epSyncAll(); console.log('[EPimentel] Dados sincronizados com PostgreSQL') }
+    }
+    syncInBackground()
+  }, [])
+
   const [page, setPage]           = useState('dashboard')
   const [usuario, setUsuario]     = useState(null)
   const [sideOpen, setSideOpen]   = useState(true)
