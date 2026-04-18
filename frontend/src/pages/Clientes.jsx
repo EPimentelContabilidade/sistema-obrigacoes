@@ -230,7 +230,8 @@ export default function Clientes() {
           const merged = local.length > 0
             ? local.map(lc => { const bc=back.find(x=>String(x.id)===String(lc.id)); return bc?{...bc,...lc}:lc })
             : back  // localStorage vazio = primeira carga, usar tudo do backend
-          setClientes(merged); salvarClientes(merged)
+          setClientes(merged)
+          try { localStorage.setItem('ep_clientes',JSON.stringify(merged)); epSet('ep_clientes',merged) } catch {}
         }
       }
     } catch {}
@@ -459,7 +460,11 @@ export default function Clientes() {
       }
     } catch {}
     const novaLista = clientes.filter(c=>String(c.id)!==String(id))
-    salvarClientes(novaLista)  // salva localStorage + PostgreSQL (epSet)
+    // Salvar direto — evita ReferenceError quando salvarClientes não está no escopo async
+    try {
+      localStorage.setItem('ep_clientes', JSON.stringify(novaLista))
+      epSet('ep_clientes', novaLista)
+    } catch {}
     setClientes(novaLista)
     setModalExcluir(null)
     showToast('✅ Cliente excluído com sucesso!')
