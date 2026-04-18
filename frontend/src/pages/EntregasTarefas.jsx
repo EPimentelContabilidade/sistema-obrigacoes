@@ -625,33 +625,19 @@ export default function EntregasTarefas() {
                 </button>
               </div>
 
-              {/* Linha 2: Filtros avançados (colapsável) */}
+              {/* Filtros inline — marcadores rápidos */}
               {showFilt&&(
-                <div style={{padding:'7px 14px 10px'}}>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:8}}>
-                    {[
-                      {l:'Departamento',el:<select value={filt.departamento} onChange={e=>setF('departamento',e.target.value)} style={{...inp,width:'100%'}}><option value="">Todos</option><option>Fiscal</option><option>Pessoal</option><option>Contábil</option><option>Bancos</option></select>},
-                      {l:'Responsável',el:<input value={filt.responsavel||''} onChange={e=>setF('responsavel',e.target.value)} placeholder="Nome do responsável..." style={{...inp,width:'100%'}}/>},
-                      {l:'Competência de',el:<input type="month" value={filt.competencia_de} onChange={e=>setF('competencia_de',e.target.value)} style={{...inp,width:'100%'}}/>},
-                      {l:'Competência até',el:<input type="month" value={filt.competencia_ate} onChange={e=>setF('competencia_ate',e.target.value)} style={{...inp,width:'100%'}}/>},
-                      {l:'Vencimento de',el:<input type="date" value={filt.prazo_tec_de} onChange={e=>setF('prazo_tec_de',e.target.value)} style={{...inp,width:'100%'}}/>},
-                      {l:'Vencimento até',el:<input type="date" value={filt.prazo_tec_ate} onChange={e=>setF('prazo_tec_ate',e.target.value)} style={{...inp,width:'100%'}}/>},
-                      {l:'Entregue de',el:<input type="date" value={filt.entrega_de||''} onChange={e=>setF('entrega_de',e.target.value)} style={{...inp,width:'100%'}}/>},
-                      {l:'Entregue até',el:<input type="date" value={filt.entrega_ate||''} onChange={e=>setF('entrega_ate',e.target.value)} style={{...inp,width:'100%'}}/>},
-                    ].map(f=><div key={f.l}><div style={{fontSize:9,color:'#aaa',fontWeight:700,marginBottom:3,textTransform:'uppercase'}}>{f.l}</div>{f.el}</div>)}
-                  </div>
-                  <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-                    <span style={{fontSize:10,color:'#aaa',fontWeight:700,textTransform:'uppercase'}}>Marcadores:</span>
-                    {[
-                      {k:'com_multa',    l:'⚠️ Passível de Multa', bg:'#FEF2F2', c:'#dc2626'},
-                      {k:'com_protocolo',l:'🔖 Com Protocolo',      bg:'#F0FDF4', c:'#16a34a'},
-                      {k:'sem_protocolo',l:'📭 Sem Protocolo',      bg:'#FFF7ED', c:'#d97706'},
-                    ].map(b=>(
-                      <button key={b.k} onClick={()=>setF(b.k,!filt[b.k])} style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:filt[b.k]?700:400,cursor:'pointer',border:'1px solid '+(filt[b.k]?b.c:'#ddd'),background:filt[b.k]?b.bg:'#fff',color:filt[b.k]?b.c:'#888'}}>
-                        {b.l}
-                      </button>
-                    ))}
-                  </div>
+                <div style={{padding:'5px 14px 8px',display:'flex',gap:7,flexWrap:'wrap',alignItems:'center',borderTop:'1px solid #f0f0f0',background:'#FAFAFA'}}>
+                  <span style={{fontSize:10,color:'#aaa',fontWeight:700,textTransform:'uppercase',marginRight:2}}>Filtros:</span>
+                  {[
+                    {k:'com_multa',    l:'⚠️ Multa',       bg:'#FEF2F2', c:'#dc2626'},
+                    {k:'com_protocolo',l:'🔖 Com Protocol.', bg:'#F0FDF4', c:'#16a34a'},
+                    {k:'sem_protocolo',l:'📭 Sem Protocol.', bg:'#FFF7ED', c:'#d97706'},
+                  ].map(b=>(
+                    <button key={b.k} onClick={()=>setF(b.k,!filt[b.k])} style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:filt[b.k]?700:400,cursor:'pointer',border:'1px solid '+(filt[b.k]?b.c:'#ddd'),background:filt[b.k]?b.bg:'#fff',color:filt[b.k]?b.c:'#888'}}>
+                      {b.l}
+                    </button>
+                  ))}
                 </div>
               )}
 
@@ -671,11 +657,75 @@ export default function EntregasTarefas() {
 {/* Tabela */}
             <div style={{flex:1,overflowY:'auto'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                <thead>
-                  <tr style={{background:'#fff',borderBottom:'2px solid #e8e8e8',position:'sticky',top:0,zIndex:1}}>
+                <thead style={{position:'sticky',top:0,zIndex:10}}>
+                  {/* Linha 1: Cabeçalhos */}
+                  <tr style={{background:'#fff',borderBottom:'1px solid #e8e8e8'}}>
                     {['','Obrigação / Tarefa','Status · Prazo','Dpto — Resp.','Vencimento','Prazo Meta','Competência','Protocolo / Ref.','Anexos','Ações'].map(h=>(
-                      <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#888',whiteSpace:'nowrap'}}>{h}</th>
+                      <th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#888',whiteSpace:'nowrap',background:'#fff'}}>{h}</th>
                     ))}
+                  </tr>
+                  {/* Linha 2: Filtros inline alinhados com as colunas */}
+                  <tr style={{background:'#F8F9FB',borderBottom:'2px solid #e8e8e8'}}>
+                    {/* checkbox */}
+                    <th style={{padding:'4px 8px'}}/>
+                    {/* Obrigação — busca livre */}
+                    <th style={{padding:'3px 6px'}}>
+                      <input value={filt.busca} onChange={e=>setF('busca',e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:'100%',padding:'4px 7px',fontSize:11,background:'#fff'}}/>
+                    </th>
+                    {/* Status · Prazo */}
+                    <th style={{padding:'3px 6px'}}>
+                      <select value={filt.pendente?'pendente':filt.entregue?'entregue':filt.justificada?'justificada':filt.dispensada?'dispensada':''} onChange={e=>{const v=e.target.value;setFilt(f=>({...f,pendente:v==='pendente',entregue:v==='entregue',justificada:v==='justificada',dispensada:v==='dispensada'}))}} style={{...inp,width:'100%',padding:'4px 7px',fontSize:11,background:'#fff'}}>
+                        <option value="">Todos status</option>
+                        <option value="pendente">⏳ Pendentes</option>
+                        <option value="entregue">✅ Entregues</option>
+                        <option value="justificada">📝 Justificadas</option>
+                        <option value="dispensada">🚫 Dispensadas</option>
+                      </select>
+                    </th>
+                    {/* Dpto — Resp. */}
+                    <th style={{padding:'3px 6px'}}>
+                      <div style={{display:'flex',gap:3,flexDirection:'column'}}>
+                        <select value={filt.departamento} onChange={e=>setF('departamento',e.target.value)} style={{...inp,width:'100%',padding:'3px 5px',fontSize:10,background:'#fff'}}>
+                          <option value="">Todos depts</option>
+                          {['Fiscal','Pessoal','Contábil','Bancos'].map(d=><option key={d}>{d}</option>)}
+                        </select>
+                        <input value={filt.responsavel||''} onChange={e=>setF('responsavel',e.target.value)} placeholder="Responsável..." style={{...inp,width:'100%',padding:'3px 5px',fontSize:10,background:'#fff'}}/>
+                      </div>
+                    </th>
+                    {/* Vencimento de/até */}
+                    <th style={{padding:'3px 6px'}}>
+                      <div style={{display:'flex',gap:2,flexDirection:'column'}}>
+                        <input type="date" value={filt.prazo_tec_de} onChange={e=>setF('prazo_tec_de',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Vencimento de"/>
+                        <input type="date" value={filt.prazo_tec_ate} onChange={e=>setF('prazo_tec_ate',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Vencimento até"/>
+                      </div>
+                    </th>
+                    {/* Prazo Meta — sem filtro */}
+                    <th style={{padding:'3px 6px'}}/>
+                    {/* Competência de/até */}
+                    <th style={{padding:'3px 6px'}}>
+                      <div style={{display:'flex',gap:2,flexDirection:'column'}}>
+                        <input type="month" value={filt.competencia_de} onChange={e=>setF('competencia_de',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Competência de"/>
+                        <input type="month" value={filt.competencia_ate} onChange={e=>setF('competencia_ate',e.target.value)} style={{...inp,padding:'3px 5px',fontSize:10,background:'#fff',width:'100%'}} title="Competência até"/>
+                      </div>
+                    </th>
+                    {/* Protocolo — com/sem */}
+                    <th style={{padding:'3px 6px'}}>
+                      <select value={filt.com_protocolo?'com':filt.sem_protocolo?'sem':''} onChange={e=>{const v=e.target.value;setFilt(f=>({...f,com_protocolo:v==='com',sem_protocolo:v==='sem'}))}} style={{...inp,width:'100%',padding:'4px 5px',fontSize:10,background:'#fff'}}>
+                        <option value="">Todos</option>
+                        <option value="com">🔖 Com protocolo</option>
+                        <option value="sem">📭 Sem protocolo</option>
+                      </select>
+                    </th>
+                    {/* Multa */}
+                    <th style={{padding:'3px 6px'}}>
+                      <button onClick={()=>setF('com_multa',!filt.com_multa)} style={{width:'100%',padding:'4px 4px',borderRadius:6,border:'1px solid '+(filt.com_multa?'#dc2626':'#ddd'),background:filt.com_multa?'#FEF2F2':'#fff',color:filt.com_multa?'#dc2626':'#aaa',fontSize:10,cursor:'pointer',fontWeight:filt.com_multa?700:400}}>
+                        ⚠️ {filt.com_multa?'Multa ON':'Multa'}
+                      </button>
+                    </th>
+                    {/* Ações */}
+                    <th style={{padding:'3px 6px'}}>
+                      <button onClick={limpar} style={{padding:'3px 10px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',fontSize:10,cursor:'pointer',fontWeight:700,width:'100%'}}>✕ Limpar</button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
