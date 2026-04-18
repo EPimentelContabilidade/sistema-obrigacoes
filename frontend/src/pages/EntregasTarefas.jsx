@@ -240,6 +240,22 @@ export default function EntregasTarefas() {
     }).catch(()=>{})
   },[])
 
+  // Limpar excluídas inválidas (IDs antigos de migração EP-XXXX)
+  useEffect(()=>{
+    try {
+      const todas = epGet('ep_tarefas_entregas',[])
+      const excl  = epGet('ep_tarefas_excluidas',[])
+      if (excl.length > 0) {
+        const idsValidos = new Set(todas.map(t=>String(t.id)))
+        const exclValidas = excl.filter(id => idsValidos.has(String(id)))
+        if (exclValidas.length !== excl.length) {
+          epSet('ep_tarefas_excluidas', exclValidas)
+          console.log('[EPimentel] Limpou', excl.length - exclValidas.length, 'IDs obsoletos de ep_tarefas_excluidas')
+        }
+      }
+    } catch {}
+  },[])
+
   useEffect(()=>{ if(cli) gerar() },[cli,mes])
 
   // ── Carrega obrigações do ep_tarefas_entregas (geradas via GerarObrigacoes) ─
@@ -368,7 +384,17 @@ export default function EntregasTarefas() {
   }
 
   const salvarRen  = () => { setTarefas(p=>p.map(x=>x.id===mRenomear.id?{...x,nome:novoNome}:x)); setMRenomear(null) }
-    const excluir = (id) => { setTarefas(p=>p.filter(x=>x.id!==id)); setVinc(v=>v.filter(x=>x!==id)); setMExcluir(null); try { const t=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]'); localStorage.setItem('ep_tarefas_entregas',JSON.stringify(t.filter(x=>String(x.id)!==String(id)))); const ex=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]'); if(!ex.includes(String(id))){ex.push(String(id));epSet('ep_tarefas_excluidas',ex)} } catch {} }
+    const excluir = (id) => {
+      setTarefas(p=>p.filter(x=>String(x.id)!==String(id)))
+      setVinc(v=>v.filter(x=>String(x)!==String(id)))
+      setMExcluir(null)
+      try {
+        const novas = epGet('ep_tarefas_entregas',[]).filter(x=>String(x.id)!==String(id))
+        epSet('ep_tarefas_entregas', novas)
+        const ex = epGet('ep_tarefas_excluidas',[])
+        if(!ex.includes(String(id))){ ex.push(String(id)); epSet('ep_tarefas_excluidas', ex) }
+      } catch {}
+    }
   const addAnexo   = (arq) => {
     if(!arq||!mAnexo) return
     setTarefas(p=>p.map(x=>x.id===mAnexo.id?{...x,anexos:[...(x.anexos||[]),{nome:arq.name,tamanho:(arq.size/1024).toFixed(0)+' KB',data:new Date().toLocaleDateString('pt-BR')}]}:x))
@@ -386,7 +412,8 @@ export default function EntregasTarefas() {
     const resultado = []
     filtEmpresas.forEach(clienteId => {
       const cliObj = fresh.find(c => String(c.id) === String(clienteId))
-      const tCliente = todas.filter(t => String(t.cliente_id) === String(clienteId) && (!mesComp || t.competencia === mesComp))
+      const exclIds = epGet('ep_tarefas_excluidas',[]).map(String)
+      const tCliente = todas.filter(t => String(t.cliente_id) === String(clienteId) && (!mesComp || t.competencia === mesComp) && !exclIds.includes(String(t.id)))
       tCliente.forEach(t => resultado.push({
         ...t, id: t.id, _origem:'catalogo',
         nome: t.obrigacao, codigo: t.codigo,
