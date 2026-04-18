@@ -1,3 +1,4 @@
+import { epSet, epGet } from '../utils/storage'
 // MonitorCNPJ.jsx — Verificação Automática de Alterações Cadastrais + IA
 import { useState, useEffect } from 'react'
 
