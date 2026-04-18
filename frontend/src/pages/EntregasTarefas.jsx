@@ -246,8 +246,16 @@ export default function EntregasTarefas() {
       // 1. Buscar tarefas geradas via catálogo (principal)
       const todas = JSON.parse(localStorage.getItem('ep_tarefas_entregas') || '[]')
             const excluidas = JSON.parse(localStorage.getItem('ep_tarefas_excluidas') || '[]')
+      // Match por ID direto OU por CNPJ (migração EP-XXXX → numérico)
+      const cnpjCli = (cli?.cnpj||'').replace(/\D/g,'')
+      const matchCli = (t) => {
+        if (String(t.cliente_id) === String(cli?.id)) return true
+        if (cnpjCli && (t.cnpj||'').replace(/\D/g,'') === cnpjCli) return true
+        if (cnpjCli && (t.cliente||'').includes(cli?.nome?.slice(0,15)||'__')) return false
+        return false
+      }
       const tarefasGeradas = todas
-        .filter(t => (empresasFiltro.length===0 || empresasFiltro.includes(t.cliente_id)) && String(t.cliente_id) === String(cli?.id) && t.competencia === mesComp && !excluidas.includes(String(t.id)))
+        .filter(t => (empresasFiltro.length===0 || empresasFiltro.includes(t.cliente_id)) && matchCli(t) && t.competencia === mesComp && !excluidas.includes(String(t.id)))
         .map(t => ({
           id: t.id,
           _origem: 'catalogo',
@@ -396,6 +404,15 @@ export default function EntregasTarefas() {
 
   // Lista de todas as obrigações disponíveis (para dropdown multi-obrig)
   const todasObrigDisponiveis = [...new Set(fonteBase.map(t => t.nome).filter(Boolean))].sort()
+  // Obrigações disponíveis do catálogo (conf. tarefas) para o regime do cliente
+  const obrigsDoCatalogo = (() => {
+    try {
+      const regime = cli?.tributacao || cli?.regime || ''
+      const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'null')
+      if (cat?.[regime]?.length) return cat[regime].map(o=>o.nome).filter(Boolean)
+    } catch {}
+    return []
+  })()
 
   const filtradas = fonteBase.filter(t => {
     if (!t || !t.id) return false
@@ -449,7 +466,7 @@ export default function EntregasTarefas() {
         <div style={{flex:1,overflowY:'auto'}}>
           {clientes.filter(c=>{
             if(buscaCli&&!c.nome?.toLowerCase().includes(buscaCli.toLowerCase()))return false
-            try{const todas=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]');const excl=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]');return todas.some(t=>String(t.cliente_id)===String(c.id)&&!excl.includes(String(t.id)))}catch{return true}
+            try{const todas=JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]');const excl=JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]');const cnpjC=(c.cnpj||'').replace(/\D/g,'');return todas.some(t=>(!excl.includes(String(t.id)))&&(String(t.cliente_id)===String(c.id)||(cnpjC&&(t.cnpj||'').replace(/\D/g,'')===cnpjC)))}catch{return true}
           }).map(c=>(
             <div key={c.id} onClick={()=>{
               const fresh=JSON.parse(localStorage.getItem('ep_clientes')||'[]')
@@ -583,7 +600,7 @@ export default function EntregasTarefas() {
                       <div style={{position:'absolute',top:'100%',left:0,zIndex:50,background:'#fff',border:'1px solid #ddd',borderRadius:10,boxShadow:'0 4px 20px rgba(0,0,0,.12)',padding:8,minWidth:300,maxHeight:320,overflowY:'auto',marginTop:4}}>
                         <input value={buscaObrigDrop} onChange={e=>setBuscaObrigDrop(e.target.value)} placeholder="Buscar obrigação..." style={{...inp,width:'100%',marginBottom:6}}/>
                         {filtObrig.length>0&&<button onClick={()=>setFiltObrig([])} style={{width:'100%',marginBottom:6,padding:'3px 8px',borderRadius:6,background:'#f3e8ff',color:'#7c3aed',border:'none',cursor:'pointer',fontSize:11}}>✕ Limpar ({filtObrig.length})</button>}
-                        {todasObrigDisponiveis.filter(n=>!buscaObrigDrop||n.toLowerCase().includes(buscaObrigDrop.toLowerCase())).map(nome=>{
+                        {[...new Set([...todasObrigDisponiveis,...obrigsDoCatalogo])].filter(n=>!buscaObrigDrop||n.toLowerCase().includes(buscaObrigDrop.toLowerCase())).map(nome=>{
                           const sel=filtObrig.includes(nome)
                           return (
                             <label key={nome} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 4px',cursor:'pointer',borderRadius:5,background:sel?'#F5F3FF':'transparent',marginBottom:2}}>
@@ -670,7 +687,8 @@ export default function EntregasTarefas() {
                     <th style={{padding:'4px 8px'}}/>
                     {/* Obrigação — busca livre */}
                     <th style={{padding:'3px 6px'}}>
-                      <input value={filt.busca} onChange={e=>setF('busca',e.target.value)} placeholder="🔍 Buscar..." style={{...inp,width:'100%',padding:'4px 7px',fontSize:11,background:'#fff'}}/>
+                      <input value={filt.busca} onChange={e=>setF('busca',e.target.value)} placeholder="🔍 Buscar..." list="obrig-list" style={{...inp,width:'100%',padding:'4px 7px',fontSize:11,background:'#fff'}}/>
+                      <datalist id="obrig-list">{[...new Set([...todasObrigDisponiveis,...obrigsDoCatalogo])].map(n=><option key={n} value={n}/>)}</datalist>
                     </th>
                     {/* Status · Prazo */}
                     <th style={{padding:'3px 6px'}}>
@@ -687,9 +705,12 @@ export default function EntregasTarefas() {
                       <div style={{display:'flex',gap:3,flexDirection:'column'}}>
                         <select value={filt.departamento} onChange={e=>setF('departamento',e.target.value)} style={{...inp,width:'100%',padding:'3px 5px',fontSize:10,background:'#fff'}}>
                           <option value="">Todos depts</option>
-                          {['Fiscal','Pessoal','Contábil','Bancos'].map(d=><option key={d}>{d}</option>)}
+                          {(()=>{try{const ds=JSON.parse(localStorage.getItem('ep_departamentos')||'null');if(ds?.length)return ds.map(d=><option key={d.id||d.nome}>{d.nome||d}</option>)}catch{}return['Fiscal','Pessoal','Contábil','Bancos'].map(d=><option key={d}>{d}</option>)})()}
                         </select>
-                        <input value={filt.responsavel||''} onChange={e=>setF('responsavel',e.target.value)} placeholder="Responsável..." style={{...inp,width:'100%',padding:'3px 5px',fontSize:10,background:'#fff'}}/>
+                        <select value={filt.responsavel||''} onChange={e=>setF('responsavel',e.target.value)} style={{...inp,width:'100%',padding:'3px 5px',fontSize:10,background:'#fff'}}>
+                        <option value="">Todos resp.</option>
+                        {(()=>{try{return JSON.parse(localStorage.getItem('ep_usuarios')||'[]').map(u=><option key={u.id||u.nome} value={u.nome}>{u.nome}</option>)}catch{return[]}})()}
+                      </select>
                       </div>
                     </th>
                     {/* Vencimento de/até */}
