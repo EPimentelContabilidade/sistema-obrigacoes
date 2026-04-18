@@ -234,7 +234,7 @@ export default function Clientes() {
           setClientes(merged)
           try { localStorage.setItem('ep_clientes',JSON.stringify(merged)); epSet('ep_clientes',merged) } catch(e) {}
         }
-      }}
+      }
     } catch(e) {}
   }
 
