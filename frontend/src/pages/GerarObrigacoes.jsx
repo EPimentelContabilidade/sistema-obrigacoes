@@ -46,9 +46,13 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
   const [preview, setPreview] = useState(null)
   const [gerado, setGerado] = useState(false)
   const [qtdGerada, setQtdGerada] = useState(0)
+  const [showBuscaObrig, setShowBuscaObrig] = useState(false)
+  const [buscaObrigTexto, setBuscaObrigTexto] = useState('')
+  const [obrigSelecionadas, setObrigSelecionadas] = useState(null)
 
   // Catálogo via Config. Tarefas (lê ep_obrigacoes_catalogo_v2 com fallback padrão)
   const getCatalogo = () => {
+    if (obrigSelecionadas !== null) return obrigSelecionadas
     try {
       const regime = cliente.tributacao || cliente.regime || ''
       const mapa = {
@@ -249,9 +253,65 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
                           ? <><b>⚙️ Config. Tarefas personalizada</b> — {total} obrigações · regime: <b>{regime}</b></>
                           : <><b>📋 Catálogo padrão</b> — {total > 0 ? `${total} obrigações para ${regime}` : `Nenhuma para "${regime}"`}</>}
                       </div>
-                      <button type="button" onClick={(e)=>{e.preventDefault();e.stopPropagation();window.dispatchEvent(new CustomEvent('epNavigateTo',{detail:'configuracoes_tarefas'}));}} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#1976D2',fontWeight:700,padding:0,textDecoration:'underline'}}>✏️ Editar Config. Tarefas →</button>
+                      <button type="button" onClick={(e)=>{e.preventDefault();e.stopPropagation();setShowBuscaObrig(v=>!v);setBuscaObrigTexto('');}} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#1976D2',fontWeight:700,padding:0,textDecoration:'underline'}}>{showBuscaObrig?'🔍 Fechar seleção':'🔍 Selecionar Obrigações'}</button>
                     </div>
                     {total===0&&<div style={{fontSize:11,color:'#e53935',marginTop:4}}>⚠️ Configure em <b>Config. Tarefas → Obrigações por Regime</b></div>}
+                  </div>
+                )
+              })()}
+
+              {/* Painel inline de busca/seleção de obrigações */}
+              {!preview && showBuscaObrig && (()=>{
+                const todosDisp = (() => {
+                  try {
+                    const regime = cliente.tributacao || cliente.regime || ''
+                    const mapa = {'Simples Nacional':'Simples Nacional','MEI':'MEI','Lucro Presumido':'Lucro Presumido','Lucro Real':'Lucro Real','RET':'RET/Imobiliário','RET/Imobiliário':'RET/Imobiliário','Imune/Isento':'Imune/Isento','Produtor Rural':'Produtor Rural','Social/IRH':'Social/IRH','Condomínio':'Condomínio','Autônomo':'Autônomo'}
+                    const chave = mapa[regime] || regime
+                    const catV2 = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'null')
+                    if (catV2?.[chave]?.length > 0) return catV2[chave]
+                  } catch {}
+                  return getCatalogo()
+                })()
+                const filtradas = todosDisp.filter(o => !buscaObrigTexto || o.nome?.toLowerCase().includes(buscaObrigTexto.toLowerCase()) || o.codigo?.toLowerCase().includes(buscaObrigTexto.toLowerCase()))
+                const base = obrigSelecionadas !== null ? obrigSelecionadas : getCatalogo()
+                const selIds = new Set(base.map(o => o.codigo || o.id))
+                return (
+                  <div style={{marginBottom:14,borderRadius:10,border:'1px solid #c7d2fe',background:'#F0F4FF',overflow:'hidden'}}>
+                    <div style={{padding:'8px 14px',borderBottom:'1px solid #c7d2fe',display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                      <span style={{fontSize:12,fontWeight:700,color:NAVY,flex:1}}>🔍 Selecionar obrigações</span>
+                      {obrigSelecionadas !== null && <button onClick={()=>setObrigSelecionadas(null)} style={{fontSize:11,padding:'2px 8px',borderRadius:6,background:'#FEF2F2',color:'#dc2626',border:'none',cursor:'pointer'}}>↺ Padrão do regime</button>}
+                    </div>
+                    <div style={{padding:'8px 14px',borderBottom:'1px solid #c7d2fe'}}>
+                      <input value={buscaObrigTexto} onChange={e=>setBuscaObrigTexto(e.target.value)} placeholder="Buscar por nome ou código..." style={{...inp,fontSize:12}} autoFocus/>
+                    </div>
+                    <div style={{maxHeight:200,overflowY:'auto'}}>
+                      {filtradas.length===0 && <div style={{padding:'10px 14px',fontSize:12,color:'#aaa',textAlign:'center'}}>Nenhuma obrigação encontrada.</div>}
+                      {filtradas.map(o=>{
+                        const id = o.codigo || o.id
+                        const isSel = selIds.has(id)
+                        return (
+                          <label key={id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',cursor:'pointer',borderBottom:'1px solid #eef',background:isSel?'#EBF5FF':'transparent'}}>
+                            <input type="checkbox" checked={isSel} style={{accentColor:NAVY,width:14,height:14}} onChange={()=>{
+                              const cur = obrigSelecionadas !== null ? obrigSelecionadas : getCatalogo()
+                              if(isSel) setObrigSelecionadas(cur.filter(x=>(x.codigo||x.id)!==id))
+                              else setObrigSelecionadas([...cur, o])
+                            }}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:12,fontWeight:600,color:NAVY}}>{o.nome}</div>
+                              <div style={{fontSize:10,color:'#888',marginTop:1}}>{o.codigo} · {o.periodicidade}{o.passivel_multa==='Sim'?' · ⚠️ multa':''}</div>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <div style={{padding:'8px 14px',borderTop:'1px solid #c7d2fe',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{fontSize:11,color:NAVY}}><b>{base.length}</b> selecionadas</span>
+                      <div style={{display:'flex',gap:6}}>
+                        <button onClick={()=>setObrigSelecionadas(filtradas)} style={{fontSize:11,padding:'3px 10px',borderRadius:6,background:NAVY,color:'#fff',border:'none',cursor:'pointer'}}>Todas</button>
+                        <button onClick={()=>setObrigSelecionadas([])} style={{fontSize:11,padding:'3px 10px',borderRadius:6,background:'#f5f5f5',color:'#555',border:'none',cursor:'pointer'}}>Limpar</button>
+                        <button onClick={()=>setShowBuscaObrig(false)} style={{fontSize:11,padding:'3px 10px',borderRadius:6,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontWeight:700}}>✓ OK</button>
+                      </div>
+                    </div>
                   </div>
                 )
               })()}
