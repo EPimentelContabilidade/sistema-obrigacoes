@@ -458,7 +458,7 @@ export default function Clientes() {
         return
       }
     } catch {}
-    const novaLista = clientes.filter(c=>c.id!==id)
+    const novaLista = clientes.filter(c=>String(c.id)!==String(id))
     salvarClientes(novaLista)  // salva localStorage + PostgreSQL (epSet)
     setClientes(novaLista)
     setModalExcluir(null)
