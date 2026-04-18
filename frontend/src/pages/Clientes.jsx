@@ -182,7 +182,7 @@ export default function Clientes() {
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
   const setC = (k,v) => setForm(f=>({...f, credenciais:{...(f.credenciais||{}), [k]:v}}))
 
-    const handleCnpjChange = async (v) => {
+  const handleCnpjChange = async (v) => {
     const digits = v.replace(/\D/g,'')
     setF('cnpj', v)
     if (digits.length === 14) {
@@ -1054,7 +1054,7 @@ export default function Clientes() {
                   </button>
                 </div>
                 <div style={{ display:'flex', gap:8 }}>
-                  {editId&&<button onClick={()=>setModalGerar(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:'#FFFBF0', color:'#854D0E', fontSize:12, fontWeight:700, border:`1px solid ${GOLD}`, cursor:'pointer' }}>📅 Gerar Tarefas</button>}
+                  <button onClick={()=>setModalGerar(true)} disabled={!form.tributacao} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:8, background:'#FFFBF0', color:'#854D0E', fontSize:12, fontWeight:700, border:`1px solid ${GOLD}`, cursor:'pointer', opacity:form.tributacao?1:0.4 }}>📅 Gerar Tarefas</button>
                   <button onClick={salvar} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 20px', borderRadius:8, background:'#22c55e', color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer' }}>
                     <Save size={14}/> Salvar
                   </button>
@@ -1119,7 +1119,7 @@ export default function Clientes() {
                 <button onClick={()=>setF('obrigacoes_vinculadas',[])} style={{ padding:'4px 10px',borderRadius:7,background:'#f5f5f5',color:'#555',fontSize:11,border:'none',cursor:'pointer' }}>Limpar</button>
               </div>
               <div style={{padding:'5px 20px',borderBottom:'1px solid #f0f0f0',display:'flex',gap:8,alignItems:'center'}}>
-                <span style={{fontSize:11,color:'#888'}}>+ Regime adicional:</span>
+                <span style={{fontSize:11,color:'#888',fontWeight:600}}>➕ Outras obrigações:</span>
                 <select value={regimeAdicionalSel} onChange={e=>setRegimeAdicionalSel(e.target.value)} style={{fontSize:11,padding:'3px 8px',borderRadius:6,border:'1px solid #ddd',flex:1}}>
                   <option value="">-- Incluir obrigações de outro regime --</option>
                   {todosRegimes.filter(r=>r!==form.tributacao).map(r=><option key={r} value={r}>{r} ({obrigacoesPorTributacao(r).filter(o=>!obrigsPorTrib.find(x=>x.id===o.id)).length} extras)</option>)}
