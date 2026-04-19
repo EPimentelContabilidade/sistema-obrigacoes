@@ -1,13 +1,13 @@
 """
 Router: comunicados.py
-Módulo de Comunicados Avulsos integrado a Clientes, Processos e Departamentos.
+MÃ³dulo de Comunicados Avulsos integrado a Clientes, Processos e Departamentos.
 
 Features:
-  - CRUD de comunicados com urgência (baixa/normal/alta/muito_urgente)
-  - Envio por e-mail (domínio próprio) e/ou WhatsApp
+  - CRUD de comunicados com urgÃªncia (baixa/normal/alta/muito_urgente)
+  - Envio por e-mail (domÃ­nio prÃ³prio) e/ou WhatsApp
   - IA Claude para analisar comunicados >30 dias sem resposta
-  - Alerta automático ao responsável pelo departamento
-  - Assinatura de e-mail personalizada por usuário
+  - Alerta automÃ¡tico ao responsÃ¡vel pelo departamento
+  - Assinatura de e-mail personalizada por usuÃ¡rio
 """
 
 import os, re, json, base64
@@ -24,11 +24,11 @@ from email.mime.text import MIMEText
 
 router = APIRouter(prefix="/comunicados", tags=["comunicados"])
 
-# ── Env vars ──────────────────────────────────────────────────────────────────
-# Gmail padrão
+# ââ Env vars ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+# Gmail padrÃ£o
 GMAIL_USER  = os.getenv("GMAIL_USER", "")
 GMAIL_PASS  = os.getenv("GMAIL_APP_PASSWORD", "")
-# SMTP domínio próprio (opcional)
+# SMTP domÃ­nio prÃ³prio (opcional)
 SMTP_HOST   = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT   = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER   = os.getenv("SMTP_USER", "")        # ex: contato@epimentel.com.br
@@ -37,29 +37,30 @@ SMTP_FROM   = os.getenv("SMTP_FROM_NAME", "EPimentel Auditoria & Contabilidade")
 # Z-API (WhatsApp)
 ZAPI_INST   = os.getenv("ZAPI_INSTANCE_ID", "3F1E5BA013CA029438426E59E5E6857E")
 ZAPI_TOKEN  = os.getenv("ZAPI_TOKEN",       "461022EFD597101868B011B32")
+ZAPI_CLIENT_TOKEN = os.getenv("ZAPI_CLIENT_TOKEN", "")  # Token de Segurança da Conta
 # Claude API
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 NAVY = "#1B2A4A"; GOLD = "#C5A55A"
 URGENCIAS = {
-    "baixa":         {"label":"Baixa",        "cor":"#1A7A3C","bg":"#EDFBF1","emoji":"🟢"},
-    "normal":        {"label":"Normal",       "cor":"#1D6FA4","bg":"#EBF5FF","emoji":"🔵"},
-    "alta":          {"label":"Alta",         "cor":"#854D0E","bg":"#FEF9C3","emoji":"🟡"},
-    "muito_urgente": {"label":"Muito Urgente","cor":"#dc2626","bg":"#FEF2F2","emoji":"🔴"},
+    "baixa":         {"label":"Baixa",        "cor":"#1A7A3C","bg":"#EDFBF1","emoji":"ð¢"},
+    "normal":        {"label":"Normal",       "cor":"#1D6FA4","bg":"#EBF5FF","emoji":"ðµ"},
+    "alta":          {"label":"Alta",         "cor":"#854D0E","bg":"#FEF9C3","emoji":"ð¡"},
+    "muito_urgente": {"label":"Muito Urgente","cor":"#dc2626","bg":"#FEF2F2","emoji":"ð´"},
 }
-DEPARTAMENTOS = ["Fiscal","Contábil","Pessoal","Financeiro","Jurídico","Diretoria","Geral"]
+DEPARTAMENTOS = ["Fiscal","ContÃ¡bil","Pessoal","Financeiro","JurÃ­dico","Diretoria","Geral"]
 
 ASSINATURA_PADRAO = """
 <br><br>
 <div style="border-top:2px solid {GOLD};padding-top:12px;margin-top:12px;font-family:Arial,sans-serif;font-size:13px;">
-  <strong style="color:{NAVY};">Carlos Eduardo de Araújo Marques Pimentel</strong><br>
+  <strong style="color:{NAVY};">Carlos Eduardo de AraÃºjo Marques Pimentel</strong><br>
   <span style="color:#555;">CRC/GO 026.994/O-8</span><br>
   <span style="color:#555;">EPimentel Auditoria &amp; Contabilidade Ltda</span><br>
-  <span style="color:#555;">Goiânia — GO | contato@epimentel.com.br</span><br>
-  <a href="https://adventurous-generosity-production-f892.up.railway.app" style="color:{GOLD};font-size:11px;">🔗 Sistema EPimentel</a>
+  <span style="color:#555;">GoiÃ¢nia â GO | contato@epimentel.com.br</span><br>
+  <a href="https://adventurous-generosity-production-f892.up.railway.app" style="color:{GOLD};font-size:11px;">ð Sistema EPimentel</a>
 </div>
 """.replace("{NAVY}", NAVY).replace("{GOLD}", GOLD)
 
-# ── Schemas ───────────────────────────────────────────────────────────────────
+# ââ Schemas âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 class ComunicadoCreate(BaseModel):
     titulo:       str
@@ -78,7 +79,7 @@ class ComunicadoResposta(BaseModel):
     comunicado_id: int
     resposta: str
     respondente: str = "Eduardo Pimentel"
-# ── Banco ────────────────────────────────────────────────────────────────────
+# ââ Banco ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 async def init_tables(db: AsyncSession):
     await db.execute(text("""
@@ -114,7 +115,7 @@ async def init_tables(db: AsyncSession):
     await db.commit()
 
 async def get_smtp_config(db: AsyncSession) -> dict:
-    """Retorna configuração SMTP customizada ou padrão Gmail."""
+    """Retorna configuraÃ§Ã£o SMTP customizada ou padrÃ£o Gmail."""
     try:
         r = await db.execute(text("SELECT * FROM smtp_config WHERE id=1"))
         row = r.mappings().fetchone()
@@ -126,7 +127,7 @@ async def get_smtp_config(db: AsyncSession) -> dict:
             "pass": SMTP_PASS or GMAIL_PASS, "from_name": SMTP_FROM,
             "from_email": SMTP_USER or GMAIL_USER,
             "assinatura_html": ASSINATURA_PADRAO}
-# ── Template HTML ────────────────────────────────────────────────────────────
+# ââ Template HTML ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 def gerar_html_comunicado(titulo, conteudo, urgencia, departamento, responsavel, assinatura, destinatario_nome=""):
     urg = URGENCIAS.get(urgencia, URGENCIAS["normal"])
@@ -159,11 +160,11 @@ def gerar_html_comunicado(titulo, conteudo, urgencia, departamento, responsavel,
     {assinatura_final}
   </div>
   <div style="background:{NAVY};border-radius:0 0 14px 14px;padding:14px 32px;text-align:center;">
-    <span style="color:rgba(255,255,255,.5);font-size:10px;">EPimentel Auditoria & Contabilidade · Goiânia/GO · CRC/GO 026.994/O-8</span>
+    <span style="color:rgba(255,255,255,.5);font-size:10px;">EPimentel Auditoria & Contabilidade Â· GoiÃ¢nia/GO Â· CRC/GO 026.994/O-8</span>
   </div>
 </div>
 </body></html>"""
-# ── Envio ────────────────────────────────────────────────────────────────────
+# ââ Envio ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 async def enviar_email_comunicado(para, nome, assunto, html, smtp_cfg):
     user = smtp_cfg.get("user") or GMAIL_USER
@@ -198,20 +199,20 @@ async def enviar_wa(telefone: str, texto: str) -> bool:
         async with httpx.AsyncClient(timeout=15) as c:
             r = await c.post(
                 f"https://api.z-api.io/instances/{ZAPI_INST}/token/{ZAPI_TOKEN}/send-text",
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json", **( {"Client-Token": ZAPI_CLIENT_TOKEN} if ZAPI_CLIENT_TOKEN else {} )},
                 json={"phone": num, "message": texto})
             return r.status_code < 300
     except Exception:
         return False
-# ── IA Claude para comunicados atrasados ─────────────────────────────────────
+# ââ IA Claude para comunicados atrasados âââââââââââââââââââââââââââââââââââââ
 
 async def analisar_comunicado_ia(titulo, conteudo, dias, departamento, responsavel):
     """Usa Claude para gerar alerta para comunicados atrasados."""
     if not ANTHROPIC_KEY:
-        return (f"⚠️ ALERTA AUTOMÁTICO: O comunicado '{titulo}' está há {dias} dias "
+        return (f"â ï¸ ALERTA AUTOMÃTICO: O comunicado '{titulo}' estÃ¡ hÃ¡ {dias} dias "
                 f"sem resposta no departamento {departamento}. "
-                f"Responsável: {responsavel or 'não definido'}. "
-                "Por favor, verifique e dê uma resposta ao cliente.")
+                f"ResponsÃ¡vel: {responsavel or 'nÃ£o definido'}. "
+                "Por favor, verifique e dÃª uma resposta ao cliente.")
     try:
         async with httpx.AsyncClient(timeout=30) as c:
             r = await c.post("https://api.anthropic.com/v1/messages",
@@ -221,21 +222,21 @@ async def analisar_comunicado_ia(titulo, conteudo, dias, departamento, responsav
                     "model": "claude-haiku-4-5-20251001",
                     "max_tokens": 400,
                     "messages": [{"role": "user", "content": (
-                        f"Você é um assistente de escritório contábil brasileiro.\n"
-                        f"Um comunicado está há {dias} dias sem resposta:\n\n"
-                        f"Título: {titulo}\nDepartamento: {departamento}\n"
-                        f"Responsável: {responsavel or 'não definido'}\n"
-                        f"Conteúdo: {conteudo[:300]}...\n\n"
-                        "Gere um alerta profissional e urgente (máximo 4 linhas) "
-                        "sugerindo ação imediata. Use emojis. Seja direto."
+                        f"VocÃª Ã© um assistente de escritÃ³rio contÃ¡bil brasileiro.\n"
+                        f"Um comunicado estÃ¡ hÃ¡ {dias} dias sem resposta:\n\n"
+                        f"TÃ­tulo: {titulo}\nDepartamento: {departamento}\n"
+                        f"ResponsÃ¡vel: {responsavel or 'nÃ£o definido'}\n"
+                        f"ConteÃºdo: {conteudo[:300]}...\n\n"
+                        "Gere um alerta profissional e urgente (mÃ¡ximo 4 linhas) "
+                        "sugerindo aÃ§Ã£o imediata. Use emojis. Seja direto."
                     )}]
                 })
             data = r.json()
             return data.get("content", [{}])[0].get("text", "")
     except Exception:
-        return (f"⚠️ ALERTA {dias}d: Comunicado '{titulo}' aguarda resposta. "
-                f"Departamento: {departamento}. Ação necessária imediata.")
-# ── Endpoints ────────────────────────────────────────────────────────────────
+        return (f"â ï¸ ALERTA {dias}d: Comunicado '{titulo}' aguarda resposta. "
+                f"Departamento: {departamento}. AÃ§Ã£o necessÃ¡ria imediata.")
+# ââ Endpoints ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 @router.post("/criar")
 async def criar_comunicado(payload: ComunicadoCreate, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
@@ -260,7 +261,7 @@ async def criar_comunicado(payload: ComunicadoCreate, background: BackgroundTask
         from models import Cliente
         enviados = []
         urg = URGENCIAS.get(payload.urgencia, URGENCIAS["normal"])
-        assunto = f"{urg['emoji']} [{urg['label']}] {payload.titulo} — EPimentel"
+        assunto = f"{urg['emoji']} [{urg['label']}] {payload.titulo} â EPimentel"
         destinatarios = []
         if payload.cliente_ids:
             try:
@@ -318,7 +319,7 @@ async def listar(urgencia: str = None, departamento: str = None, status: str = N
 async def responder(comunicado_id: int, payload: ComunicadoResposta, db: AsyncSession = Depends(get_db)):
     r = await db.execute(text("SELECT * FROM comunicados WHERE id=:id"), {"id": comunicado_id})
     com = r.mappings().fetchone()
-    if not com: raise HTTPException(404, "Comunicado não encontrado")
+    if not com: raise HTTPException(404, "Comunicado nÃ£o encontrado")
     respostas = json.loads(com["respostas"] or "[]")
     respostas.append({"texto": payload.resposta, "respondente": payload.respondente, "data": datetime.now().isoformat()})
     await db.execute(text("UPDATE comunicados SET respostas=:resp, status='respondido', atualizado_em=datetime('now','localtime') WHERE id=:id"),
@@ -355,7 +356,7 @@ async def verificar_atrasados(background: BackgroundTasks, db: AsyncSession = De
                     ru = await db.execute(select(Usuario).where(Usuario.nome.ilike(f"%{com['responsavel']}%")))
                     u = ru.scalar_one_or_none()
                     if u and getattr(u, "telefone", None):
-                        await enviar_wa(u.telefone, f"🚨 *ALERTA SISTEMA EPimentel*\n\n{alerta}")
+                        await enviar_wa(u.telefone, f"ð¨ *ALERTA SISTEMA EPimentel*\n\n{alerta}")
                 except Exception: pass
         await db.commit()
     background.add_task(_processar)
@@ -372,7 +373,7 @@ async def get_smtp(db: AsyncSession = Depends(get_db)):
 
 @router.post("/config-smtp")
 async def salvar_smtp(config: dict, db: AsyncSession = Depends(get_db)):
-    """Salva configuração de SMTP personalizado."""
+    """Salva configuraÃ§Ã£o de SMTP personalizado."""
     await init_tables(db)
     await db.execute(text("""
         INSERT INTO smtp_config (id,host,port,user,pass,from_name,from_email,assinatura_html)
