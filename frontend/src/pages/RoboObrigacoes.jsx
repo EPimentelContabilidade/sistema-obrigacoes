@@ -94,6 +94,196 @@ function StatusIA({ api }) {
   )
 }
 
+
+// ── Funções auxiliares de criação de tarefa ─────────────────────────────────
+function calcVenc(comp, obrig) {
+  try {
+    const [mm, aaaa] = comp.split('/')
+    const mes = parseInt(mm), ano = parseInt(aaaa)
+    const mesNome = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes-1]
+    const diaConf = obrig?.dias_entrega?.[mesNome] || 'Todo dia 20'
+    if (diaConf === 'Nao tem' || diaConf === 'Não tem') return null
+    let dia = 20
+    if (diaConf.startsWith('Todo dia ')) dia = parseInt(diaConf.replace('Todo dia ','')) || 20
+    const mesVenc = obrig?.competencia_ref === 'Mes atual' ? mes : mes + 1
+    const anoVenc = mesVenc > 12 ? ano + 1 : ano
+    const mVenc = mesVenc > 12 ? 1 : mesVenc
+    const ultimoDia = new Date(anoVenc, mVenc, 0).getDate()
+    dia = Math.min(dia, ultimoDia)
+    return String(anoVenc) + '-' + String(mVenc).padStart(2,'0') + '-' + String(dia).padStart(2,'0')
+  } catch(e) { return null }
+}
+
+function ModalCriarTarefa({ dados, onClose }) {
+  const [criando, setCriando] = React.useState(false)
+  const [criado,  setCriado]  = React.useState(null)
+  const [clienteSel, setClienteSel] = React.useState('')
+
+  // Buscar obrigação do catálogo
+  const catalogo = React.useMemo(() => {
+    try {
+      const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'{}')
+      return Object.values(cat).flat().filter(Boolean)
+    } catch(e) { return [] }
+  }, [])
+
+  // Buscar clientes
+  const clientes = React.useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch(e) { return [] }
+  }, [])
+
+  // Encontrar obrigação pelo nome
+  const obrigEncontrada = React.useMemo(() => {
+    if (!dados.obrigacao) return null
+    const nome = dados.obrigacao.toLowerCase()
+    return catalogo.find(o =>
+      (o.nome||'').toLowerCase().includes(nome.slice(0,12)) ||
+      nome.includes((o.nome||'').toLowerCase().slice(0,12)) ||
+      (o.codigo||'').toLowerCase() === nome.slice(0,6)
+    ) || catalogo.find(o => (o.nome||'').toLowerCase().split(' ')[0] === nome.split(' ')[0])
+  }, [catalogo, dados.obrigacao])
+
+  // Cliente correspondente
+  const clienteMatchObj = React.useMemo(() => {
+    if (!dados.cliente) return clientes[0] || null
+    const nm = (dados.cliente||'').toLowerCase()
+    return clientes.find(c => (c.nome||'').toLowerCase().includes(nm.slice(0,10))) || clientes[0] || null
+  }, [clientes, dados.cliente])
+
+  React.useEffect(() => {
+    if (clienteMatchObj) setClienteSel(clienteMatchObj.id || clienteMatchObj.nome || '')
+  }, [clienteMatchObj])
+
+  const clienteFinal = clientes.find(c => (c.id||c.nome) === clienteSel) || clienteMatchObj
+
+  function criarTarefa() {
+    if (!clienteFinal) { alert('Selecione um cliente'); return }
+    setCriando(true)
+
+    const obrig = obrigEncontrada || {
+      nome: dados.obrigacao, codigo: dados.obrigacao?.slice(0,6).toUpperCase(),
+      periodicidade: 'Mensal', passivel_multa: 'Nao', notif_whatsapp: false, notif_email: false,
+      exigir_robo: 'Sim', dias_entrega: {}, caminho_arquivo: '{empresa}/{obrigacao}/{ano}/{mes}'
+    }
+
+    const [mm, aaaa] = (dados.competencia||'01/2026').split('/')
+    const mes = parseInt(mm), ano = parseInt(aaaa)
+
+    const venc = calcVenc(dados.competencia, obrig)
+    const idTarefa = (clienteFinal.id||'cli') + '_' + (obrig.codigo||'OBR') + '_' + ano + '_' + String(mes).padStart(2,'0')
+
+    const novaTarefa = {
+      id: idTarefa,
+      cliente_id:      clienteFinal.id,
+      cliente:         clienteFinal.nome_razao || clienteFinal.nome,
+      cnpj:            clienteFinal.cnpj || '',
+      regime:          clienteFinal.tributacao || clienteFinal.regime || '',
+      obrigacao:       obrig.nome || dados.obrigacao,
+      codigo:          obrig.codigo || dados.obrigacao?.slice(0,6).toUpperCase(),
+      periodicidade:   obrig.periodicidade || 'Mensal',
+      competencia:     dados.competencia,
+      vencimento:      venc,
+      status:          'Pendente',
+      passivel_multa:  obrig.passivel_multa === 'Sim',
+      notif_whatsapp:  obrig.notif_whatsapp || false,
+      notif_email:     obrig.notif_email || false,
+      exigir_robo:     true,
+      documento_robo:  dados.arquivo_nome || '',
+      gerado_em:       new Date().toISOString(),
+      origem:          'robo',
+    }
+
+    try {
+      const existentes = JSON.parse(localStorage.getItem('ep_tarefas_entregas')||'[]')
+      const filtradas = existentes.filter(t => t.id !== idTarefa)
+      const novas = [novaTarefa, ...filtradas]
+      localStorage.setItem('ep_tarefas_entregas', JSON.stringify(novas))
+      setCriado(novaTarefa)
+    } catch(e) {
+      alert('Erro ao criar tarefa: ' + e.message)
+    }
+    setCriando(false)
+  }
+
+  const NAVY = '#1F4A33', GOLD = '#C5A55A'
+
+  return (
+    <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center' }}>
+      <div style={{ background:'#fff',borderRadius:16,padding:28,maxWidth:480,width:'92%',boxShadow:'0 24px 70px rgba(0,0,0,0.28)' }}>
+        {!criado ? (<>
+          <div style={{ fontSize:36,textAlign:'center',marginBottom:8 }}>📋</div>
+          <div style={{ fontWeight:800,color:NAVY,fontSize:16,textAlign:'center',marginBottom:6 }}>
+            Nenhuma tarefa encontrada!
+          </div>
+          <div style={{ fontSize:12,color:'#666',textAlign:'center',lineHeight:1.6,marginBottom:18 }}>
+            O documento <b>{dados.tipo}</b> foi salvo na biblioteca e vinculado à obrigação
+            <b> {dados.obrigacao}</b>, mas não existe tarefa para <b>{dados.competencia}</b>.
+          </div>
+
+          {/* Obrigação encontrada no catálogo */}
+          <div style={{ padding:12,borderRadius:10,background:obrigEncontrada?'#f0fdf4':'#fffbeb',border:'1px solid '+(obrigEncontrada?'#bbf7d0':'#fde68a'),marginBottom:14 }}>
+            <div style={{ fontSize:11,fontWeight:700,color:obrigEncontrada?'#166534':'#92400e',marginBottom:4 }}>
+              {obrigEncontrada ? '✅ Obrigação encontrada no catálogo' : '⚠️ Obrigação não encontrada no catálogo'}
+            </div>
+            <div style={{ fontSize:13,fontWeight:700,color:NAVY }}>{obrigEncontrada?.nome || dados.obrigacao}</div>
+            {obrigEncontrada && <div style={{ fontSize:11,color:'#888' }}>{obrigEncontrada.codigo} · {obrigEncontrada.periodicidade}</div>}
+            {!obrigEncontrada && <div style={{ fontSize:11,color:'#b45309' }}>Será criada como tarefa eventual. Configure o catálogo para próximas detecções.</div>}
+          </div>
+
+          {/* Seletor de cliente */}
+          <div style={{ marginBottom:14 }}>
+            <label style={{ fontSize:11,fontWeight:700,color:'#555',display:'block',marginBottom:4 }}>🏢 Cliente</label>
+            <select value={clienteSel} onChange={e=>setClienteSel(e.target.value)}
+              style={{ width:'100%',padding:'8px 10px',borderRadius:8,border:'1px solid #ddd',fontSize:13,background:'#fff' }}>
+              <option value="">— Selecione o cliente —</option>
+              {clientes.map(c=><option key={c.id||c.nome} value={c.id||c.nome}>{c.nome_razao||c.nome} ({c.cnpj||'—'})</option>)}
+            </select>
+          </div>
+
+          {/* Resumo */}
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:20 }}>
+            {[['📅 Competência',dados.competencia],['📁 Arquivo',dados.arquivo_nome||'—'],
+              ['🏢 Cliente',clienteFinal?.nome_razao||clienteFinal?.nome||'—'],
+              ['📆 Periodicidade',obrigEncontrada?.periodicidade||'Mensal']].map(([lb,vl])=>(
+              <div key={lb} style={{ padding:'8px 10px',borderRadius:8,background:'#f9fafb',border:'1px solid #e5e7eb' }}>
+                <div style={{ fontSize:10,color:'#888',fontWeight:700 }}>{lb}</div>
+                <div style={{ fontSize:12,fontWeight:600,color:NAVY }}>{vl}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display:'flex',gap:10 }}>
+            <button onClick={onClose}
+              style={{ flex:1,padding:'11px 0',borderRadius:8,background:'#f3f4f6',color:'#555',border:'none',cursor:'pointer',fontWeight:600,fontSize:13 }}>
+              Agora não
+            </button>
+            <button onClick={criarTarefa} disabled={criando||!clienteFinal}
+              style={{ flex:2,padding:'11px 0',borderRadius:8,background:criando?'#aaa':NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13 }}>
+              {criando ? '⏳ Criando...' : '✅ Criar tarefa agora'}
+            </button>
+          </div>
+        </>) : (
+          <div style={{ textAlign:'center' }}>
+            <div style={{ fontSize:56,marginBottom:12 }}>✅</div>
+            <div style={{ fontWeight:800,color:NAVY,fontSize:16,marginBottom:8 }}>Tarefa criada com sucesso!</div>
+            <div style={{ fontSize:13,color:'#555',marginBottom:16,lineHeight:1.6 }}>
+              <b>{criado.obrigacao}</b> foi adicionada às tarefas de <b>{criado.competencia}</b>
+              {criado.vencimento && <span> · Vencimento: <b>{new Date(criado.vencimento+'T12:00:00').toLocaleDateString('pt-BR')}</b></span>}
+            </div>
+            <div style={{ padding:12,borderRadius:8,background:'#f0fdf4',border:'1px solid #bbf7d0',marginBottom:20,fontSize:12,color:'#166534' }}>
+              📍 Acesse <b>Entregas/Tarefas</b> para ver e gerenciar esta tarefa.
+            </div>
+            <button onClick={onClose}
+              style={{ width:'100%',padding:'11px 0',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13 }}>
+              Fechar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function RoboObrigacoes() {
   const [aba, setAba]             = useState('analisar')
   const [arquivo, setArquivo]     = useState(null)
@@ -479,41 +669,7 @@ export default function RoboObrigacoes() {
 
         {/* ── MODAL CRIAR TAREFA ─────────────────────────────────────────── */}
         {modalCriarTarefa && (
-          <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center' }}>
-            <div style={{ background:'#fff',borderRadius:16,padding:28,maxWidth:440,width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
-              <div style={{ fontSize:36,textAlign:'center',marginBottom:12 }}>⚠️</div>
-              <div style={{ fontWeight:800,color:NAVY,fontSize:16,textAlign:'center',marginBottom:8 }}>
-                Nenhuma tarefa encontrada!
-              </div>
-              <div style={{ fontSize:13,color:'#555',textAlign:'center',lineHeight:1.6,marginBottom:20 }}>
-                O documento <b>{modalCriarTarefa.tipo}</b> foi salvo na biblioteca e vinculado à obrigação <b>{modalCriarTarefa.obrigacao}</b>,
-                mas não existe tarefa para o período <b>{modalCriarTarefa.competencia}</b>.
-              </div>
-              <div style={{ padding:14,borderRadius:10,background:'#f0fdf4',border:'1px solid #bbf7d0',marginBottom:20 }}>
-                <div style={{ fontSize:11,fontWeight:700,color:'#166534',marginBottom:6 }}>📋 Detalhes</div>
-                <div style={{ fontSize:12,color:'#333' }}>Obrigação: <b>{modalCriarTarefa.obrigacao}</b></div>
-                <div style={{ fontSize:12,color:'#333' }}>Competência: <b>{modalCriarTarefa.competencia}</b></div>
-                {modalCriarTarefa.cliente && <div style={{ fontSize:12,color:'#333' }}>Cliente: <b>{modalCriarTarefa.cliente}</b></div>}
-              </div>
-              <div style={{ display:'flex',gap:10 }}>
-                <button onClick={()=>setModalCriarTarefa(null)}
-                  style={{ flex:1,padding:'10px 0',borderRadius:8,background:'#f3f4f6',color:'#555',border:'none',cursor:'pointer',fontWeight:600,fontSize:13 }}>
-                  Agora não
-                </button>
-                <button onClick={()=>{
-                  setModalCriarTarefa(null)
-                  // Salvar pendência para GerarObrigacoes usar como sugestão
-                  const pendentes = ls('ep_robo_pendentes_tarefa', [])
-                  pendentes.unshift(modalCriarTarefa)
-                  lss('ep_robo_pendentes_tarefa', pendentes.slice(0,20))
-                  alert('✅ Pendência registrada! Acesse Gerar Obrigações para criar a tarefa.')
-                }}
-                  style={{ flex:1,padding:'10px 0',borderRadius:8,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13 }}>
-                  ✅ Registrar e criar
-                </button>
-              </div>
-            </div>
-          </div>
+          <ModalCriarTarefa dados={modalCriarTarefa} onClose={()=>setModalCriarTarefa(null)} />
         )}
 
         {/* ── ABA BIBLIOTECA ──────────────────────────────────────────────── */}
