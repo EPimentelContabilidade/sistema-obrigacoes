@@ -15,6 +15,7 @@ from routers import (
     automacao_router, drive_monitor_router, whatsapp_bot_router, agenda_mensal_router, comunicados_router, contratos_router,
 )
 from routers import retencoes
+from routers import ai as ai_module
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,7 +24,6 @@ async def lifespan(app: FastAPI):
         try:
             from apscheduler.schedulers.asyncio import AsyncIOScheduler
             from routers.drive_monitor import varrer_pasta_entrada
-from routers.ai import router as ai_router
             from database import get_db as _get_db
 
             scheduler = AsyncIOScheduler()
@@ -89,7 +89,7 @@ app.include_router(agenda_mensal_router,       prefix="/api/v1")
 app.include_router(comunicados_router, prefix="/api/v1")
 app.include_router(contratos_router,   prefix="/api/v1")
 app.include_router(retencoes.router,   prefix="/api/v1")
-app.include_router(ai_router, prefix="/api/v1")
+app.include_router(ai_module.router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
