@@ -2,6 +2,7 @@
 Router: whatsapp_evolution.py
 Integração com Z-API (WhatsApp).
 Substitui Evolution API — mantém mesmos endpoints para compatibilidade.
+Suporta Client-Token (segurança de conta Z-API).
 """
 
 import os, json, base64, re
@@ -15,12 +16,20 @@ import httpx
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
 # ── Z-API config ───────────────────────────────────────────────────────────────
-ZAPI_INST  = os.getenv("ZAPI_INSTANCE_ID", "3F1E5BA013CA029438426E59E5E6857E")
-ZAPI_TOKEN = os.getenv("ZAPI_TOKEN",       "461022EFD597101868B011B32")
-ZAPI_BASE  = f"https://api.z-api.io/instances/{ZAPI_INST}/token/{ZAPI_TOKEN}"
+ZAPI_INST         = os.getenv("ZAPI_INSTANCE_ID",  "3F1E5BA013CA029438426E59E5E6857E")
+ZAPI_TOKEN        = os.getenv("ZAPI_TOKEN",         "461022EFD597101868B011B32")
+ZAPI_CLIENT_TOKEN = os.getenv("ZAPI_CLIENT_TOKEN",  "")   # Token de Segurança da Conta
+ZAPI_BASE         = f"https://api.z-api.io/instances/{ZAPI_INST}/token/{ZAPI_TOKEN}"
 
 CONV_DIR = Path("/app/conversas_whatsapp")
 CONV_DIR.mkdir(parents=True, exist_ok=True)
+
+def zapi_headers() -> dict:
+    """Retorna headers padrão Z-API, incluindo Client-Token se configurado."""
+    h = {"Content-Type": "application/json"}
+    if ZAPI_CLIENT_TOKEN:
+        h["Client-Token"] = ZAPI_CLIENT_TOKEN
+    return h
 
 # ── Utilitários ───────────────────────────────────────────────────────────────
 
@@ -86,8 +95,7 @@ async def status():
     """Verifica conexão com Z-API."""
     try:
         async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get(f"{ZAPI_BASE}/status",
-                headers={"Content-Type": "application/json"})
+            r = await c.get(f"{ZAPI_BASE}/status", headers=zapi_headers())
             d = r.json()
         conectado = d.get("connected", False)
         return {
@@ -95,6 +103,7 @@ async def status():
             "estado": "open" if conectado else "closed",
             "instancia": ZAPI_INST,
             "smartphoneConnected": d.get("smartphoneConnected", False),
+            "client_token_ativo": bool(ZAPI_CLIENT_TOKEN),
             "dados": d,
         }
     except Exception as e:
@@ -118,7 +127,7 @@ async def enviar_texto(req: EnviarTexto):
     numero = limpar_tel(req.telefone)
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.post(f"{ZAPI_BASE}/send-text",
-            headers={"Content-Type": "application/json"},
+            headers=zapi_headers(),
             json={"phone": numero, "message": req.mensagem})
         d = r.json()
     if r.status_code not in (200, 201):
@@ -134,7 +143,6 @@ async def enviar_texto(req: EnviarTexto):
 
 @router.post("/enviar-link")
 async def enviar_link(req: EnviarTexto):
-    """Envia link como texto simples."""
     return await enviar_texto(req)
 
 
@@ -162,12 +170,13 @@ async def enviar_documento(
         payload["fileName"] = nome
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(f"{ZAPI_BASE}/{endpoint}",
-            headers={"Content-Type": "application/json"}, json=payload)
+            headers=zapi_headers(), json=payload)
         d = r.json()
     if r.status_code not in (200, 201):
         raise HTTPException(status_code=r.status_code, detail=str(d))
     salvar_msg(numero, {
-        "id": d.get("zaapId", ""), "tipo": "documento" if not eh_imagem else "imagem",
+        "id": d.get("zaapId", ""),
+        "tipo": "documento" if not eh_imagem else "imagem",
         "mensagem": legenda or f"[{nome}]", "nome_arquivo": nome,
         "direcao": "enviada", "status": "enviada",
         "cliente_nome": cliente_nome, "cliente_id": cliente_id,
@@ -189,7 +198,7 @@ async def enviar_pdf_base64(req: EnviarPDFBase64):
         payload["fileName"] = req.nome_arquivo
     async with httpx.AsyncClient(timeout=60) as c:
         r = await c.post(f"{ZAPI_BASE}/{endpoint}",
-            headers={"Content-Type": "application/json"}, json=payload)
+            headers=zapi_headers(), json=payload)
         d = r.json()
     if r.status_code not in (200, 201):
         raise HTTPException(status_code=r.status_code, detail=str(d))
@@ -246,7 +255,6 @@ async def webhook_zapi(request: Request, background: BackgroundTasks):
         phone = body.get("phone", "")
         if not phone: return {"status": "ok"}
         numero = limpar_tel(phone)
-        # Mensagem recebida
         if tipo in ("ReceivedCallback", "messages.upsert"):
             texto = (body.get("text", {}).get("message", "")
                      or body.get("message", "")
@@ -267,7 +275,6 @@ async def webhook_zapi(request: Request, background: BackgroundTasks):
                             await processar_mensagem(tel, txt, db); break
                     except Exception: pass
                 background.add_task(_bot)
-        # Status de entrega
         elif tipo in ("MessageStatusCallback",):
             status_map = {"PENDING":"enviada","SENT":"enviada","RECEIVED":"entregue","READ":"lida"}
             novo_status = status_map.get(body.get("status",""), "enviada")
