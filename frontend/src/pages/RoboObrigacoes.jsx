@@ -528,17 +528,40 @@ export default function RoboObrigacoes() {
               </div>
             </div>
 
+            {/* Modelo e Custos */}
+            <div style={{ padding:16, borderRadius:12, background:'#f0fdf4', border:'1px solid #bbf7d0', marginBottom:16 }}>
+              <div style={{ fontWeight:700, color:'#166534', fontSize:13, marginBottom:10 }}>💡 Modelo usado: Claude Haiku (mais barato)</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:10 }}>
+                {[
+                  { modelo:'Haiku ✅ (atual)', input:'$0.80', output:'$4.00', note:'USADO', cor:'#16a34a' },
+                  { modelo:'Sonnet',           input:'$3.00', output:'$15.00', note:'3.7x mais caro', cor:'#d97706' },
+                  { modelo:'Opus',             input:'$15.00', output:'$75.00', note:'18x mais caro', cor:'#dc2626' },
+                ].map(m=>(
+                  <div key={m.modelo} style={{ padding:'10px 12px', borderRadius:8, background:'#fff', border:'2px solid '+(m.cor+'40') }}>
+                    <div style={{ fontWeight:700, color:m.cor, fontSize:12, marginBottom:4 }}>{m.modelo}</div>
+                    <div style={{ fontSize:11, color:'#555' }}>Input: <b>{m.input}</b>/1M tokens</div>
+                    <div style={{ fontSize:11, color:'#555' }}>Output: <b>{m.output}</b>/1M tokens</div>
+                    <div style={{ fontSize:10, color:m.cor, marginTop:4, fontWeight:600 }}>{m.note}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize:11, color:'#166534', background:'#dcfce7', padding:'6px 10px', borderRadius:6 }}>
+                💰 Custo estimado: ~R$ 0,003 por documento analisado (Haiku). 1.000 docs/mês ≈ R$ 3,00
+              </div>
+            </div>
+
             {/* Instrução Railway */}
             <div style={{ padding:16, borderRadius:12, background:'#fffbeb', border:'1px solid #fde68a', marginBottom:20 }}>
-              <div style={{ fontWeight:700, color:'#92400e', fontSize:13, marginBottom:10 }}>🔑 Para ativar análise completa com IA Claude:</div>
+              <div style={{ fontWeight:700, color:'#92400e', fontSize:13, marginBottom:10 }}>🔑 Como ativar:</div>
               <ol style={{ fontSize:12, color:'#555', lineHeight:2, paddingLeft:20, margin:0 }}>
-                <li>Acesse <b>railway.com</b> → projeto <b>sistema-obrigacoes</b></li>
-                <li>Clique em <b>Variables</b> no serviço do backend</li>
-                <li>Adicione: <code style={{ background:'#fff', padding:'1px 6px', borderRadius:4 }}>ANTHROPIC_API_KEY = sk-ant-...</code></li>
-                <li>Faça o redeploy</li>
+                <li>Acesse <b>railway.com</b> → projeto <b>sistema-obrigacoes</b> → serviço backend</li>
+                <li>Clique em <b>Variables</b> e adicione:</li>
               </ol>
-              <div style={{ marginTop:10, fontSize:11, color:'#b45309' }}>
-                Sem a chave: análise por padrão do nome do arquivo (funciona para DAS, DARF, NF-e etc.)
+              <div style={{ fontFamily:'monospace', fontSize:12, background:'#1e293b', color:'#86efac', padding:'8px 12px', borderRadius:8, margin:'8px 0' }}>
+                ANTHROPIC_API_KEY=sk-ant-api03-...
+              </div>
+              <div style={{ fontSize:11, color:'#b45309' }}>
+                Sem a chave: análise gratuita por padrão do nome do arquivo (funciona para DAS, DARF, NF-e etc.)
               </div>
             </div>
 
