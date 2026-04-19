@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { epSet, epGet } from '../utils/storage'
 
 const NAVY = '#1F4A33'
@@ -71,6 +71,25 @@ function CampoIA({ label, valor, confianca, editavel, onChange }) {
         : <div style={{ fontSize:13, fontWeight:600, color:cor }}>{valor || '—'}</div>
       }
       {valor && <BarraConfianca valor={confianca}/>}
+    </div>
+  )
+}
+
+
+function StatusIA({ api }) {
+  const [status, setStatus] = React.useState(null)
+  React.useEffect(function() {
+    fetch(api + '/ai/status').then(r=>r.json()).then(d=>setStatus(d)).catch(()=>{})
+  }, [api])
+  if(!status) return null
+  return (
+    <div style={{ padding:12, borderRadius:10, background: status.gemini_configurado?'#f0fdf4':status.anthropic_configurado?'#eff6ff':'#f9fafb',
+      border:'1px solid '+(status.gemini_configurado?'#bbf7d0':status.anthropic_configurado?'#bfdbfe':'#e5e7eb') }}>
+      <div style={{ fontSize:11, fontWeight:700, color:'#666', marginBottom:4 }}>Status atual do servidor:</div>
+      <div style={{ fontWeight:700, fontSize:13, color:status.gemini_configurado?'#16a34a':status.anthropic_configurado?'#1d4ed8':'#6b7280' }}>
+        {status.gemini_configurado?'🆓':'status.anthropic_configurado'?'💰':'⚡'} {status.provedor}
+      </div>
+      <div style={{ fontSize:11, color:'#888' }}>{status.plano}</div>
     </div>
   )
 }
@@ -514,65 +533,80 @@ export default function RoboObrigacoes() {
 
         {/* ── ABA CONFIG ──────────────────────────────────────────────────── */}
         {aba==='config' && (
-          <div style={{ maxWidth:600 }}>
+          <div style={{ maxWidth:660 }}>
             <div style={{ fontWeight:800, color:NAVY, fontSize:16, marginBottom:20 }}>⚙️ Configuração da IA</div>
 
-            {/* Status do backend */}
-            <div style={{ padding:16, borderRadius:12, background:'#f9fafb', border:'1px solid #e5e7eb', marginBottom:20 }}>
-              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:12 }}>🌐 Endpoint do Robô</div>
-              <div style={{ fontSize:12, color:'#555', fontFamily:'monospace', background:'#fff', padding:'8px 12px', borderRadius:8, border:'1px solid #e5e7eb' }}>
-                {API}/ai/analisar-documento
+            {/* Cards de opções */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:20 }}>
+              {[
+                { icon:'🆓', titulo:'Gemini Flash', subtitulo:'GRATUITO', desc:'1.500 req/dia sem custo. Lê PDF e imagens. Recomendado!', cor:'#16a34a', bg:'#f0fdf4', brd:'#bbf7d0', var:'GOOGLE_AI_KEY', url:'aistudio.google.com' },
+                { icon:'💰', titulo:'Claude Haiku', subtitulo:'~$0,25/1M tokens', desc:'Mais barato da Anthropic. Excelente qualidade. Suporte a PDF nativo.', cor:'#1d4ed8', bg:'#eff6ff', brd:'#bfdbfe', var:'ANTHROPIC_API_KEY', url:'console.anthropic.com' },
+                { icon:'⚡', titulo:'Heurística', subtitulo:'100% Gratuito', desc:'Sem IA. Detecta pelo nome do arquivo. Funciona offline, sem API key.', cor:'#6b7280', bg:'#f9fafb', brd:'#e5e7eb', var:'—', url:'' },
+              ].map(o=>(
+                <div key={o.titulo} style={{ padding:16, borderRadius:12, background:o.bg, border:'2px solid '+o.brd }}>
+                  <div style={{ fontSize:28, marginBottom:8 }}>{o.icon}</div>
+                  <div style={{ fontWeight:800, color:o.cor, fontSize:14 }}>{o.titulo}</div>
+                  <div style={{ fontSize:11, fontWeight:700, color:o.cor+'bb', marginBottom:8 }}>{o.subtitulo}</div>
+                  <div style={{ fontSize:11, color:'#555', lineHeight:1.5, marginBottom:10 }}>{o.desc}</div>
+                  {o.url && <a href={'https://'+o.url} target="_blank" rel="noreferrer"
+                    style={{ fontSize:10, color:o.cor, textDecoration:'underline' }}>{o.url}</a>}
+                </div>
+              ))}
+            </div>
+
+            {/* Prioridade */}
+            <div style={{ padding:14, borderRadius:10, background:'#f0fdf4', border:'1px solid #bbf7d0', marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:'#166534', fontSize:12, marginBottom:8 }}>🔄 Prioridade automática</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#555' }}>
+                <span style={{ padding:'3px 10px', borderRadius:20, background:'#16a34a', color:'#fff', fontWeight:700, fontSize:11 }}>1° Gemini Flash</span>
+                <span>→ se GOOGLE_AI_KEY configurado</span>
               </div>
-              <div style={{ fontSize:11, color:'#888', marginTop:8 }}>
-                O backend chama a API Claude usando a variável ANTHROPIC_API_KEY configurada no Railway.
+              <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#555', marginTop:6 }}>
+                <span style={{ padding:'3px 10px', borderRadius:20, background:'#1d4ed8', color:'#fff', fontWeight:700, fontSize:11 }}>2° Claude Haiku</span>
+                <span>→ se ANTHROPIC_API_KEY configurado</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#555', marginTop:6 }}>
+                <span style={{ padding:'3px 10px', borderRadius:20, background:'#6b7280', color:'#fff', fontWeight:700, fontSize:11 }}>3° Heurística</span>
+                <span>→ sempre disponível, sem configuração</span>
               </div>
             </div>
 
-            {/* Modelo e Custos */}
-            <div style={{ padding:16, borderRadius:12, background:'#f0fdf4', border:'1px solid #bbf7d0', marginBottom:16 }}>
-              <div style={{ fontWeight:700, color:'#166534', fontSize:13, marginBottom:10 }}>💡 Modelo usado: Claude Haiku (mais barato)</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:10 }}>
-                {[
-                  { modelo:'Haiku ✅ (atual)', input:'$0.80', output:'$4.00', note:'USADO', cor:'#16a34a' },
-                  { modelo:'Sonnet',           input:'$3.00', output:'$15.00', note:'3.7x mais caro', cor:'#d97706' },
-                  { modelo:'Opus',             input:'$15.00', output:'$75.00', note:'18x mais caro', cor:'#dc2626' },
-                ].map(m=>(
-                  <div key={m.modelo} style={{ padding:'10px 12px', borderRadius:8, background:'#fff', border:'2px solid '+(m.cor+'40') }}>
-                    <div style={{ fontWeight:700, color:m.cor, fontSize:12, marginBottom:4 }}>{m.modelo}</div>
-                    <div style={{ fontSize:11, color:'#555' }}>Input: <b>{m.input}</b>/1M tokens</div>
-                    <div style={{ fontSize:11, color:'#555' }}>Output: <b>{m.output}</b>/1M tokens</div>
-                    <div style={{ fontSize:10, color:m.cor, marginTop:4, fontWeight:600 }}>{m.note}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontSize:11, color:'#166534', background:'#dcfce7', padding:'6px 10px', borderRadius:6 }}>
-                💰 Custo estimado: ~R$ 0,003 por documento analisado (Haiku). 1.000 docs/mês ≈ R$ 3,00
-              </div>
-            </div>
-
-            {/* Instrução Railway */}
-            <div style={{ padding:16, borderRadius:12, background:'#fffbeb', border:'1px solid #fde68a', marginBottom:20 }}>
-              <div style={{ fontWeight:700, color:'#92400e', fontSize:13, marginBottom:10 }}>🔑 Como ativar:</div>
-              <ol style={{ fontSize:12, color:'#555', lineHeight:2, paddingLeft:20, margin:0 }}>
-                <li>Acesse <b>railway.com</b> → projeto <b>sistema-obrigacoes</b> → serviço backend</li>
-                <li>Clique em <b>Variables</b> e adicione:</li>
-              </ol>
-              <div style={{ fontFamily:'monospace', fontSize:12, background:'#1e293b', color:'#86efac', padding:'8px 12px', borderRadius:8, margin:'8px 0' }}>
-                ANTHROPIC_API_KEY=sk-ant-api03-...
-              </div>
-              <div style={{ fontSize:11, color:'#b45309' }}>
-                Sem a chave: análise gratuita por padrão do nome do arquivo (funciona para DAS, DARF, NF-e etc.)
+            {/* Instrução configuração */}
+            <div style={{ padding:14, borderRadius:10, background:'#fffbeb', border:'1px solid #fde68a', marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:'#92400e', fontSize:13, marginBottom:10 }}>🔑 Como configurar (Railway → Variables)</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:11, color:'#16a34a', marginBottom:4 }}>🆓 Gemini Flash (RECOMENDADO)</div>
+                  <ol style={{ fontSize:11, color:'#555', lineHeight:1.9, paddingLeft:16, margin:0 }}>
+                    <li>Acesse <b>aistudio.google.com</b></li>
+                    <li>Clique em <b>Get API Key</b> → grátis</li>
+                    <li>No Railway → Variables → adicione:</li>
+                    <li><code style={{ background:'#fff', padding:'1px 6px', borderRadius:4, fontSize:10 }}>GOOGLE_AI_KEY = AIza...</code></li>
+                  </ol>
+                </div>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:11, color:'#1d4ed8', marginBottom:4 }}>💰 Claude Haiku (alternativa)</div>
+                  <ol style={{ fontSize:11, color:'#555', lineHeight:1.9, paddingLeft:16, margin:0 }}>
+                    <li>Acesse <b>console.anthropic.com</b></li>
+                    <li>Crie uma API Key</li>
+                    <li>No Railway → Variables → adicione:</li>
+                    <li><code style={{ background:'#fff', padding:'1px 6px', borderRadius:4, fontSize:10 }}>ANTHROPIC_API_KEY = sk-ant-...</code></li>
+                  </ol>
+                </div>
               </div>
             </div>
 
-            {/* Tipos de documento */}
-            <div style={{ padding:16, borderRadius:12, background:'#f9fafb', border:'1px solid #e5e7eb' }}>
-              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:12 }}>🗂️ Tipos detectados automaticamente</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            {/* Status atual */}
+            <StatusIA api={API}/>
+
+            {/* Tipos */}
+            <div style={{ padding:14, borderRadius:10, background:'#f9fafb', border:'1px solid #e5e7eb', marginTop:20 }}>
+              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:10 }}>🗂️ Tipos detectados automaticamente</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
                 {TIPOS.filter(t=>t.id!=='outro').map(t=>(
-                  <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderRadius:8, background:'#fff', border:'1px solid #e5e7eb' }}>
-                    <span style={{ width:10, height:10, borderRadius:'50%', background:t.cor, display:'inline-block', flexShrink:0 }}/>
-                    <span style={{ fontSize:12, color:'#333' }}>{t.nome}</span>
+                  <div key={t.id} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 8px', borderRadius:6, background:'#fff', border:'1px solid #e5e7eb' }}>
+                    <span style={{ width:8, height:8, borderRadius:'50%', background:t.cor, flexShrink:0 }}/>
+                    <span style={{ fontSize:11, color:'#333' }}>{t.nome}</span>
                   </div>
                 ))}
               </div>
