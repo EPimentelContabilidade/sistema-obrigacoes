@@ -450,6 +450,35 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
         </div>
       </div>
 
+      {/* Documentos na Biblioteca vinculados a esta obrigação */}
+      {(()=>{
+        try {
+          const vinculo = JSON.parse(localStorage.getItem('ep_robo_vinculo')||'{}')
+          const docs = vinculo[form.nome] || []
+          if (!docs.length) return null
+          return (
+            <div style={{ background:"#eff6ff",borderRadius:8,padding:14,marginBottom:16,border:"1px solid #bfdbfe" }}>
+              <div style={{ fontWeight:700,color:"#1e40af",fontSize:13,marginBottom:10 }}>
+                📄 {docs.length} documento(s) permanente(s) na Biblioteca
+              </div>
+              <div style={{ display:"flex",flexDirection:"column",gap:6 }}>
+                {docs.slice(0,5).map((d,i)=>(
+                  <div key={i} style={{ display:"flex",alignItems:"center",gap:10,padding:"6px 10px",borderRadius:6,background:"#fff",border:"1px solid #dbeafe" }}>
+                    <span style={{ fontSize:16 }}>📄</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:12,fontWeight:600,color:"#1e40af" }}>{d.arquivo_nome}</div>
+                      <div style={{ fontSize:10,color:"#888" }}>{d.campos?.competencia||'—'} · {d.ts}</div>
+                    </div>
+                    <span style={{ fontSize:10,padding:"2px 8px",borderRadius:6,background:"#f0fdf4",color:"#16a34a",fontWeight:600 }}>✅ Biblioteca</span>
+                  </div>
+                ))}
+                {docs.length>5 && <div style={{fontSize:11,color:"#888",textAlign:"center"}}>+{docs.length-5} mais documentos...</div>}
+              </div>
+            </div>
+          )
+        } catch(e){ return null }
+      })()}
+
       {/* Tributação / Regimes */}
       <div style={{ background:"#F8F9FA",borderRadius:8,padding:14,marginBottom:20 }}>
         <div style={{ fontWeight:700,color:NAVY,fontSize:13,marginBottom:10 }}>⚖️ Tributação (Regimes que usam esta obrigação)</div>
@@ -553,7 +582,7 @@ function TabObrigacoes() {
         <table style={{ width:"100%",borderCollapse:"collapse" }}>
           <thead>
             <tr style={{ background:"#F8F9FA" }}>
-              {["Código","Obrigação","Depto.","Periodicidade","Multa","Ativo",""].map(h=>(
+              {["Código","Obrigação","Depto.","Periodicidade","Multa","📄 Docs","Ativo",""].map(h=>(
                 <th key={h} style={{ padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#666",borderBottom:"1px solid #eee" }}>{h}</th>
               ))}
             </tr>
@@ -574,6 +603,19 @@ function TabObrigacoes() {
                   {o.notif_email && <span title="E-mail" style={{ marginLeft:2 }}>✉️</span>}
                   {!o.notif_whatsapp&&!o.notif_email && <span style={{ color:"#ccc" }}>—</span>}
                 </td>
+                <td style={{ padding:"8px 12px" }}>{(() => {
+                  try {
+                    const vinculo = JSON.parse(localStorage.getItem('ep_robo_vinculo')||'{}')
+                    const docs = (vinculo[o.nome]||[]).length
+                    return docs > 0
+                      ? <span style={{fontSize:11,padding:'2px 8px',borderRadius:10,background:'#eff6ff',color:'#1e40af',fontWeight:700,cursor:'pointer'}}
+                          title={(vinculo[o.nome]||[]).slice(0,3).map(d=>d.arquivo_nome).join(', ')}
+                          onClick={()=>alert('Docs vinculados:\n'+(vinculo[o.nome]||[]).map((d,i)=>(i+1)+'. '+d.arquivo_nome+' ('+d.campos?.competencia+')').join('\n'))}>
+                          📄 {docs}
+                        </span>
+                      : <span style={{color:'#ccc',fontSize:11}}>—</span>
+                  } catch(e){ return <span style={{color:'#ccc',fontSize:11}}>—</span> }
+                })()}</td>
                 <td style={{ padding:"8px 12px" }}>
                   <Toggle value={o.ativo} onChange={()=>toggle(o.codigo)} />
                 </td>
