@@ -4,9 +4,7 @@ import { Send, Paperclip, Link2, Search, X, Check, CheckCheck, FileText, Refresh
 const NAVY = '#1B2A4A'
 const GOLD = '#C5A55A'
 const WPP_GREEN = '#25D366'
-const BACKEND = window.location.hostname.includes('railway.app')
-  ? 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
-  : '/api/v1'
+const BACKEND = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 const addDDI = (t) => { const n=(t||'').replace(/\D/g,''); return n.startsWith('55')?n:'55'+n }
 const fmtHora = (iso) => { try { return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) } catch { return '' } }
