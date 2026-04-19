@@ -27,3 +27,4 @@ from .agenda_mensal import router as agenda_mensal_router
 from .comunicados import router as comunicados_router
 
 from .contratos import router as contratos_router
+from .ai import router as ai_router
