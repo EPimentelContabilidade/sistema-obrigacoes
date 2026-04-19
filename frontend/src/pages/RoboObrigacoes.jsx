@@ -104,6 +104,7 @@ export default function RoboObrigacoes() {
   const [camposEdit, setCamposEdit] = useState({})
   const [historico, setHistorico] = useState(() => ls('ep_robo_hist_v2', []))
   const [biblioteca, setBiblioteca] = useState(() => ls('ep_robo_bib_v2', []))
+  const [modalCriarTarefa, setModalCriarTarefa] = useState(null) // {obrigacao, competencia, tipo}
   const [apiKey, setApiKey]       = useState(() => ls('ep_robo_api_key', ''))
   const [modoIA, setModoIA]       = useState('backend') // backend | local
   const dropRef = useRef(null)
@@ -224,12 +225,13 @@ export default function RoboObrigacoes() {
 
   function salvarNaBiblioteca() {
     if (!resultado) return
+    const campos = { ...camposEdit }
     const item = {
       id: Date.now(),
       arquivo_nome: resultado.arquivo_nome,
       tipo: resultado.tipo_documento,
       tipo_confianca: resultado.tipo_confianca,
-      campos: { ...camposEdit },
+      campos,
       obrigacao: resultado.obrigacao_match,
       cliente: resultado.cliente_match,
       resumo: resultado.resumo_ia,
@@ -237,16 +239,46 @@ export default function RoboObrigacoes() {
       ts: resultado.ts,
       status: 'na_biblioteca',
     }
-    const nova = [item, ...biblioteca]
-    setBiblioteca(nova)
-    lss('ep_robo_bib_v2', nova)
-    // Salvar no histórico também
+
+    // 1. Salvar na biblioteca
+    const novaBib = [item, ...biblioteca]
+    setBiblioteca(novaBib)
+    lss('ep_robo_bib_v2', novaBib)
+
+    // 2. Salvar no histórico
     const novH = [{ ...item, status: 'concluido' }, ...historico]
     setHistorico(novH)
     lss('ep_robo_hist_v2', novH)
-    alert('✅ Documento salvo na biblioteca! Não será mais solicitado para este período.')
+
+    // 3. Vincular documento à obrigação permanentemente
+    if (resultado.obrigacao_match) {
+      const vinculo = ls('ep_robo_vinculo', {})
+      const key = resultado.obrigacao_match
+      vinculo[key] = [item, ...(vinculo[key]||[]).slice(0, 49)]
+      lss('ep_robo_vinculo', vinculo)
+    }
+
+    // 4. Verificar se existe tarefa para este período
+    const comp = campos.competencia || ''
+    const obrig = resultado.obrigacao_match
+    if (obrig && comp) {
+      const tarefas = ls('ep_tarefas_entregas', [])
+      const clienteMatch = resultado.cliente_match || clientes[0]?.nome || ''
+      const temTarefa = tarefas.some(t =>
+        (t.obrigacao||'').toLowerCase().includes(obrig.toLowerCase().slice(0,8)) &&
+        (t.competencia||'') === comp
+      )
+      if (!temTarefa) {
+        setModalCriarTarefa({ obrigacao: obrig, competencia: comp, tipo: resultado.tipo_documento, cliente: clienteMatch })
+        setResultado(null)
+        setArquivo(null)
+        return
+      }
+    }
+
     setResultado(null)
     setArquivo(null)
+    alert('✅ Documento salvo e vinculado à obrigação permanentemente!')
   }
 
   function marcarEntregue() {
@@ -442,6 +474,45 @@ export default function RoboObrigacoes() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── MODAL CRIAR TAREFA ─────────────────────────────────────────── */}
+        {modalCriarTarefa && (
+          <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center' }}>
+            <div style={{ background:'#fff',borderRadius:16,padding:28,maxWidth:440,width:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
+              <div style={{ fontSize:36,textAlign:'center',marginBottom:12 }}>⚠️</div>
+              <div style={{ fontWeight:800,color:NAVY,fontSize:16,textAlign:'center',marginBottom:8 }}>
+                Nenhuma tarefa encontrada!
+              </div>
+              <div style={{ fontSize:13,color:'#555',textAlign:'center',lineHeight:1.6,marginBottom:20 }}>
+                O documento <b>{modalCriarTarefa.tipo}</b> foi salvo na biblioteca e vinculado à obrigação <b>{modalCriarTarefa.obrigacao}</b>,
+                mas não existe tarefa para o período <b>{modalCriarTarefa.competencia}</b>.
+              </div>
+              <div style={{ padding:14,borderRadius:10,background:'#f0fdf4',border:'1px solid #bbf7d0',marginBottom:20 }}>
+                <div style={{ fontSize:11,fontWeight:700,color:'#166534',marginBottom:6 }}>📋 Detalhes</div>
+                <div style={{ fontSize:12,color:'#333' }}>Obrigação: <b>{modalCriarTarefa.obrigacao}</b></div>
+                <div style={{ fontSize:12,color:'#333' }}>Competência: <b>{modalCriarTarefa.competencia}</b></div>
+                {modalCriarTarefa.cliente && <div style={{ fontSize:12,color:'#333' }}>Cliente: <b>{modalCriarTarefa.cliente}</b></div>}
+              </div>
+              <div style={{ display:'flex',gap:10 }}>
+                <button onClick={()=>setModalCriarTarefa(null)}
+                  style={{ flex:1,padding:'10px 0',borderRadius:8,background:'#f3f4f6',color:'#555',border:'none',cursor:'pointer',fontWeight:600,fontSize:13 }}>
+                  Agora não
+                </button>
+                <button onClick={()=>{
+                  setModalCriarTarefa(null)
+                  // Salvar pendência para GerarObrigacoes usar como sugestão
+                  const pendentes = ls('ep_robo_pendentes_tarefa', [])
+                  pendentes.unshift(modalCriarTarefa)
+                  lss('ep_robo_pendentes_tarefa', pendentes.slice(0,20))
+                  alert('✅ Pendência registrada! Acesse Gerar Obrigações para criar a tarefa.')
+                }}
+                  style={{ flex:1,padding:'10px 0',borderRadius:8,background:'#22c55e',color:'#fff',border:'none',cursor:'pointer',fontWeight:700,fontSize:13 }}>
+                  ✅ Registrar e criar
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
