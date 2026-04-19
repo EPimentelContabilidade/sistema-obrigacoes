@@ -12,10 +12,10 @@ from routers import (
     goiania_router, robo_obrig_router,
     consulta_fiscal_router, ecac_download_router,
     whatsapp_evolution_router, disparos_router, entrega_auto_router,
-    automacao_router, drive_monitor_router, whatsapp_bot_router, agenda_mensal_router, comunicados_router, contratos_router,
+    automacao_router, drive_monitor_router, whatsapp_bot_router, agenda_mensal_router, comunicados_router, contratos_router,,
+    ai_router,
 )
 from routers import retencoes
-from routers import ai as ai_module
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -89,7 +89,7 @@ app.include_router(agenda_mensal_router,       prefix="/api/v1")
 app.include_router(comunicados_router, prefix="/api/v1")
 app.include_router(contratos_router,   prefix="/api/v1")
 app.include_router(retencoes.router,   prefix="/api/v1")
-app.include_router(ai_module.router, prefix="/api/v1")
+app.include_router(ai_router,            prefix="/api/v1")
 
 @app.get("/")
 async def root():
