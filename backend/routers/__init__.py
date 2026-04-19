@@ -28,3 +28,5 @@ from .comunicados import router as comunicados_router
 
 from .contratos import router as contratos_router
 from .ai import router as ai_router
+from .prolabore import router as prolabore_router
+from .pessoal import router as pessoal_router
