@@ -26,6 +26,8 @@ import EntregasTarefas       from './pages/EntregasTarefas'
 import Contratos             from './pages/Contratos'
 import GoianiaNFSe           from './pages/GoianiaNFSe'
 import RelatorioFiscal       from './pages/RelatorioFiscal'
+import ProLabore             from './pages/ProLabore'
+import PessoalRH             from './pages/PessoalRH'
 import RoboObrigacoes        from './pages/RoboObrigacoes'
 import ConfiguracoesTarefas  from './pages/ConfiguracoesTarefas'
 import AnaliseRetencoes      from './pages/AnaliseRetencoes'
@@ -98,7 +100,12 @@ const NAV_GROUPS = [
     { id:'comunicados', label:'Comunicados',          icon:MessageSquare, badge:'NOVO'            },
     { id:'boas_vindas', label:'Boas-vindas',          icon:Heart,     badge:'NOVO'                },
   ]},
+  { id:'pessoal_rh', label:'Pessoal / RH', items:[
+    { id:'pessoal_rh',      label:'Módulo RH Completo',  icon:Users },
+    { id:'pro_labore',      label:'Pró-labore IA',        icon:DollarSign },
+  ]},
   { id:'automacao', label:'Automação & IA', items:[
+    { id:'pro_labore',      label:'Pró-labore IA',       icon:DollarSign },
     { id:'robo_obrig',      label:'Robô de Obrigações', icon:Repeat   },
     { id:'monitor_cnpj',    label:'Monitor CNPJ',       icon:RefreshCw },
     { id:'robo',            label:'Robô IA',            icon:Bot      },
@@ -117,7 +124,7 @@ const PAGES = {
   certificados:Certificados, certidoes:Certidoes, conversas:Conversas,
   disparo_wa:DisparoWhatsApp, robo:Robo, comunicados:Comunicados,
   contratos:Contratos, goiania_nfse:GoianiaNFSe, relatorio:RelatorioFiscal,
-  robo_obrig:RoboObrigacoes, configuracoes_tarefas:ConfiguracoesTarefas, monitor_cnpj:MonitorCNPJ,
+  robo_obrig:RoboObrigacoes, pro_labore:ProLabore, pessoal_rh:PessoalRH, configuracoes_tarefas:ConfiguracoesTarefas, monitor_cnpj:MonitorCNPJ,
   admin:Admin, boas_vindas:BoasVindas, alvaras:Alvaras, ep_inteligencia:EPInteligencia,
 }
 
