@@ -14,7 +14,7 @@ from routers import (
     whatsapp_evolution_router, disparos_router, entrega_auto_router,
     automacao_router, drive_monitor_router, whatsapp_bot_router,
     agenda_mensal_router, comunicados_router, contratos_router,
-    ai_router, prolabore_router, pessoal_router,
+    ai_router,
 )
 from routers import retencoes
 from routers.storage import router as storage_router
@@ -26,41 +26,29 @@ async def lifespan(app: FastAPI):
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
         from routers.drive_monitor import varrer_pasta_entrada
         from database import get_db as _get_db
-
         scheduler = AsyncIOScheduler()
-
         async def _varrer():
             async for db in _get_db():
                 await varrer_pasta_entrada(db)
                 break
-
         scheduler.add_job(_varrer, "interval", minutes=10, id="drive_monitor")
-
         from routers.agenda_mensal import disparar_agenda_mensal
-        async def _agenda_mensal():
+        async def _agenda():
             async for db in _get_db():
                 await disparar_agenda_mensal(db)
                 break
-
-        scheduler.add_job(_agenda_mensal, "cron", day=1, hour=8, id="agenda_mensal")
+        scheduler.add_job(_agenda, "cron", day=1, hour=8, id="agenda_mensal")
         scheduler.start()
         app.state.scheduler = scheduler
     except Exception as e:
-        print(f"[Scheduler] Erro ao iniciar: {e}")
-
+        print(f"[Scheduler] {e}")
     yield
-
     try:
         app.state.scheduler.shutdown(wait=False)
     except Exception:
         pass
 
-app = FastAPI(
-    title="EPimentel API",
-    description="Sistema de Obrigações Acessórias - EPimentel Auditoria & Contabilidade",
-    version="2.0.0",
-    lifespan=lifespan,
-)
+app = FastAPI(title="EPimentel API", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,9 +58,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Storage universal — DEVE ser o primeiro router
 app.include_router(storage_router,             prefix="/api/v1")
-# Módulos principais
 app.include_router(dashboard_router,           prefix="/api/v1")
 app.include_router(clientes_router,            prefix="/api/v1")
 app.include_router(obrigacoes_router,          prefix="/api/v1")
@@ -103,8 +89,6 @@ app.include_router(comunicados_router,         prefix="/api/v1")
 app.include_router(contratos_router,           prefix="/api/v1")
 app.include_router(retencoes.router,           prefix="/api/v1")
 app.include_router(ai_router,                  prefix="/api/v1")
-app.include_router(prolabore_router,           prefix="/api/v1")
-app.include_router(pessoal_router,             prefix="/api/v1")
 
 @app.get("/")
 async def root():
