@@ -17,7 +17,6 @@ from routers import (
     ai_router,
 )
 from routers import retencoes
-from routers.storage import router as storage_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,7 +57,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(storage_router,             prefix="/api/v1")
 app.include_router(dashboard_router,           prefix="/api/v1")
 app.include_router(clientes_router,            prefix="/api/v1")
 app.include_router(obrigacoes_router,          prefix="/api/v1")
