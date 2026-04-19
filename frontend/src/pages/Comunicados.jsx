@@ -9,23 +9,23 @@ const GOLD = '#C5A55A'
 const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 const URGENCIAS = [
-  { id:'baixa',         label:'Baixa',         cor:'#1A7A3C', bg:'#EDFBF1', emoji:'🟢', border:'#86efac' },
-  { id:'normal',        label:'Normal',        cor:'#1D6FA4', bg:'#EBF5FF', emoji:'🔵', border:'#93c5fd' },
-  { id:'alta',          label:'Alta',          cor:'#854D0E', bg:'#FEF9C3', emoji:'🟡', border:'#fcd34d' },
-  { id:'muito_urgente', label:'Muito Urgente', cor:'#dc2626', bg:'#FEF2F2', emoji:'🔴', border:'#fca5a5' },
+  { id:'baixa',         label:'Baixa',         cor:'#1A7A3C', bg:'#EDFBF1', emoji:'ð¢', border:'#86efac' },
+  { id:'normal',        label:'Normal',        cor:'#1D6FA4', bg:'#EBF5FF', emoji:'ðµ', border:'#93c5fd' },
+  { id:'alta',          label:'Alta',          cor:'#854D0E', bg:'#FEF9C3', emoji:'ð¡', border:'#fcd34d' },
+  { id:'muito_urgente', label:'Muito Urgente', cor:'#dc2626', bg:'#FEF2F2', emoji:'ð´', border:'#fca5a5' },
 ]
-const DEPARTAMENTOS = ['Geral','Fiscal','Contábil','Pessoal','Financeiro','Jurídico','Diretoria']
+const DEPARTAMENTOS = ['Geral','Fiscal','ContÃ¡bil','Pessoal','Financeiro','JurÃ­dico','Diretoria']
 
 // Canais separados por tipo
 const CANAIS_EXTERNO = [
-  { id:'email',    label:'📧 E-mail' },
-  { id:'whatsapp', label:'💬 WhatsApp' },
-  { id:'ambos',    label:'📲 E-mail + WhatsApp' },
+  { id:'email',    label:'ð§ E-mail' },
+  { id:'whatsapp', label:'ð¬ WhatsApp' },
+  { id:'ambos',    label:'ð² E-mail + WhatsApp' },
 ]
 const CANAIS_INTERNO = [
-  { id:'interno_sistema', label:'🏢 Somente no sistema' },
-  { id:'email',           label:'📧 E-mail interno' },
-  { id:'whatsapp',        label:'💬 WhatsApp interno' },
+  { id:'interno_sistema', label:'ð¢ Somente no sistema' },
+  { id:'email',           label:'ð§ E-mail interno' },
+  { id:'whatsapp',        label:'ð¬ WhatsApp interno' },
 ]
 
 const STATUS_CFG = {
@@ -39,7 +39,7 @@ const STATUS_CFG = {
 }
 const STATUS_CORES_PROC = {
   'Em Andamento':'#2196F3','Aguardando Cliente':'#FF9800',
-  'Concluído':'#4CAF50','Cancelado':'#F44336','Pendente':'#9C27B0',
+  'ConcluÃ­do':'#4CAF50','Cancelado':'#F44336','Pendente':'#9C27B0',
 }
 
 const inp = { padding:'9px 12px', borderRadius:8, border:'1px solid #e0e0e0', fontSize:13, outline:'none', width:'100%', boxSizing:'border-box', fontFamily:'inherit', color:'#333' }
@@ -53,9 +53,9 @@ function fmtBytes(b) {
   return `${(b/1024/1024).toFixed(1)} MB`
 }
 function iconeDoc(tipo='') {
-  if ((tipo||'').includes('pdf'))   return '📄'
-  if ((tipo||'').includes('image')) return '🖼️'
-  return '📎'
+  if ((tipo||'').includes('pdf'))   return 'ð'
+  if ((tipo||'').includes('image')) return 'ð¼ï¸'
+  return 'ð'
 }
 
 const FORM_VAZIO = {
@@ -65,9 +65,9 @@ const FORM_VAZIO = {
   usa_dominio_proprio:false, assinatura_personalizada:'',
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Subcomponentes
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 function Toast({ toasts, fechar }) {
   if (!toasts.length) return null
@@ -84,7 +84,7 @@ function Toast({ toasts, fechar }) {
           pointerEvents:'all', animation:'slideIn .22s ease',
         }}>
           <span style={{ fontSize:20, flexShrink:0, marginTop:1 }}>
-            {t.tipo==='alerta'?'🔔':t.tipo==='erro'?'❌':'✅'}
+            {t.tipo==='alerta'?'ð':t.tipo==='erro'?'â':'â'}
           </span>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontWeight:800, fontSize:13, color:NAVY, marginBottom:2 }}>{t.titulo}</div>
@@ -113,8 +113,8 @@ function ModalAlerta({ comunicados, onClose }) {
             <Bell size={22} style={{ color:NAVY }}/>
           </div>
           <div>
-            <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>🔔 Comunicado Importante!</div>
-            <div style={{ color:GOLD, fontSize:12, marginTop:2 }}>Você tem {comunicados.length} comunicado(s) aguardando atenção</div>
+            <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>ð Comunicado Importante!</div>
+            <div style={{ color:GOLD, fontSize:12, marginTop:2 }}>VocÃª tem {comunicados.length} comunicado(s) aguardando atenÃ§Ã£o</div>
           </div>
         </div>
         <div style={{ padding:20, maxHeight:320, overflowY:'auto' }}>
@@ -141,7 +141,7 @@ function ModalAlerta({ comunicados, onClose }) {
 }
 
 
-/* ─── ModalConfirmacao ─────────────────────────────────────────────────────── */
+/* âââ ModalConfirmacao âââââââââââââââââââââââââââââââââââââââââââââââââââââââ */
 function ModalConfirmacao({ aberto, titulo, mensagem, onConfirmar, onCancelar, corBotao='#dc2626', labelBotao='Confirmar' }) {
   if (!aberto) return null
   return (
@@ -201,7 +201,7 @@ function SecaoDocumentos({ comId, modoLeitura }) {
 
   const carregar = useCallback(async () => {
     if (!comId) return
-    // Docs locais (quando ID começa com local_)
+    // Docs locais (quando ID comeÃ§a com local_)
     if (String(comId).startsWith('local_')) {
       try { const locais = JSON.parse(localStorage.getItem(`ep_docs_${comId}`)||'[]'); setDocs(locais) } catch {}
       return
@@ -255,8 +255,8 @@ function SecaoDocumentos({ comId, modoLeitura }) {
           style={{ border:`2px dashed ${drag?GOLD:'#d0d7e6'}`, borderRadius:10, padding:'14px 18px', textAlign:'center', cursor:'pointer', background:drag?'#fffbeb':'#fafbfc', marginBottom:10 }}>
           <input ref={inputRef} type="file" multiple style={{display:'none'}} onChange={e=>uploadArqs(Array.from(e.target.files))}/>
           <Paperclip size={16} style={{color:'#bbb',marginBottom:4}}/>
-          <div style={{fontSize:12,color:'#888',fontWeight:600}}>{uploading?'⏳ Enviando...':'Arraste arquivos ou clique para selecionar'}</div>
-          <div style={{fontSize:10,color:'#bbb',marginTop:2}}>PDF, imagens, Word, Excel…</div>
+          <div style={{fontSize:12,color:'#888',fontWeight:600}}>{uploading?'â³ Enviando...':'Arraste arquivos ou clique para selecionar'}</div>
+          <div style={{fontSize:10,color:'#bbb',marginTop:2}}>PDF, imagens, Word, Excelâ¦</div>
         </div>
       )}
       {docs.length > 0 ? docs.map(doc=>(
@@ -264,7 +264,7 @@ function SecaoDocumentos({ comId, modoLeitura }) {
           <span style={{fontSize:20}}>{iconeDoc(doc.tipo)}</span>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:12,fontWeight:600,color:NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{doc.nome}</div>
-            <div style={{fontSize:10,color:'#aaa'}}>{fmtBytes(doc.tamanho)} · {doc.criado_em?.slice(0,16)}</div>
+            <div style={{fontSize:10,color:'#aaa'}}>{fmtBytes(doc.tamanho)} Â· {doc.criado_em?.slice(0,16)}</div>
           </div>
           <button onClick={()=>setPreview(doc)} style={{...btn('#EBF5FF','#1D6FA4'),padding:'5px 10px',fontSize:11}}><Eye size={12}/> Ver</button>
           {!modoLeitura && <button onClick={()=>excluir(doc.id)} style={{...btn('#FEF2F2','#dc2626'),padding:'5px 8px'}}><Trash2 size={12}/></button>}
@@ -296,7 +296,7 @@ function SeletorProcessos({ selectedIds: rawSelectedIds, onChange }) {
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:600,color:NAVY,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.titulo}</div>
-                <div style={{fontSize:10,color:'#aaa'}}>{p.cliente} · <span style={{color:cor,fontWeight:700}}>{p.status}</span></div>
+                <div style={{fontSize:10,color:'#aaa'}}>{p.cliente} Â· <span style={{color:cor,fontWeight:700}}>{p.status}</span></div>
               </div>
             </div>
           )
@@ -313,22 +313,22 @@ function TagsProcessos({ processo_ids }) {
   const ids = (() => { try{ return JSON.parse(processo_ids||'[]') }catch{ return [] } })()
   if (!ids.length) return null
   const vins = ids.map(id=>processos.find(p=>String(p.id)===String(id))).filter(Boolean)
-  if (!vins.length) return <div style={{fontSize:12,color:'#aaa'}}>{ids.length} processo(s) (não encontrado no dispositivo)</div>
+  if (!vins.length) return <div style={{fontSize:12,color:'#aaa'}}>{ids.length} processo(s) (nÃ£o encontrado no dispositivo)</div>
   return (
     <div style={{display:'flex',flexDirection:'column',gap:8}}>
       {vins.map(p=>{ const cor=STATUS_CORES_PROC[p.status]||'#888'; return (
         <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderRadius:10,border:`1px solid ${cor}33`,background:`${cor}08`}}>
           <Briefcase size={14} style={{color:cor,flexShrink:0}}/>
-          <div><div style={{fontSize:13,fontWeight:700,color:NAVY}}>{p.titulo}</div><div style={{fontSize:11,color:'#888'}}>{p.cliente} · <span style={{color:cor,fontWeight:700}}>{p.status}</span></div></div>
+          <div><div style={{fontSize:13,fontWeight:700,color:NAVY}}>{p.titulo}</div><div style={{fontSize:11,color:'#888'}}>{p.cliente} Â· <span style={{color:cor,fontWeight:700}}>{p.status}</span></div></div>
         </div>
       )})}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // Componente principal
-// ─────────────────────────────────────────────────────────────────────────────
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function Comunicados() {
   const [aba, setAba]               = useState('lista')
   const [comunicados, setComunicados] = useState([])
@@ -346,6 +346,8 @@ export default function Comunicados() {
   const [clienteBusca, setClienteBusca] = useState('')
   const [emailAvulso, setEmailAvulso]   = useState('')
   const [whatsappAvulso, setWhatsappAvulso] = useState('')
+  const [lastSync, setLastSync] = useState(null)
+  const [syncando, setSyncando] = useState(false)
   const [enviando, setEnviando]     = useState(false)
   const [salvando, setSalvando]     = useState(false)
   const [gerandoResumo, setGerandoResumo] = useState(false)
@@ -375,7 +377,7 @@ export default function Comunicados() {
   const toastCnt = useRef(0)
   const uploadRef = useRef()
 
-  // ── Toast helpers ─────────────────────────────────────────────────────────
+  // ââ Toast helpers âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const addToast = (titulo, msg, tipo='info', canais=null, dur=5000) => {
     const id = ++toastCnt.current
     setToasts(t=>[...t,{id,titulo,msg,tipo,canais}])
@@ -384,7 +386,7 @@ export default function Comunicados() {
   }
   const fecharToast = id => setToasts(t=>t.filter(x=>x.id!==id))
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // ââ Init ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   useEffect(() => {
     carregarComunicados()
     try{ setClientes(JSON.parse(localStorage.getItem('ep_clientes')||'[]')) }catch{}
@@ -416,18 +418,18 @@ export default function Comunicados() {
           const apiLista = await r.json()
           const apiIds = new Set(apiLista.map(x=>x.id))
           const merged = [...locais.filter(l=>!apiIds.has(l.id)), ...apiLista]
-          setComunicados(merged); verificarAlertasUsuario(merged); return
+          setComunicados(merged); verificarAlertasUsuario(merged); setLastSync(new Date()); return
         }
       } catch {}
       setComunicados(locais); verificarAlertasUsuario(locais)
-    } catch {} finally { setCarregando(false) }
+    } catch {} finally { setCarregando(false); setLastSync(new Date()) }
   }
   useEffect(()=>{ try{setTodosProcessos(JSON.parse(localStorage.getItem('ep_processos')||'[]'))}catch{} },[])
   useEffect(()=>{ carregarComunicados() },[filtroUrg,filtroDept,filtroStatus])
 
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
 
-  // ── Abrir edição ──────────────────────────────────────────────────────────
+  // ââ Abrir ediÃ§Ã£o ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const abrirEdicao = (com) => {
     const pids   = (() => { try{ return JSON.parse(com.processo_ids||'[]') }catch{ return [] } })()
     const cids   = (() => { try{ return JSON.parse(com.cliente_ids||'[]') }catch{ return [] } })()
@@ -446,7 +448,7 @@ export default function Comunicados() {
     setAba('novo')
   }
 
-  // ── Excluir ───────────────────────────────────────────────────────────────
+  // ââ Excluir âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   const excluirComunicado = (id, titulo) => {
     confirmar('Excluir Comunicado', `Tem certeza que deseja excluir "${titulo}"?`, async () => {
       try {
@@ -459,19 +461,19 @@ export default function Comunicados() {
         if (!String(id).startsWith('local_')) {
           try { await fetch(`${API}/comunicados/${id}`,{method:'DELETE'}) } catch {}
         }
-        addToast('🗑️ Excluído',`"${titulo}" foi removido.`,'info',null,4000)
+        addToast('ðï¸ ExcluÃ­do',`"${titulo}" foi removido.`,'info',null,4000)
         setDetalhe(null); await carregarComunicados()
-      } catch { addToast('Erro','Não foi possível excluir.','erro',null,4000) }
-    }, '#dc2626', '🗑️ Excluir')
+      } catch { addToast('Erro','NÃ£o foi possÃ­vel excluir.','erro',null,4000) }
+    }, '#dc2626', 'ðï¸ Excluir')
   }
 
-    // ── Notificar responsável ─────────────────────────────────────────────────
+    // ââ Notificar responsÃ¡vel âââââââââââââââââââââââââââââââââââââââââââââââââ
   const onResp = async (nome) => {
     setF('responsavel', nome)
     if (!nome) return
     const u = usuariosAdmin.find(u=>u.nome===nome)
-    const canais = [u?.email&&'📧 '+u.email, (u?.whatsapp||u?.telefone)&&'💬 '+(u?.whatsapp||u?.telefone)].filter(Boolean)
-    const tid = addToast('🔔 Responsável selecionado',`${nome} — ${form.departamento}`,'alerta',canais,0)
+    const canais = [u?.email&&'ð§ '+u.email, (u?.whatsapp||u?.telefone)&&'ð¬ '+(u?.whatsapp||u?.telefone)].filter(Boolean)
+    const tid = addToast('ð ResponsÃ¡vel selecionado',`${nome} â ${form.departamento}`,'alerta',canais,0)
     if (u && (u.email||u.telefone||u.whatsapp)) {
       try {
         await fetch(`${API}/comunicados/notificar-responsavel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
@@ -479,21 +481,21 @@ export default function Comunicados() {
           urgencia:form.urgencia, usuario_email:u.email||'', usuario_telefone:u.whatsapp||u.telefone||''
         })})
         fecharToast(tid)
-        addToast('✅ Notificado',`${nome} foi notificado${canais.length?' via '+canais.join(' e '):'.'}`, canais.length?'info':'alerta', canais, 6000)
+        addToast('â Notificado',`${nome} foi notificado${canais.length?' via '+canais.join(' e '):'.'}`, canais.length?'info':'alerta', canais, 6000)
       } catch {
         fecharToast(tid)
-        addToast('⚠️ Responsável selecionado',`${nome} — notificação automática indisponível`,'alerta',null,5000)
+        addToast('â ï¸ ResponsÃ¡vel selecionado',`${nome} â notificaÃ§Ã£o automÃ¡tica indisponÃ­vel`,'alerta',null,5000)
       }
     } else {
       fecharToast(tid)
-      addToast('⚠️ Responsável selecionado',`${nome} — sem e-mail/WhatsApp no Admin para notificação automática.`,'alerta',null,7000)
+      addToast('â ï¸ ResponsÃ¡vel selecionado',`${nome} â sem e-mail/WhatsApp no Admin para notificaÃ§Ã£o automÃ¡tica.`,'alerta',null,7000)
     }
   }
 
-  // ── Gerar Resumo com IA ───────────────────────────────────────────────────
+  // ââ Gerar Resumo com IA âââââââââââââââââââââââââââââââââââââââââââââââââââ
   const gerarResumoIA = async () => {
     if (!form.titulo.trim() && !form.conteudo.trim()) {
-      addToast('Atenção','Preencha título ou conteúdo antes de gerar o resumo.','alerta',null,4000); return
+      addToast('AtenÃ§Ã£o','Preencha tÃ­tulo ou conteÃºdo antes de gerar o resumo.','alerta',null,4000); return
     }
     setGerandoResumo(true)
     try {
@@ -502,8 +504,8 @@ export default function Comunicados() {
         body:JSON.stringify({ titulo:form.titulo, conteudo:form.conteudo, departamento:form.departamento, urgencia:form.urgencia, tipo:form.tipo })
       })
       const d = await r.json()
-      if (d.resumo) { setF('resumo',d.resumo); addToast('✅ Resumo gerado','Preenchido automaticamente pela IA.','info',null,4000) }
-      else addToast('⚠️ Sem resultado','Verifique a API Key da IA.','alerta',null,5000)
+      if (d.resumo) { setF('resumo',d.resumo); addToast('â Resumo gerado','Preenchido automaticamente pela IA.','info',null,4000) }
+      else addToast('â ï¸ Sem resultado','Verifique a API Key da IA.','alerta',null,5000)
     } catch { addToast('Erro','Falha ao conectar com a IA.','erro',null,4000) }
     setGerandoResumo(false)
   }
@@ -513,11 +515,11 @@ export default function Comunicados() {
     const hoje = new Date()
     const resumo = comunicados.filter(c=>c.status==='pendente').map(c=>{
       const dias=Math.floor((hoje-new Date(c.criado_em))/86400000)
-      return `"${c.titulo}" (${c.urgencia}, ${c.departamento}, ${dias}d, resp: ${c.responsavel||'—'})`
+      return `"${c.titulo}" (${c.urgencia}, ${c.departamento}, ${dias}d, resp: ${c.responsavel||'â'})`
     }).join('\n')
     try {
-      const r=await fetch(`${API}/ai/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:`Analise comunicados pendentes e identifique críticos:\n${resumo||'Nenhum.'}`,max_tokens:600})})
-      const d=await r.json(); setIaAtrasos(d.response||d.content||'Análise indisponível.')
+      const r=await fetch(`${API}/ai/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:`Analise comunicados pendentes e identifique crÃ­ticos:\n${resumo||'Nenhum.'}`,max_tokens:600})})
+      const d=await r.json(); setIaAtrasos(d.response||d.content||'AnÃ¡lise indisponÃ­vel.')
     } catch{ setIaAtrasos('Erro ao conectar com a IA.') }
     setIaCarregando(false)
   }
@@ -530,9 +532,9 @@ export default function Comunicados() {
     if (n.length >= 8) { setF('whatsapps_extra',[...(form.whatsapps_extra||[]),n]); setWhatsappAvulso('') }
   }
 
-  // ── Salvar sem enviar (com fallback localStorage) ─────────────────────────
+  // ââ Salvar sem enviar (com fallback localStorage) âââââââââââââââââââââââââ
   const salvar = async () => {
-    if (!form.titulo.trim()) { addToast('Atenção','Informe o título.','alerta',null,4000); return }
+    if (!form.titulo.trim()) { addToast('AtenÃ§Ã£o','Informe o tÃ­tulo.','alerta',null,4000); return }
     setSalvando(true)
     try {
       let id = editandoId || null
@@ -560,7 +562,7 @@ export default function Comunicados() {
       }
       if (ok && id) {
         if (!String(id).startsWith('local_')) {
-          // API disponível: upload normal
+          // API disponÃ­vel: upload normal
           for (const arq of uploadPendente) { const fd=new FormData(); fd.append('file',arq); try{ await fetch(`${API}/comunicados/${id}/docs`,{method:'POST',body:fd}) }catch{} }
         } else if (uploadPendente.length > 0) {
           // Sem API: salvar arquivos como base64 no localStorage
@@ -572,7 +574,7 @@ export default function Comunicados() {
             } catch {}
           }
           if (docsLocais.length) {
-            // Mesclar com docs já existentes (não sobrescrever)
+            // Mesclar com docs jÃ¡ existentes (nÃ£o sobrescrever)
             let jaExistem = []
             try { jaExistem = JSON.parse(localStorage.getItem(`ep_docs_${id}`)||'[]') } catch {}
             localStorage.setItem(`ep_docs_${id}`, JSON.stringify([...jaExistem, ...docsLocais]))
@@ -586,18 +588,18 @@ export default function Comunicados() {
           }
         }
         setUploadPendente([])
-        addToast('💾 Salvo', editandoId?`"${form.titulo}" atualizado.`:`"${form.titulo}" salvo.`,'info',null,5000)
+        addToast('ð¾ Salvo', editandoId?`"${form.titulo}" atualizado.`:`"${form.titulo}" salvo.`,'info',null,5000)
         setForm({...FORM_VAZIO}); setEditandoId(null)
         await carregarComunicados()
         setTimeout(()=>setAba('lista'),1200)
       }
-    } catch(e){ addToast('Erro','Não foi possível salvar.','erro',null,5000) }
+    } catch(e){ addToast('Erro','NÃ£o foi possÃ­vel salvar.','erro',null,5000) }
     finally{ setSalvando(false) }
   }
 
-    // ── Enviar (criar ou de salvo) ────────────────────────────────────────────
+    // ââ Enviar (criar ou de salvo) ââââââââââââââââââââââââââââââââââââââââââââ
   const enviar = async () => {
-    if (!form.titulo.trim()||!form.conteudo.trim()) { addToast('Atenção','Preencha título e conteúdo.','alerta',null,4000); return }
+    if (!form.titulo.trim()||!form.conteudo.trim()) { addToast('AtenÃ§Ã£o','Preencha tÃ­tulo e conteÃºdo.','alerta',null,4000); return }
     setEnviando(true)
     try {
       let id, ok
@@ -612,7 +614,7 @@ export default function Comunicados() {
       if (ok && id) {
         for (const arq of uploadPendente) { const fd=new FormData(); fd.append('file',arq); try{ await fetch(`${API}/comunicados/${id}/docs`,{method:'POST',body:fd}) }catch{} }
         setUploadPendente([])
-        addToast('✅ Comunicado enviado!',`"${form.titulo}" foi enviado.`,'info',null,6000)
+        addToast('â Comunicado enviado!',`"${form.titulo}" foi enviado.`,'info',null,6000)
         setForm({...FORM_VAZIO}); setEditandoId(null)
         await carregarComunicados()
         setTimeout(()=>setAba('lista'),1200)
@@ -621,14 +623,14 @@ export default function Comunicados() {
     finally{ setEnviando(false) }
   }
 
-  // ── Enviar direto da lista/detalhe (status 'salvo') ───────────────────────
+  // ââ Enviar direto da lista/detalhe (status 'salvo') âââââââââââââââââââââââ
   const enviarSalvo = async (com) => {
     if (!confirm(`Enviar o comunicado "${com.titulo}" agora?`)) return
     setEnviandoDetalhe(true)
     try {
       const r = await fetch(`${API}/comunicados/${com.id}/enviar`,{method:'POST'})
       if (r.ok) {
-        addToast('✅ Enviado!',`"${com.titulo}" foi enviado com sucesso.`,'info',null,5000)
+        addToast('â Enviado!',`"${com.titulo}" foi enviado com sucesso.`,'info',null,5000)
         setDetalhe(null)
         await carregarComunicados()
       }
@@ -652,22 +654,22 @@ export default function Comunicados() {
         lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'encerrado'}:x)
         localStorage.setItem('ep_comunicados', JSON.stringify(lista))
       } catch {}
-      addToast('🔒 Encerrado',`"${titulo}" foi encerrado.`,'info',null,4000)
+      addToast('ð Encerrado',`"${titulo}" foi encerrado.`,'info',null,4000)
       setDetalhe(null); await carregarComunicados()
-    }, '#6B7280', '🔒 Encerrar')
+    }, '#6B7280', 'ð Encerrar')
   }
 
   const pausar = (id, titulo) => {
-    confirmar('Pausar Comunicado', `Pausar "${titulo}"? O comunicado ficará aguardando.`, async () => {
+    confirmar('Pausar Comunicado', `Pausar "${titulo}"? O comunicado ficarÃ¡ aguardando.`, async () => {
       try { await fetch(`${API}/comunicados/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'pausado'})}) } catch {}
       try {
         let lista = JSON.parse(localStorage.getItem('ep_comunicados')||'[]')
         lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'pausado'}:x)
         localStorage.setItem('ep_comunicados', JSON.stringify(lista))
       } catch {}
-      addToast('⏸️ Pausado',`"${titulo}" foi pausado.`,'info',null,4000)
+      addToast('â¸ï¸ Pausado',`"${titulo}" foi pausado.`,'info',null,4000)
       setDetalhe(null); await carregarComunicados()
-    }, '#7C3AED', '⏸️ Pausar')
+    }, '#7C3AED', 'â¸ï¸ Pausar')
   }
 
   const desistir = (id, titulo) => {
@@ -678,9 +680,9 @@ export default function Comunicados() {
         lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'desistido'}:x)
         localStorage.setItem('ep_comunicados', JSON.stringify(lista))
       } catch {}
-      addToast('🚫 Desistido',`"${titulo}" marcado como desistido.`,'alerta',null,4000)
+      addToast('ð« Desistido',`"${titulo}" marcado como desistido.`,'alerta',null,4000)
       setDetalhe(null); await carregarComunicados()
-    }, '#dc2626', '🚫 Desistir')
+    }, '#dc2626', 'ð« Desistir')
   }
 
   const reabrirComunicado = async (id, titulo) => {
@@ -690,13 +692,36 @@ export default function Comunicados() {
       lista = lista.map(x=>String(x.id)===String(id)?{...x,status:'pendente'}:x)
       localStorage.setItem('ep_comunicados', JSON.stringify(lista))
     } catch {}
-    addToast('🔓 Reaberto',`"${titulo}" foi reaberto.`,'info',null,4000)
+    addToast('ð Reaberto',`"${titulo}" foi reaberto.`,'info',null,4000)
     setDetalhe(null); await carregarComunicados()
   }
 
     const salvarSmtp = async () => {
     await fetch(`${API}/comunicados/config-smtp`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(smtp)})
     setSmtpSalvo(true); setTimeout(()=>setSmtpSalvo(false),2000)
+  }
+
+  const syncManual = async () => {
+    setSyncando(true)
+    await carregarComunicados()
+    setSyncando(false)
+  }
+
+  const backupDownload = () => {
+    try {
+      const dados = {
+        comunicados: JSON.parse(localStorage.getItem('ep_comunicados')||'[]'),
+        processos:   JSON.parse(localStorage.getItem('ep_processos')||'[]'),
+        clientes:    JSON.parse(localStorage.getItem('ep_clientes')||'[]'),
+        geradoEm:    new Date().toISOString(),
+      }
+      const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'})
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = `backup_comunicados_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.json`
+      a.click(); URL.revokeObjectURL(url)
+      addToast('✅ Backup baixado','Arquivo JSON gerado com sucesso.','info',null,4000)
+    } catch { addToast('Erro','Falha ao gerar backup.','erro',null,4000) }
   }
 
   const cancelarForm = () => { setForm({...FORM_VAZIO}); setEditandoId(null); setUploadPendente([]); setEmailAvulso(''); setWhatsappAvulso(''); setAba('lista') }
@@ -718,7 +743,7 @@ export default function Comunicados() {
   // canal options baseadas no tipo
   const canaisDisponiveis = form.tipo==='interno' ? CANAIS_INTERNO : CANAIS_EXTERNO
 
-  // ── TELA DE DETALHE ───────────────────────────────────────────────────────
+  // ââ TELA DE DETALHE âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   if (detalhe) {
     const urg = URGENCIAS.find(u=>u.id===detalhe.urgencia)||URGENCIAS[1]
     const sts = STATUS_CFG[detalhe.status]||STATUS_CFG.pendente
@@ -733,7 +758,7 @@ export default function Comunicados() {
         <Toast toasts={toasts} fechar={fecharToast}/>
       <ModalConfirmacao {...modalConfirm}/>
 
-        {/* Breadcrumb + ações */}
+        {/* Breadcrumb + aÃ§Ãµes */}
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:20,flexWrap:'wrap'}}>
           <button onClick={()=>{setDetalhe(null);setAbaDetalhe('conteudo')}} style={{...btn('#f5f5f5','#555'),padding:'7px 12px'}}><X size={14}/> Voltar</button>
           <span style={{fontSize:11,color:'#aaa'}}>Comunicados /</span>
@@ -754,24 +779,24 @@ export default function Comunicados() {
           <div style={{background:`linear-gradient(135deg,${NAVY},#2d4a7a)`,padding:'18px 24px',display:'flex',gap:10,alignItems:'flex-start',flexWrap:'wrap'}}>
             <div style={{flex:1,minWidth:200}}>
               <div style={{color:'#fff',fontWeight:800,fontSize:17,marginBottom:4}}>{detalhe.titulo}</div>
-              <div style={{color:GOLD,fontSize:11}}>{detalhe.departamento} · {detalhe.responsavel&&`👤 ${detalhe.responsavel} · `}{detalhe.criado_em?.slice(0,16)}</div>
+              <div style={{color:GOLD,fontSize:11}}>{detalhe.departamento} Â· {detalhe.responsavel&&`ð¤ ${detalhe.responsavel} Â· `}{detalhe.criado_em?.slice(0,16)}</div>
             </div>
             <div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
               <span style={{background:isInterno?'#F3EEFF':'#EBF5FF',color:isInterno?'#6B3EC9':'#1D6FA4',padding:'4px 10px',borderRadius:10,fontSize:11,fontWeight:800}}>
-                {isInterno?'🏢 Interno':'🌐 Externo'}
+                {isInterno?'ð¢ Interno':'ð Externo'}
               </span>
               <span style={{background:urg.bg,color:urg.cor,padding:'4px 12px',borderRadius:12,fontSize:12,fontWeight:800}}>{urg.emoji} {urg.label}</span>
               <span style={{background:sts.bg,color:sts.cor,padding:'4px 12px',borderRadius:12,fontSize:12,fontWeight:800}}>{sts.label}</span>
-              {isSalvo && <span style={{background:'#fff9e6',color:'#854D0E',padding:'4px 10px',borderRadius:10,fontSize:11,fontWeight:700}}>⚠️ Ainda não enviado</span>}
+              {isSalvo && <span style={{background:'#fff9e6',color:'#854D0E',padding:'4px 10px',borderRadius:10,fontSize:11,fontWeight:700}}>â ï¸ Ainda nÃ£o enviado</span>}
             </div>
           </div>
 
           {/* Resumo destacado */}
           {detalhe.resumo && (
             <div style={{background:'linear-gradient(135deg,#fffef2,#fff9e6)',borderBottom:'1px solid #f5e6c0',padding:'14px 24px',display:'flex',gap:12,alignItems:'flex-start'}}>
-              <span style={{fontSize:22,flexShrink:0}}>📋</span>
+              <span style={{fontSize:22,flexShrink:0}}>ð</span>
               <div>
-                <div style={{fontSize:10,fontWeight:800,color:'#854D0E',textTransform:'uppercase',letterSpacing:.8,marginBottom:5}}>Resumo da Solicitação</div>
+                <div style={{fontSize:10,fontWeight:800,color:'#854D0E',textTransform:'uppercase',letterSpacing:.8,marginBottom:5}}>Resumo da SolicitaÃ§Ã£o</div>
                 <div style={{fontSize:14,color:'#444',lineHeight:1.7,fontStyle:'italic'}}>{detalhe.resumo}</div>
               </div>
             </div>
@@ -780,9 +805,9 @@ export default function Comunicados() {
           {/* Abas */}
           <div style={{display:'flex',borderBottom:'1px solid #e8e8e8',background:'#fafafa'}}>
             {[
-              {id:'conteudo', label:'💬 Conteúdo'},
-              {id:'docs',     label:'📎 Documentos'},
-              {id:'processos',label:`🔗 Processos${pids.length?` (${pids.length})`:''}`},
+              {id:'conteudo', label:'ð¬ ConteÃºdo'},
+              {id:'docs',     label:'ð Documentos'},
+              {id:'processos',label:`ð Processos${pids.length?` (${pids.length})`:''}`},
             ].map(ab=>(
               <button key={ab.id} onClick={()=>setAbaDetalhe(ab.id)}
                 style={{padding:'10px 18px',background:'none',border:'none',cursor:'pointer',fontSize:13,fontWeight:abaDetalhe===ab.id?800:400,color:abaDetalhe===ab.id?NAVY:'#888',borderBottom:abaDetalhe===ab.id?`3px solid ${GOLD}`:'3px solid transparent',transition:'all .15s'}}>
@@ -792,13 +817,13 @@ export default function Comunicados() {
           </div>
 
           <div style={{padding:24}}>
-            {/* Aba Conteúdo */}
+            {/* Aba ConteÃºdo */}
             {abaDetalhe==='conteudo' && (
               <>
                 <div style={{whiteSpace:'pre-wrap',fontSize:14,color:'#333',lineHeight:1.8,marginBottom:24}}>{detalhe.conteudo}</div>
                 {detalhe.alerta_ia && (
                   <div style={{background:'#FEF9C3',border:'1px solid #fcd34d',borderRadius:10,padding:'14px 16px',marginBottom:20}}>
-                    <div style={{fontWeight:700,color:'#854D0E',fontSize:12,marginBottom:6}}>🤖 Alerta IA ({detalhe.dias_aberto} dias em aberto)</div>
+                    <div style={{fontWeight:700,color:'#854D0E',fontSize:12,marginBottom:6}}>ð¤ Alerta IA ({detalhe.dias_aberto} dias em aberto)</div>
                     <div style={{fontSize:13,color:'#333',whiteSpace:'pre-wrap'}}>{detalhe.alerta_ia}</div>
                   </div>
                 )}
@@ -815,11 +840,11 @@ export default function Comunicados() {
                   </div>
                 )}
 
-                {/* Ações: responder / encerrar / enviar agora */}
+                {/* AÃ§Ãµes: responder / encerrar / enviar agora */}
                 {isSalvo && (
                   <div style={{padding:'16px 20px',borderRadius:10,background:'#fff9e6',border:`1px solid ${GOLD}55`,marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
-                    <span style={{fontSize:18}}>⚠️</span>
-                    <div style={{flex:1,fontSize:13,color:'#854D0E'}}>Este comunicado está <strong>salvo mas não enviado</strong>. Clique em "Enviar Agora" para disparar para os destinatários.</div>
+                    <span style={{fontSize:18}}>â ï¸</span>
+                    <div style={{flex:1,fontSize:13,color:'#854D0E'}}>Este comunicado estÃ¡ <strong>salvo mas nÃ£o enviado</strong>. Clique em "Enviar Agora" para disparar para os destinatÃ¡rios.</div>
                     <button onClick={()=>enviarSalvo(detalhe)} disabled={enviandoDetalhe} style={{...btn('#22c55e'),flexShrink:0}}>
                       <Send size={13}/> {enviandoDetalhe?'Enviando...':'Enviar Agora'}
                     </button>
@@ -843,13 +868,13 @@ export default function Comunicados() {
             )}
 
             {abaDetalhe==='docs' && (
-              <><div style={{fontSize:13,fontWeight:700,color:NAVY,marginBottom:14}}>📎 Documentos do Comunicado</div>
+              <><div style={{fontSize:13,fontWeight:700,color:NAVY,marginBottom:14}}>ð Documentos do Comunicado</div>
               <SecaoDocumentos comId={detalhe.id} modoLeitura={false}/></>
             )}
 
             {abaDetalhe==='processos' && (
               <div>
-                <div style={{fontSize:13,fontWeight:700,color:NAVY,marginBottom:14}}>🔗 Processos Vinculados</div>
+                <div style={{fontSize:13,fontWeight:700,color:NAVY,marginBottom:14}}>ð Processos Vinculados</div>
                 {pids.length===0
                   ? <div style={{padding:24,textAlign:'center',color:'#ccc',background:'#fafafa',borderRadius:10,border:'2px dashed #e8e8e8'}}><Briefcase size={22} style={{opacity:.3,display:'block',margin:'0 auto 8px'}}/><div>Nenhum processo vinculado</div></div>
                   : <TagsProcessos processo_ids={detalhe.processo_ids}/>}
@@ -861,7 +886,7 @@ export default function Comunicados() {
     )
   }
 
-  // ── LISTA PRINCIPAL ───────────────────────────────────────────────────────
+  // ââ LISTA PRINCIPAL âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   return (
     <div style={{padding:24,maxWidth:1100,margin:'0 auto'}}>
       <Toast toasts={toasts} fechar={fecharToast}/>
@@ -875,7 +900,7 @@ export default function Comunicados() {
           </div>
           <div>
             <div style={{fontSize:19,fontWeight:800,color:NAVY}}>Comunicados</div>
-            <div style={{fontSize:12,color:'#888'}}>Comunicações avulsas com clientes, processos e departamentos</div>
+            <div style={{fontSize:12,color:'#888'}}>ComunicaÃ§Ãµes avulsas com clientes, processos e departamentos</div>
           </div>
         </div>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
@@ -886,7 +911,14 @@ export default function Comunicados() {
             </button>
           )}
           <button onClick={verificarAtrasos} disabled={iaCarregando} style={{...btn('#f0f4ff',NAVY),border:`1px solid #c7d2fe`}}>
-            <Bot size={13}/> {iaCarregando?'Analisando...':'🤖 IA Atrasos'}
+            <Bot size={13}/> {iaCarregando?'Analisando...':'ð¤ IA Atrasos'}
+          </button>
+          <button onClick={syncManual} disabled={syncando} title={lastSync?`Último sync: ${lastSync.toLocaleTimeString('pt-BR')}`:'Sincronizar'} style={{...btn('#f0f4ff',NAVY),border:'1px solid #c7d2fe',position:'relative'}}>
+            <RefreshCw size={13} style={{animation:syncando?'spin 1s linear infinite':undefined}}/> {syncando?'Sync...':'Sync'}
+            {lastSync&&<span style={{position:'absolute',top:-4,right:-4,background:'#22c55e',width:8,height:8,borderRadius:'50%',border:'1px solid #fff'}}/>}
+          </button>
+          <button onClick={backupDownload} title="Baixar backup JSON" style={{...btn('#f5f5f5','#555'),padding:'9px 12px'}}>
+            <Download size={14}/>
           </button>
           <button onClick={()=>{ setForm({...FORM_VAZIO}); setEditandoId(null); setUploadPendente([]); setAba(aba==='novo'?'lista':'novo') }} style={btn(NAVY)}>
             <Plus size={14}/> Novo Comunicado
@@ -896,7 +928,7 @@ export default function Comunicados() {
           </button>
           {aba !== 'lista' && (
             <button onClick={()=>{ cancelarForm(); setAba('lista') }} style={{...btn('#f5f5f5','#555'),padding:'9px 12px',border:'1px solid #e0e0e0'}} title="Voltar">
-              ← Voltar
+              â Voltar
             </button>
           )}
         </div>
@@ -906,7 +938,7 @@ export default function Comunicados() {
       {iaAtrasos&&(
         <div style={{background:'#FFFBF0',border:'1px solid #fcd34d',borderRadius:12,padding:16,marginBottom:20}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
-            <div style={{fontWeight:700,color:'#854D0E',fontSize:13}}>🤖 Análise IA — Atrasos</div>
+            <div style={{fontWeight:700,color:'#854D0E',fontSize:13}}>ð¤ AnÃ¡lise IA â Atrasos</div>
             <button onClick={()=>setIaAtrasos('')} style={{background:'none',border:'none',cursor:'pointer',color:'#aaa'}}><X size={14}/></button>
           </div>
           <div style={{fontSize:13,color:'#333',whiteSpace:'pre-wrap',lineHeight:1.7}}>{iaAtrasos}</div>
@@ -926,9 +958,9 @@ export default function Comunicados() {
       {/* Config SMTP */}
       {aba==='config_smtp'&&(
         <div style={{background:'#fff',borderRadius:14,border:'1px solid #e8e8e8',padding:24,marginBottom:20}}>
-          <div style={{fontSize:15,fontWeight:800,color:NAVY,marginBottom:16}}>⚙️ Configuração de E-mail</div>
+          <div style={{fontSize:15,fontWeight:800,color:NAVY,marginBottom:16}}>âï¸ ConfiguraÃ§Ã£o de E-mail</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
-            {[{k:'host',lb:'Servidor SMTP',ph:'smtp.gmail.com'},{k:'port',lb:'Porta',ph:'587',tp:'number'},{k:'user',lb:'Usuário',ph:'contato@epimentel.com.br'},{k:'pass',lb:'Senha',ph:'••••••••',tp:'password'},{k:'from_name',lb:'Nome Remetente',ph:'EPimentel'},{k:'from_email',lb:'E-mail Remetente',ph:'contato@epimentel.com.br'}].map(f=>(
+            {[{k:'host',lb:'Servidor SMTP',ph:'smtp.gmail.com'},{k:'port',lb:'Porta',ph:'587',tp:'number'},{k:'user',lb:'UsuÃ¡rio',ph:'contato@epimentel.com.br'},{k:'pass',lb:'Senha',ph:'â¢â¢â¢â¢â¢â¢â¢â¢',tp:'password'},{k:'from_name',lb:'Nome Remetente',ph:'EPimentel'},{k:'from_email',lb:'E-mail Remetente',ph:'contato@epimentel.com.br'}].map(f=>(
               <div key={f.k}>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase'}}>{f.lb}</label>
                 <input type={f.tp||'text'} value={smtp[f.k]||''} placeholder={f.ph} onChange={e=>setSmtp(s=>({...s,[f.k]:f.tp==='number'?Number(e.target.value):e.target.value}))} style={inp}/>
@@ -946,16 +978,16 @@ export default function Comunicados() {
         </div>
       )}
 
-      {/* ── FORMULÁRIO ───────────────────────────────────────────────────────── */}
+      {/* ââ FORMULÃRIO âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       {aba==='novo'&&(
         <div style={{background:'#fff',borderRadius:14,border:`2px solid ${editandoId?GOLD:'#e8e8e8'}`,padding:24,marginBottom:20,boxShadow:'0 2px 14px rgba(0,0,0,.07)'}}>
-          {/* Cabeçalho */}
+          {/* CabeÃ§alho */}
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:22}}>
             <div>
               <div style={{fontSize:16,fontWeight:800,color:NAVY}}>
-                {editandoId ? <><Edit2 size={15} style={{display:'inline',verticalAlign:'middle',marginRight:7}}/> Editando Comunicado #{editandoId}</> : '✉️ Novo Comunicado'}
+                {editandoId ? <><Edit2 size={15} style={{display:'inline',verticalAlign:'middle',marginRight:7}}/> Editando Comunicado #{editandoId}</> : 'âï¸ Novo Comunicado'}
               </div>
-              {editandoId && <div style={{fontSize:11,color:GOLD,marginTop:3,fontWeight:600}}>As alterações são salvas ao clicar em 💾 Salvar ou Enviar</div>}
+              {editandoId && <div style={{fontSize:11,color:GOLD,marginTop:3,fontWeight:600}}>As alteraÃ§Ãµes sÃ£o salvas ao clicar em ð¾ Salvar ou Enviar</div>}
             </div>
             <button onClick={cancelarForm} style={{...btn('#f5f5f5','#888'),padding:'6px 10px'}}><X size={14}/></button>
           </div>
@@ -965,8 +997,8 @@ export default function Comunicados() {
             <div style={{fontSize:11,fontWeight:700,color:'#888',marginBottom:10,textTransform:'uppercase',letterSpacing:.7}}>Tipo de Comunicado</div>
             <div style={{display:'inline-flex',borderRadius:12,overflow:'hidden',border:'2px solid #e0e0e0'}}>
               {[
-                {id:'externo', label:'🌐 Externo', sub:'Clientes e parceiros',   cor:'#1D6FA4', bg:'#EBF5FF'},
-                {id:'interno', label:'🏢 Interno', sub:'Equipe e departamento',  cor:'#6B3EC9', bg:'#F3EEFF'},
+                {id:'externo', label:'ð Externo', sub:'Clientes e parceiros',   cor:'#1D6FA4', bg:'#EBF5FF'},
+                {id:'interno', label:'ð¢ Interno', sub:'Equipe e departamento',  cor:'#6B3EC9', bg:'#F3EEFF'},
               ].map((t,i)=>(
                 <button key={t.id}
                   onClick={()=>{
@@ -986,18 +1018,18 @@ export default function Comunicados() {
             </div>
           </div>
 
-          {/* Grid do formulário */}
+          {/* Grid do formulÃ¡rio */}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:16}}>
 
-            {/* Título - full width */}
+            {/* TÃ­tulo - full width */}
             <div style={{gridColumn:'1/-1'}}>
-              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Título *</label>
-              <input value={form.titulo} onChange={e=>setF('titulo',e.target.value)} placeholder="Ex: Prazo de entrega da Folha de Março" style={inp}/>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>TÃ­tulo *</label>
+              <input value={form.titulo} onChange={e=>setF('titulo',e.target.value)} placeholder="Ex: Prazo de entrega da Folha de MarÃ§o" style={inp}/>
             </div>
 
-            {/* Urgência */}
+            {/* UrgÃªncia */}
             <div>
-              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>Urgência</label>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>UrgÃªncia</label>
               <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                 {URGENCIAS.map(u=>(
                   <button key={u.id} onClick={()=>setF('urgencia',u.id)}
@@ -1008,7 +1040,7 @@ export default function Comunicados() {
               </div>
             </div>
 
-            {/* Dept + Canal + Responsável */}
+            {/* Dept + Canal + ResponsÃ¡vel */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Departamento</label>
@@ -1024,11 +1056,11 @@ export default function Comunicados() {
               </div>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>
-                  Responsável
+                  ResponsÃ¡vel
                   <span style={{marginLeft:5,fontSize:9,color:GOLD,padding:'1px 5px',borderRadius:5,background:'#fff9e6',border:`1px solid ${GOLD}44`,fontWeight:700}}>notifica</span>
                 </label>
                 <select value={form.responsavel} onChange={e=>onResp(e.target.value)} style={sel}>
-                  <option value=''>— Selecionar —</option>
+                  <option value=''>â Selecionar â</option>
                   {(usuariosAdmin.length>0
                     ? usuariosAdmin.map(u=>u.nome)
                     : ['Carlos Eduardo Pimentel','Eduardo Pimentel','Gleidson Tavares','Luciene Alves','Yasmin Larissa']
@@ -1037,9 +1069,9 @@ export default function Comunicados() {
               </div>
             </div>
 
-            {/* Conteúdo - full width */}
+            {/* ConteÃºdo - full width */}
             <div style={{gridColumn:'1/-1'}}>
-              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>Conteúdo *</label>
+              <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:.7}}>ConteÃºdo *</label>
               <textarea value={form.conteudo} onChange={e=>setF('conteudo',e.target.value)} rows={6} placeholder="Escreva o comunicado..." style={{...inp,resize:'vertical',lineHeight:1.6}}/>
             </div>
 
@@ -1047,18 +1079,18 @@ export default function Comunicados() {
             <div style={{gridColumn:'1/-1'}}>
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:7}}>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',textTransform:'uppercase',letterSpacing:.7}}>
-                  📋 Resumo da Solicitação
+                  ð Resumo da SolicitaÃ§Ã£o
                   <span style={{marginLeft:8,fontSize:10,color:'#bbb',fontWeight:400,textTransform:'none',letterSpacing:0}}>gerado por IA ou preenchido manualmente</span>
                 </label>
                 <button onClick={gerarResumoIA} disabled={gerandoResumo}
                   style={{...btn(gerandoResumo?'#e8e8e8':NAVY,gerandoResumo?'#999':'#fff'),padding:'6px 14px',fontSize:12,flexShrink:0}}>
                   <Bot size={13}/>
-                  {gerandoResumo ? '⏳ Gerando...' : '🤖 Gerar com IA'}
+                  {gerandoResumo ? 'â³ Gerando...' : 'ð¤ Gerar com IA'}
                 </button>
               </div>
               <div style={{position:'relative'}}>
                 <textarea value={form.resumo} onChange={e=>setF('resumo',e.target.value)} rows={2}
-                  placeholder="Clique em '🤖 Gerar com IA' ou escreva um resumo objetivo aqui..."
+                  placeholder="Clique em 'ð¤ Gerar com IA' ou escreva um resumo objetivo aqui..."
                   style={{...inp,resize:'vertical',lineHeight:1.6,background:form.resumo?'#fffef8':'#fafafa',border:`1px solid ${form.resumo?GOLD+'66':'#e0e0e0'}`,paddingRight:38}}/>
                 {form.resumo && (
                   <button onClick={()=>setF('resumo','')} title="Limpar"
@@ -1067,19 +1099,19 @@ export default function Comunicados() {
               </div>
               {form.resumo && (
                 <div style={{marginTop:5,padding:'7px 12px',borderRadius:7,background:'#fffef0',border:`1px solid ${GOLD}33`,display:'flex',gap:8,alignItems:'center'}}>
-                  <span>✨</span><span style={{fontSize:11,color:'#854D0E',fontWeight:600}}>Resumo preenchido — aparecerá em destaque no comunicado e na listagem</span>
+                  <span>â¨</span><span style={{fontSize:11,color:'#854D0E',fontWeight:600}}>Resumo preenchido â aparecerÃ¡ em destaque no comunicado e na listagem</span>
                 </div>
               )}
             </div>
 
-            {/* ── Clientes (externo e interno) + E-mails (só externo) ── */}
+            {/* ââ Clientes (externo e interno) + E-mails (sÃ³ externo) ââ */}
             <>
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
                   <Users size={11} style={{display:'inline',marginRight:4}}/>Clientes
                   {form.cliente_ids.length>0&&<span style={{marginLeft:6,background:NAVY,color:'#fff',fontSize:9,padding:'1px 6px',borderRadius:8}}>{form.cliente_ids.length}</span>}
                 </label>
-                <input value={clienteBusca} onChange={e=>setClienteBusca(e.target.value)} placeholder="🔍 Filtrar clientes (todos listados abaixo)..." style={{...inp,marginBottom:6}}/>
+                <input value={clienteBusca} onChange={e=>setClienteBusca(e.target.value)} placeholder="ð Filtrar clientes (todos listados abaixo)..." style={{...inp,marginBottom:6}}/>
                 <div style={{maxHeight:160,overflowY:'auto',border:'1px solid #e8e8e8',borderRadius:8}}>
                   {cliFiltrados.slice(0,20).map(c=>{
                     const s2=form.cliente_ids.includes(c.id)
@@ -1091,7 +1123,7 @@ export default function Comunicados() {
                         </div>
                         <div>
                           <div style={{fontSize:12,fontWeight:600,color:NAVY}}>{c.nome}</div>
-                          <div style={{fontSize:10,color:'#aaa'}}>{c.cnpj} · {c.tributacao||'—'}</div>
+                          <div style={{fontSize:10,color:'#aaa'}}>{c.cnpj} Â· {c.tributacao||'â'}</div>
                         </div>
                       </div>
                     )
@@ -1118,7 +1150,7 @@ export default function Comunicados() {
                 <div style={{marginTop:10,padding:'10px 12px',borderRadius:8,background:'#f8f9fb',border:'1px solid #e8e8e8'}}>
                   <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
                     <input type="checkbox" checked={form.usa_dominio_proprio} onChange={e=>setF('usa_dominio_proprio',e.target.checked)}/>
-                    <span style={{fontSize:12,color:'#555'}}>Usar domínio próprio (config. SMTP)</span>
+                    <span style={{fontSize:12,color:'#555'}}>Usar domÃ­nio prÃ³prio (config. SMTP)</span>
                   </label>
                 </div>
               </div>
@@ -1126,7 +1158,7 @@ export default function Comunicados() {
               {/* WhatsApps avulsos */}
               <div>
                 <label style={{fontSize:11,fontWeight:700,color:'#888',display:'block',marginBottom:8,textTransform:'uppercase',letterSpacing:.7}}>
-                  💬 WhatsApps Avulsos
+                  ð¬ WhatsApps Avulsos
                 </label>
                 <div style={{display:'flex',gap:6,marginBottom:6}}>
                   <input value={whatsappAvulso} onChange={e=>setWhatsappAvulso(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addWhatsApp()} placeholder="(62) 99999-9999" style={{...inp,flex:1}}/>
@@ -1134,7 +1166,7 @@ export default function Comunicados() {
                 </div>
                 {(form.whatsapps_extra||[]).map((wpp,i)=>(
                   <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderRadius:8,background:'#f0fdf4',marginBottom:4}}>
-                    <span style={{fontSize:13}}>💬</span>
+                    <span style={{fontSize:13}}>ð¬</span>
                     <span style={{flex:1,fontSize:12}}>{wpp}</span>
                     <button onClick={()=>setF('whatsapps_extra',(form.whatsapps_extra||[]).filter((_,j)=>j!==i))} style={{background:'none',border:'none',cursor:'pointer',color:'#dc2626',padding:0}}><X size={12}/></button>
                   </div>
@@ -1143,13 +1175,13 @@ export default function Comunicados() {
               </>)}
             </>
 
-            {/* ── INTERNO: banner informativo ── */}
+            {/* ââ INTERNO: banner informativo ââ */}
             {form.tipo==='interno' && (
               <div style={{gridColumn:'1/-1',display:'flex',alignItems:'center',gap:14,padding:'16px 20px',borderRadius:10,background:'#F3EEFF',border:'1.5px solid #d8b4fe'}}>
                 <Lock size={22} style={{color:'#6B3EC9',flexShrink:0}}/>
                 <div>
                   <div style={{fontWeight:700,fontSize:13,color:'#6B3EC9',marginBottom:3}}>Comunicado Interno</div>
-                  <div style={{fontSize:12,color:'#7c3aed'}}>Não envolve clientes externos. O envio vai para o responsável interno selecionado acima, via canal configurado.</div>
+                  <div style={{fontSize:12,color:'#7c3aed'}}>NÃ£o envolve clientes externos. O envio vai para o responsÃ¡vel interno selecionado acima, via canal configurado.</div>
                 </div>
               </div>
             )}
@@ -1178,7 +1210,7 @@ export default function Comunicados() {
                 <input ref={uploadRef} type="file" multiple style={{display:'none'}} onChange={e=>setUploadPendente(p=>[...p,...Array.from(e.target.files)])}/>
                 <Paperclip size={16} style={{color:'#bbb',marginBottom:4}}/>
                 <div style={{fontSize:12,color:'#888',fontWeight:600}}>Arraste ou clique para anexar</div>
-                <div style={{fontSize:10,color:'#bbb',marginTop:2}}>PDF, imagens, Word, Excel…</div>
+                <div style={{fontSize:10,color:'#bbb',marginTop:2}}>PDF, imagens, Word, Excelâ¦</div>
               </div>
               {uploadPendente.map((arq,i)=>(
                 <div key={i} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 10px',borderRadius:7,border:'1px solid #e8e8e8',background:'#fff',marginBottom:4}}>
@@ -1191,11 +1223,11 @@ export default function Comunicados() {
             </div>
           </div>
 
-          {/* Botões */}
+          {/* BotÃµes */}
           <div style={{display:'flex',gap:8,justifyContent:'flex-end',borderTop:'1px solid #f0f0f0',paddingTop:16,marginTop:4}}>
             <button onClick={cancelarForm} style={btn('#f5f5f5','#666')}><X size={13}/> Cancelar</button>
             <button onClick={salvar} disabled={salvando} style={{...btn('#f0f4ff',NAVY),border:`1px solid #c7d2fe`,opacity:salvando?.7:1}}>
-              <Save size={13}/> {salvando?'Salvando...':'💾 Salvar'}
+              <Save size={13}/> {salvando?'Salvando...':'ð¾ Salvar'}
             </button>
             <button onClick={enviar} disabled={enviando} style={{...btn(enviando?'#aaa':NAVY),minWidth:160}}>
               <Send size={13}/> {enviando?'Enviando...':'Enviar Comunicado'}
@@ -1204,31 +1236,31 @@ export default function Comunicados() {
         </div>
       )}
 
-      {/* ── FILTROS ───────────────────────────────────────────────────────────── */}
+      {/* ââ FILTROS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       <div style={{background:'#fff',borderRadius:12,border:'1px solid #e8e8e8',padding:'12px 16px',marginBottom:16,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
         <Filter size={13} style={{color:'#aaa',flexShrink:0}}/>
         {/* Tipo */}
         <div style={{display:'flex',gap:5}}>
           <div style={{marginBottom:12,position:'relative'}}>
-            <input value={buscaGlobal} onChange={e=>setBuscaGlobal(e.target.value)} placeholder="🔍 Pesquisar comunicados e processos por palavra-chave..." style={{width:'100%',padding:'9px 36px 9px 14px',borderRadius:10,border:'1.5px solid #e0e0e0',fontSize:13,outline:'none',boxSizing:'border-box',background:'#fafafa'}}/>
-            {buscaGlobal&&<button onClick={()=>setBuscaGlobal('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#aaa',fontSize:18}}>×</button>}
+            <input value={buscaGlobal} onChange={e=>setBuscaGlobal(e.target.value)} placeholder="ð Pesquisar comunicados e processos por palavra-chave..." style={{width:'100%',padding:'9px 36px 9px 14px',borderRadius:10,border:'1.5px solid #e0e0e0',fontSize:13,outline:'none',boxSizing:'border-box',background:'#fafafa'}}/>
+            {buscaGlobal&&<button onClick={()=>setBuscaGlobal('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#aaa',fontSize:18}}>Ã</button>}
             {processosBusca.length>0&&<div style={{marginTop:6,background:'#EBF5FF',borderRadius:8,padding:'8px 12px',border:'1px solid #c7d2fe'}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#1D6FA4',marginBottom:4}}>📋 Processos encontrados ({processosBusca.length})</div>
-              {processosBusca.map(p=>{const cor={'Em Andamento':'#2196F3','Concluído':'#4CAF50','Pausado':'#7C3AED','Cancelado':'#F44336'}[p.status]||'#888';return(
+              <div style={{fontSize:11,fontWeight:700,color:'#1D6FA4',marginBottom:4}}>ð Processos encontrados ({processosBusca.length})</div>
+              {processosBusca.map(p=>{const cor={'Em Andamento':'#2196F3','ConcluÃ­do':'#4CAF50','Pausado':'#7C3AED','Cancelado':'#F44336'}[p.status]||'#888';return(
                 <div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0',borderBottom:'1px solid #dbeafe'}}>
                   <span style={{fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:8,background:cor+'22',color:cor,flexShrink:0}}>{p.status}</span>
                   <div><div style={{fontSize:12,fontWeight:600,color:'#1B2A4A'}}>{p.titulo}</div><div style={{fontSize:10,color:'#888'}}>{p.cliente}</div></div>
                 </div>)})}
             </div>}
           </div>
-          {[{id:'',lb:'Todos'},{id:'externo',lb:'🌐 Externo'},{id:'interno',lb:'🏢 Interno'}].map(t=>(
+          {[{id:'',lb:'Todos'},{id:'externo',lb:'ð Externo'},{id:'interno',lb:'ð¢ Interno'}].map(t=>(
             <button key={t.id} onClick={()=>setFiltroTipo(t.id)}
               style={{padding:'4px 12px',borderRadius:16,border:`1px solid ${filtroTipo===t.id?NAVY:'#e0e0e0'}`,background:filtroTipo===t.id?NAVY:'#fff',color:filtroTipo===t.id?'#fff':'#555',fontSize:11,fontWeight:700,cursor:'pointer'}}>
               {t.lb}
             </button>
           ))}
         </div>
-        {/* Urgência */}
+        {/* UrgÃªncia */}
         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
           {URGENCIAS.map(u=>(
             <button key={u.id} onClick={()=>setFiltroUrg(filtroUrg===u.id?'':u.id)}
@@ -1243,18 +1275,18 @@ export default function Comunicados() {
         </select>
         <select value={filtroStatus} onChange={e=>setFiltroStatus(e.target.value)} style={{...sel,width:'auto',fontSize:12,padding:'5px 10px'}}>
           <option value="">Todos status</option>
-          <option value="salvo">💾 Salvo</option>
+          <option value="salvo">ð¾ Salvo</option>
           <option value="pendente">Pendente</option>
           <option value="enviado">Enviado</option>
           <option value="respondido">Respondido</option>
           <option value="encerrado">Encerrado</option>
-          <option value="pausado">⏸️ Pausado</option>
-          <option value="desistido">🚫 Desistido</option>
+          <option value="pausado">â¸ï¸ Pausado</option>
+          <option value="desistido">ð« Desistido</option>
         </select>
         <button onClick={carregarComunicados} style={{...btn('#f5f5f5','#555'),padding:'5px 10px',marginLeft:'auto'}}><RefreshCw size={12}/></button>
       </div>
 
-      {/* ── LISTA ─────────────────────────────────────────────────────────────── */}
+      {/* ââ LISTA âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
       {carregando ? (
         <div style={{textAlign:'center',padding:40,color:'#aaa',fontSize:14}}>Carregando...</div>
       ) : comunicadosFiltrados.length===0 ? (
@@ -1277,35 +1309,35 @@ export default function Comunicados() {
                 onMouseEnter={e=>e.currentTarget.style.boxShadow='0 4px 18px rgba(0,0,0,.1)'}
                 onMouseLeave={e=>e.currentTarget.style.boxShadow=com.urgencia==='muito_urgente'?`0 0 0 2px ${urg.border}`:'0 1px 6px rgba(0,0,0,.04)'}>
                 <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
-                  {/* Conteúdo clicável */}
+                  {/* ConteÃºdo clicÃ¡vel */}
                   <div style={{flex:1,minWidth:0,cursor:'pointer'}} onClick={()=>{setDetalhe(com);setAbaDetalhe('conteudo')}}>
                     <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:5,flexWrap:'wrap'}}>
                       <span style={{fontSize:14,fontWeight:700,color:NAVY}}>{com.titulo}</span>
                       <span style={{background:isInterno?'#F3EEFF':'#EBF5FF',color:isInterno?'#6B3EC9':'#1D6FA4',padding:'2px 8px',borderRadius:8,fontSize:10,fontWeight:700}}>
-                        {isInterno?'🏢 Interno':'🌐 Externo'}
+                        {isInterno?'ð¢ Interno':'ð Externo'}
                       </span>
                       {isSalvo
-                        ? <span style={{background:'#f0f0f0',color:'#6B7280',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>💾 Salvo</span>
+                        ? <span style={{background:'#f0f0f0',color:'#6B7280',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>ð¾ Salvo</span>
                         : <span style={{background:urg.bg,color:urg.cor,padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>{urg.emoji} {urg.label}</span>}
                       <span style={{background:sts.bg,color:sts.cor,padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>{sts.label}</span>
-                      {com.atrasado&&<span style={{background:'#FEF9C3',color:'#854D0E',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:800}}>⚠️ {com.dias_aberto}d</span>}
-                      {com.alerta_ia&&<span style={{background:'#F3EEFF',color:'#6B3EC9',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>🤖 IA</span>}
-                      {pids.length>0&&<span style={{background:'#EBF5FF',color:'#1D6FA4',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>🔗 {pids.length}</span>}
+                      {com.atrasado&&<span style={{background:'#FEF9C3',color:'#854D0E',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:800}}>â ï¸ {com.dias_aberto}d</span>}
+                      {com.alerta_ia&&<span style={{background:'#F3EEFF',color:'#6B3EC9',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>ð¤ IA</span>}
+                      {pids.length>0&&<span style={{background:'#EBF5FF',color:'#1D6FA4',padding:'2px 9px',borderRadius:9,fontSize:11,fontWeight:700}}>ð {pids.length}</span>}
                     </div>
                     <div style={{fontSize:12,color:'#888',display:'flex',gap:12,flexWrap:'wrap',marginBottom:4}}>
                       <span><Building2 size={10} style={{display:'inline',marginRight:2}}/>{com.departamento}</span>
                       <span><Clock size={10} style={{display:'inline',marginRight:2}}/>{com.criado_em?.slice(0,16)}</span>
-                      {com.responsavel&&<span>👤 {com.responsavel}</span>}
+                      {com.responsavel&&<span>ð¤ {com.responsavel}</span>}
                     </div>
-                    {/* Resumo ou trecho do conteúdo */}
+                    {/* Resumo ou trecho do conteÃºdo */}
                     <div style={{fontSize:12,color: com.resumo?'#555':'#999',fontStyle:com.resumo?'italic':'normal',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'90%'}}>
                       {com.resumo
-                        ? <><span style={{color:GOLD,fontWeight:700,marginRight:5,fontStyle:'normal'}}>📋</span>{com.resumo}</>
+                        ? <><span style={{color:GOLD,fontWeight:700,marginRight:5,fontStyle:'normal'}}>ð</span>{com.resumo}</>
                         : com.conteudo?.slice(0,110)+'...'}
                     </div>
                   </div>
 
-                  {/* Ações rápidas */}
+                  {/* AÃ§Ãµes rÃ¡pidas */}
                   <div style={{display:'flex',gap:5,flexShrink:0,alignItems:'center',flexWrap:'wrap'}}>
                     {/* Enviar agora quando salvo */}
                     {isSalvo && (
