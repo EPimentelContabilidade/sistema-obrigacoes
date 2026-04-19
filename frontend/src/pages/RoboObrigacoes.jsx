@@ -1,543 +1,555 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { epSet, epGet } from '../utils/storage'
 
 const NAVY = '#1F4A33'
 const GOLD = '#C5A55A'
+const API  = window.location.hostname === 'localhost'
+  ? '/api/v1' : 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
 
-const API_BACKEND = window.location.hostname === 'localhost'
-  ? 'http://localhost:8080/api/v1'
-  : 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
+const ls = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d } catch { return d } }
+const lss = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 
-const LS_HIST     = 'ep_robo_historico'
-const LS_LIB      = 'ep_robo_biblioteca'
-const LS_CONFIG   = 'ep_robo_config'
-
-const lsGet = (k, fb) => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):fb } catch { return fb } }
-const lsSet = (k, v) => { try { localStorage.setItem(k,JSON.stringify(v)) } catch {} }
-
-const TIPOS_BR = [
-  'DAS / Simples Nacional','PGDAS-D','DCTFWeb','DARF IRPJ','DARF CSLL','DARF PIS',
-  'DARF COFINS','GPS / INSS','FGTS','CAGED','eSocial','Folha de Pagamento',
-  'NF-e / NFS-e','SPED / EFD','Balancete','Extrato Bancário','Certidão / CND',
-  'Contrato','DIRF','RAIS','DEFIS','REINF','IRPF','Comprovante Pagamento','Outro'
+// Tipos de documento com padrões de detecção
+const TIPOS = [
+  { id:'das',       nome:'DAS / Simples Nacional',   icon:'🟢', cor:'#16a34a', padroes:['das','pgdas','simples'] },
+  { id:'darf',      nome:'DARF',                     icon:'🔵', cor:'#2563eb', padroes:['darf'] },
+  { id:'dctf',      nome:'DCTFWeb',                  icon:'🟣', cor:'#7c3aed', padroes:['dctf','dctfweb'] },
+  { id:'nfe',       nome:'NF-e / NFS-e',             icon:'🟡', cor:'#d97706', padroes:['nf','nfs','nota fiscal','nfe'] },
+  { id:'esocial',   nome:'eSocial',                  icon:'🟠', cor:'#ea580c', padroes:['esocial','e-social'] },
+  { id:'caged',     nome:'CAGED',                    icon:'🔴', cor:'#dc2626', padroes:['caged'] },
+  { id:'fgts',      nome:'FGTS',                     icon:'⚫', cor:'#374151', padroes:['fgts'] },
+  { id:'gps',       nome:'GPS / INSS',               icon:'🔷', cor:'#0891b2', padroes:['gps','inss'] },
+  { id:'folha',     nome:'Folha de Pagamento',       icon:'👥', cor:'#7c3aed', padroes:['folha','payroll','holerite'] },
+  { id:'sped',      nome:'SPED / EFD',               icon:'📁', cor:'#374151', padroes:['sped','efd'] },
+  { id:'balancete', nome:'Balancete / Balanço',      icon:'📊', cor:'#0284c7', padroes:['balanc','balancete'] },
+  { id:'certidao',  nome:'Certidão',                 icon:'🏛️', cor:'#b45309', padroes:['certid','cnd','cpd'] },
+  { id:'dirf',      nome:'DIRF / RAIS',              icon:'📋', cor:'#be185d', padroes:['dirf','rais'] },
+  { id:'outro',     nome:'Outro Documento',          icon:'📄', cor:'#6b7280', padroes:[] },
 ]
 
-const CONFIANCA_COR = (c) => c >= 0.85 ? '#22c55e' : c >= 0.6 ? '#f59e0b' : '#ef4444'
-const CONFIANCA_LABEL = (c) => c >= 0.85 ? 'Alta' : c >= 0.6 ? 'Média' : 'Baixa'
+function detectarTipoPorNome(nome) {
+  const n = nome.toLowerCase()
+  for (const t of TIPOS) {
+    if (t.id === 'outro') continue
+    if (t.padroes.some(p => n.includes(p))) return { tipo: t, confianca: 0.80 }
+  }
+  return { tipo: TIPOS.find(t => t.id === 'outro'), confianca: 0.30 }
+}
+
+function extrairCompetencia(nome) {
+  const n = nome.toLowerCase()
+  const meses = {jan:'01',fev:'02',mar:'03',abr:'04',mai:'05',jun:'06',jul:'07',ago:'08',set:'09',out:'10',nov:'11',dez:'12'}
+  let m = n.match(/(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[_\-\s]*(\d{4})/)
+  if (m) return meses[m[1]] + '/' + m[2]
+  m = n.match(/(\d{4})[_\-\.](\d{2})/)
+  if (m) return m[2] + '/' + m[1]
+  return ''
+}
 
 function BarraConfianca({ valor, label }) {
-  const cor = CONFIANCA_COR(valor)
+  const pct = Math.round((valor || 0) * 100)
+  const cor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-      <div style={{ flex:1, height:6, background:'#e5e7eb', borderRadius:3, overflow:'hidden' }}>
-        <div style={{ height:'100%', width:(valor*100)+'%', background:cor, borderRadius:3, transition:'width .5s' }} />
+      <div style={{ flex:1, height:6, background:'#e5e7eb', borderRadius:4, overflow:'hidden' }}>
+        <div style={{ width:pct+'%', height:'100%', background:cor, borderRadius:4, transition:'width 0.8s ease' }}/>
       </div>
-      <span style={{ fontSize:10, fontWeight:700, color:cor, minWidth:32 }}>{Math.round(valor*100)}%</span>
-      <span style={{ fontSize:10, color:'#888' }}>{CONFIANCA_LABEL(valor)}</span>
+      <span style={{ fontSize:11, fontWeight:700, color:cor, minWidth:32 }}>{pct}%</span>
+      {label && <span style={{ fontSize:10, color:'#888' }}>{label}</span>}
     </div>
   )
 }
 
-function Spinner() {
+function CampoIA({ label, valor, confianca, editavel, onChange }) {
+  const cor = !valor ? '#9ca3af' : confianca >= 0.8 ? '#16a34a' : confianca >= 0.5 ? '#d97706' : '#dc2626'
   return (
-    <div style={{ display:'inline-block', width:16, height:16, border:'2px solid #e5e7eb',
-      borderTopColor:NAVY, borderRadius:'50%', animation:'ep-spin 0.8s linear infinite' }} />
+    <div style={{ padding:'8px 10px', borderRadius:8, background: valor ? '#f9fafb' : '#fef2f2', border:'1px solid '+(valor?'#e5e7eb':'#fca5a5') }}>
+      <div style={{ fontSize:10, color:'#6b7280', fontWeight:700, textTransform:'uppercase', marginBottom:3 }}>{label}</div>
+      {editavel && onChange
+        ? <input value={valor||''} onChange={e=>onChange(e.target.value)}
+            style={{ width:'100%', border:'none', background:'transparent', fontSize:13, fontWeight:600, color:cor, outline:'none', fontFamily:'inherit' }}/>
+        : <div style={{ fontSize:13, fontWeight:600, color:cor }}>{valor || '—'}</div>
+      }
+      {valor && <BarraConfianca valor={confianca}/>}
+    </div>
   )
 }
 
 export default function RoboObrigacoes() {
-  const [aba, setAba] = useState('analisar')
-  const [dragging, setDragging] = useState(false)
-  const [arquivos, setArquivos] = useState([])
+  const [aba, setAba]             = useState('analisar')
+  const [arquivo, setArquivo]     = useState(null)
+  const [arrastando, setArrastando] = useState(false)
   const [analisando, setAnalisando] = useState(false)
-  const [etapaIA, setEtapaIA] = useState('')
   const [resultado, setResultado] = useState(null)
-  const [historico, setHistorico] = useState(() => lsGet(LS_HIST, []))
-  const [biblioteca, setBiblioteca] = useState(() => lsGet(LS_LIB, []))
-  const [config, setConfig] = useState(() => lsGet(LS_CONFIG, { modo_auto: true, salvar_auto: true, notificar: false }))
-  const [salvoSucesso, setSalvoSucesso] = useState(false)
-  const inputRef = useRef()
-  const dropRef = useRef()
+  const [faseMSG, setFaseMSG]     = useState('')
+  const [camposEdit, setCamposEdit] = useState({})
+  const [historico, setHistorico] = useState(() => ls('ep_robo_hist_v2', []))
+  const [biblioteca, setBiblioteca] = useState(() => ls('ep_robo_bib_v2', []))
+  const [apiKey, setApiKey]       = useState(() => ls('ep_robo_api_key', ''))
+  const [modoIA, setModoIA]       = useState('backend') // backend | local
+  const dropRef = useRef(null)
+  const fileRef = useRef(null)
 
-  // Catálogo de obrigações e clientes
-  const obrigacoes = (() => { try { const c=JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'{}'); return Object.values(c).flat() } catch { return [] } })()
-  const clientes = (() => { try { return JSON.parse(localStorage.getItem('ep_clientes')||'[]') } catch { return [] } })()
+  const catalogo = (() => {
+    try { return JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'{}') } catch { return {} }
+  })()
+  const clientes = epGet('ep_clientes', [])
 
-  useEffect(() => {
-    const style = document.getElementById('ep-robo-style') || document.createElement('style')
-    style.id = 'ep-robo-style'
-    style.textContent = '@keyframes ep-spin{to{transform:rotate(360deg)}} @keyframes ep-pulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes ep-slideup{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}'
-    document.head.appendChild(style)
-  }, [])
+  // Obrigações como lista plana
+  const obrigacoesFlat = Object.values(catalogo).flat().filter(Boolean)
 
-  const lerArquivoB64 = (file) => new Promise((res, rej) => {
-    const r = new FileReader()
-    r.onload = () => res(r.result.split(',')[1])
-    r.onerror = rej
-    r.readAsDataURL(file)
-  })
-
-  const processarArquivos = useCallback(async (files) => {
-    if (!files.length) return
-    setArquivos(Array.from(files).map(f => f.name))
-    setResultado(null)
-    setAnalisando(true)
-
-    try {
-      const file = files[0]
-      setEtapaIA('📖 Lendo documento...')
-      await new Promise(r => setTimeout(r, 400))
-
-      let b64 = ''
-      try { b64 = await lerArquivoB64(file) } catch(e) {}
-
-      setEtapaIA('🧠 IA identificando tipo do documento...')
-      await new Promise(r => setTimeout(r, 300))
-
-      // Chamar backend AI
-      const resp = await fetch(API_BACKEND + '/ai/analisar-documento', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          arquivo_b64: b64,
-          arquivo_nome: file.name,
-          arquivo_tipo: file.type || 'application/pdf',
-          obrigacoes_catalogo: obrigacoes.map(o => ({ codigo: o.codigo, nome: o.nome })),
-          clientes: clientes.map(c => ({ id: c.id, nome: c.nome, cnpj: c.cnpj })),
-        })
-      })
-
-      setEtapaIA('📊 Extraindo campos e dados...')
-      await new Promise(r => setTimeout(r, 300))
-
-      const dados = await resp.json()
-
-      setEtapaIA('🔗 Vinculando à obrigação no catálogo...')
-      await new Promise(r => setTimeout(r, 400))
-
-      const res = {
-        arquivo_nome: file.name,
-        arquivo_tamanho: (file.size/1024).toFixed(0) + ' KB',
-        tipo_documento: dados.tipo_documento,
-        tipo_confianca: dados.tipo_confianca,
-        campos: dados.campos || {},
-        obrigacao_match: dados.obrigacao_match,
-        obrigacao_confianca: dados.obrigacao_confianca || 0,
-        cliente_match: dados.cliente_match,
-        resumo_ia: dados.resumo_ia,
-        modo: dados.modo,
-        tokens: dados.tokens_usados || 0,
-        ts: new Date().toISOString(),
-      }
-
-      setResultado(res)
-      setEtapaIA('')
-
-      // Auto-salvar no histórico
-      const novoHist = [{ id: Date.now(), ...res, status: 'analisado' }, ...historico].slice(0, 200)
-      setHistorico(novoHist)
-      lsSet(LS_HIST, novoHist)
-
-      // Auto-salvar na biblioteca se configurado e confiança alta
-      if (config.salvar_auto && res.tipo_confianca >= 0.7) {
-        salvarNaBiblioteca(res)
-      }
-
-    } catch(e) {
-      setEtapaIA('')
-      setResultado({ erro: true, msg: e.message, arquivo_nome: files[0]?.name })
-    } finally {
-      setAnalisando(false)
-    }
-  }, [obrigacoes, clientes, historico, config])
-
-  const salvarNaBiblioteca = (res) => {
-    const chave = (res.tipo_documento + '_' + (res.campos?.competencia || '') + '_' + (res.campos?.cnpj || '')).replace(/\s/g,'_')
-    const jaExiste = biblioteca.some(b => b.chave === chave)
-    if (jaExiste) return
-    const novaLib = [{ id:Date.now(), chave, ...res, salvo_em: new Date().toLocaleString('pt-BR') }, ...biblioteca].slice(0,500)
-    setBiblioteca(novaLib)
-    lsSet(LS_LIB, novaLib)
-    setSalvoSucesso(true)
-    setTimeout(() => setSalvoSucesso(false), 3000)
-  }
-
-  const onDrop = useCallback((e) => {
-    e.preventDefault()
-    setDragging(false)
-    processarArquivos(e.dataTransfer.files)
-  }, [processarArquivos])
-
-  const ABAS = [
-    { id:'analisar',  label:'🤖 Analisar IA' },
-    { id:'historico', label:'📋 Histórico' },
-    { id:'biblioteca',label:'📚 Biblioteca' },
-    { id:'config',    label:'⚙️ Configurar' },
+  const FASES = [
+    '🔍 Lendo o documento...',
+    '🧠 IA identificando o tipo...',
+    '📋 Extraindo campos fiscais...',
+    '🔗 Matching com catálogo...',
+    '✅ Análise concluída!'
   ]
 
+  async function lerArquivoBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target.result.split(',')[1])
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async function analisarDocumento(file) {
+    if (!file) return
+    setAnalisando(true)
+    setResultado(null)
+    setCamposEdit({})
+
+    // Animação de fases
+    for (let i = 0; i < FASES.length - 1; i++) {
+      setFaseMSG(FASES[i])
+      await new Promise(r => setTimeout(r, 700))
+    }
+
+    try {
+      let res = null
+
+      // 1. Tentar backend com IA Claude
+      try {
+        const b64 = await lerArquivoBase64(file)
+        const body = {
+          arquivo_b64:  b64,
+          arquivo_nome: file.name,
+          arquivo_tipo: file.type || 'application/pdf',
+          obrigacoes_catalogo: obrigacoesFlat.slice(0, 30).map(o => ({ nome: o.nome || o.codigo, codigo: o.codigo })),
+          clientes: clientes.slice(0, 20).map(c => ({ nome: c.nome, cnpj: c.cnpj })),
+        }
+
+        // Adicionar API key no header se configurada
+        const headers = { 'Content-Type': 'application/json' }
+        if (apiKey) headers['x-anthropic-key'] = apiKey
+
+        const r = await fetch(API + '/ai/analisar-documento', {
+          method: 'POST', headers,
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(60000),
+        })
+
+        if (r.ok) {
+          const data = await r.json()
+          res = data
+        }
+      } catch (e) {
+        console.warn('[Robô] Backend IA indisponível:', e.message)
+      }
+
+      // 2. Fallback: análise heurística local
+      if (!res) {
+        const { tipo, confianca } = detectarTipoPorNome(file.name)
+        const comp = extrairCompetencia(file.name)
+        const obrigMatch = obrigacoesFlat.find(o =>
+          (o.nome||'').toLowerCase().includes(tipo.id) ||
+          (o.codigo||'').toLowerCase().includes(tipo.id)
+        )
+        res = {
+          tipo_documento:      tipo.nome,
+          tipo_confianca:      confianca,
+          campos:              { nome_documento: file.name, competencia: comp },
+          obrigacao_match:     obrigMatch?.nome || null,
+          obrigacao_confianca: obrigMatch ? 0.6 : 0,
+          cliente_match:       null,
+          resumo_ia:           'Análise por padrão do nome. Configure a API Claude para extração completa.',
+          modo:                'heuristica',
+        }
+      }
+
+      setFaseMSG(FASES[FASES.length - 1])
+      await new Promise(r => setTimeout(r, 400))
+      setResultado({ ...res, arquivo_nome: file.name, arquivo_tipo: file.type, ts: new Date().toLocaleString('pt-BR') })
+      setCamposEdit(res.campos || {})
+
+    } catch (e) {
+      setResultado({ erro: e.message })
+    }
+
+    setAnalisando(false)
+  }
+
+  function onDrop(e) {
+    e.preventDefault()
+    setArrastando(false)
+    const f = e.dataTransfer.files[0]
+    if (f) { setArquivo(f); analisarDocumento(f) }
+  }
+
+  function onFileChange(e) {
+    const f = e.target.files[0]
+    if (f) { setArquivo(f); analisarDocumento(f) }
+  }
+
+  function salvarNaBiblioteca() {
+    if (!resultado) return
+    const item = {
+      id: Date.now(),
+      arquivo_nome: resultado.arquivo_nome,
+      tipo: resultado.tipo_documento,
+      tipo_confianca: resultado.tipo_confianca,
+      campos: { ...camposEdit },
+      obrigacao: resultado.obrigacao_match,
+      cliente: resultado.cliente_match,
+      resumo: resultado.resumo_ia,
+      modo: resultado.modo,
+      ts: resultado.ts,
+      status: 'na_biblioteca',
+    }
+    const nova = [item, ...biblioteca]
+    setBiblioteca(nova)
+    lss('ep_robo_bib_v2', nova)
+    // Salvar no histórico também
+    const novH = [{ ...item, status: 'concluido' }, ...historico]
+    setHistorico(novH)
+    lss('ep_robo_hist_v2', novH)
+    alert('✅ Documento salvo na biblioteca! Não será mais solicitado para este período.')
+    setResultado(null)
+    setArquivo(null)
+  }
+
+  function marcarEntregue() {
+    if (!resultado) return
+    const novH = [{ id: Date.now(), arquivo_nome: resultado.arquivo_nome, tipo: resultado.tipo_documento, campos: camposEdit, obrigacao: resultado.obrigacao_match, ts: resultado.ts, status: 'entregue', modo: resultado.modo }, ...historico]
+    setHistorico(novH)
+    lss('ep_robo_hist_v2', novH)
+    setResultado(null)
+    setArquivo(null)
+  }
+
+  function novaAnalise() { setResultado(null); setArquivo(null); setAnalisando(false) }
+
+  const tipoInfo = resultado ? TIPOS.find(t => t.nome === resultado.tipo_documento) || TIPOS.find(t=>t.id==='outro') : null
+
   return (
-    <div style={{ fontFamily:'Inter, system-ui, sans-serif', height:'calc(100vh - 44px)', display:'flex', flexDirection:'column', background:'#f8faf8' }}>
+    <div style={{ fontFamily:'Inter, system-ui, sans-serif', height:'calc(100vh - 44px)', display:'flex', flexDirection:'column' }}>
 
       {/* Header */}
-      <div style={{ background:'linear-gradient(135deg,'+NAVY+',#2d6b4a)', padding:'16px 24px', display:'flex', alignItems:'center', gap:14 }}>
-        <div style={{ width:44, height:44, borderRadius:12, background:GOLD, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🤖</div>
-        <div style={{ flex:1 }}>
-          <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>Robô de Obrigações — IA</div>
-          <div style={{ color:GOLD, fontSize:11, marginTop:2 }}>
-            Análise automática com Claude AI · Detecção de tipo, extração de campos e vinculação ao catálogo
-          </div>
+      <div style={{ background: NAVY, padding:'14px 24px', display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:GOLD, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>🤖</div>
+        <div>
+          <div style={{ color:'#fff', fontWeight:800, fontSize:15 }}>Robô de Obrigações — IA</div>
+          <div style={{ color:GOLD, fontSize:11 }}>Detecção automática · Extração de campos · Matching inteligente</div>
         </div>
-        <div style={{ display:'flex', gap:12 }}>
-          {[{ n:historico.length, l:'Analisados'}, { n:biblioteca.length, l:'Na Biblioteca'}, { n:historico.filter(h=>h.tipo_confianca>=0.85).length, l:'Alta confiança'}].map(s=>(
-            <div key={s.l} style={{ textAlign:'center', padding:'6px 14px', borderRadius:10, background:'rgba(255,255,255,0.1)' }}>
-              <div style={{ color:GOLD, fontWeight:800, fontSize:18 }}>{s.n}</div>
-              <div style={{ color:'rgba(255,255,255,0.6)', fontSize:10 }}>{s.l}</div>
+        <div style={{ marginLeft:'auto', display:'flex', gap:8 }}>
+          {[{n:biblioteca.length,l:'Biblioteca'},{n:historico.filter(h=>h.status==='entregue').length,l:'Entregues'},{n:historico.filter(h=>h.modo==='claude').length,l:'Analisados IA'}].map(s=>(
+            <div key={s.l} style={{ textAlign:'center', padding:'6px 14px', borderRadius:10, background:'rgba(255,255,255,0.08)' }}>
+              <div style={{ color:GOLD, fontWeight:800, fontSize:16 }}>{s.n}</div>
+              <div style={{ color:'rgba(255,255,255,0.5)', fontSize:10 }}>{s.l}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Abas */}
-      <div style={{ background:'#fff', borderBottom:'1px solid #e5e7eb', display:'flex', paddingLeft:20 }}>
-        {ABAS.map(a => (
-          <button key={a.id} onClick={() => setAba(a.id)}
-            style={{ padding:'10px 16px', border:'none', background:'transparent', cursor:'pointer', fontSize:13,
-              fontWeight: aba===a.id ? 700 : 400,
-              color: aba===a.id ? NAVY : '#888',
-              borderBottom: aba===a.id ? '3px solid '+GOLD : '3px solid transparent' }}>
-            {a.label}
+      <div style={{ background:'#fff', borderBottom:'2px solid #f0f0f0', display:'flex', paddingLeft:16, flexShrink:0 }}>
+        {[['analisar','🔍 Analisar'],['biblioteca','📚 Biblioteca'],['historico','🕐 Histórico'],['config','⚙️ Config IA']].map(([id,lb])=>(
+          <button key={id} onClick={()=>setAba(id)}
+            style={{ padding:'10px 16px', border:'none', background:'none', cursor:'pointer', fontSize:13, fontWeight:aba===id?700:400,
+              color:aba===id?NAVY:'#888', borderBottom:aba===id?'2px solid '+NAVY:'none', marginBottom:-2 }}>
+            {lb}
           </button>
         ))}
       </div>
 
-      <div style={{ flex:1, overflowY:'auto', padding:24 }}>
+      <div style={{ flex:1, overflow:'auto', padding:24 }}>
 
-        {/* ── ABA ANALISAR ─────────────────────────────────────────────────── */}
-        {aba === 'analisar' && (
-          <div style={{ maxWidth:860, margin:'0 auto' }}>
+        {/* ── ABA ANALISAR ────────────────────────────────────────────────── */}
+        {aba==='analisar' && (
+          <div style={{ maxWidth:800, margin:'0 auto' }}>
 
-            {/* Zona de Drop */}
-            <div ref={dropRef}
-              onDragOver={e => { e.preventDefault(); setDragging(true) }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              onClick={() => !analisando && inputRef.current?.click()}
-              style={{ border:'2px dashed '+(dragging?GOLD:analisando?NAVY:'#cbd5e1'),
-                borderRadius:16, padding:'48px 32px', textAlign:'center', cursor:analisando?'wait':'pointer',
-                background: dragging ? GOLD+'10' : analisando ? NAVY+'06' : '#fff',
-                transition:'all .2s', marginBottom:24, animation:'ep-slideup .4s ease' }}>
-
-              {analisando ? (
-                <div>
-                  <div style={{ fontSize:48, marginBottom:12, animation:'ep-pulse 1.5s infinite' }}>🧠</div>
-                  <div style={{ fontWeight:700, color:NAVY, fontSize:18, marginBottom:8 }}>IA Analisando...</div>
-                  <div style={{ color:'#666', fontSize:14, marginBottom:16 }}>{etapaIA}</div>
-                  <div style={{ display:'flex', justifyContent:'center' }}><Spinner /></div>
-                  <div style={{ color:'#aaa', fontSize:12, marginTop:12 }}>{arquivos[0]}</div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize:56, marginBottom:16 }}>{dragging ? '🎯' : '📄'}</div>
-                  <div style={{ fontWeight:700, color:NAVY, fontSize:20, marginBottom:8 }}>
-                    {dragging ? 'Solte aqui!' : 'Arraste o documento aqui'}
+            {/* Estado: aguardando arquivo */}
+            {!arquivo && !analisando && !resultado && (
+              <div>
+                {/* Zona de drop */}
+                <div ref={dropRef}
+                  onDragOver={e=>{e.preventDefault();setArrastando(true)}}
+                  onDragLeave={()=>setArrastando(false)}
+                  onDrop={onDrop}
+                  onClick={()=>fileRef.current?.click()}
+                  style={{ border:'2px dashed '+(arrastando?GOLD:NAVY+'60'), borderRadius:20, padding:'60px 40px',
+                    textAlign:'center', cursor:'pointer', transition:'all 0.3s',
+                    background:arrastando?GOLD+'08':NAVY+'04',
+                    transform:arrastando?'scale(1.02)':'scale(1)' }}>
+                  <div style={{ fontSize:64, marginBottom:16 }}>{arrastando?'📂':'🤖'}</div>
+                  <div style={{ fontSize:20, fontWeight:800, color:NAVY, marginBottom:8 }}>
+                    {arrastando ? 'Solte o documento aqui!' : 'Arraste o documento ou clique para selecionar'}
                   </div>
-                  <div style={{ color:'#888', fontSize:14, marginBottom:20 }}>
-                    ou clique para selecionar · PDF, XML, imagem · IA identifica automaticamente
-                  </div>
-                  <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
-                    {['DAS','DARF','DCTF','NF-e','eSocial','FGTS','Folha','SPED','Certidão'].map(t => (
-                      <span key={t} style={{ padding:'3px 10px', borderRadius:20, background:'#f0f4f0',
-                        color:NAVY, fontSize:11, fontWeight:600 }}>{t}</span>
+                  <div style={{ fontSize:13, color:'#888', marginBottom:20 }}>PDF · XML · Imagem · TXT · XLSX</div>
+                  <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap' }}>
+                    {TIPOS.slice(0,8).map(t=>(
+                      <span key={t.id} style={{ padding:'4px 12px', borderRadius:20, background:t.cor+'15', color:t.cor, fontSize:11, fontWeight:600 }}>
+                        {t.icon} {t.nome}
+                      </span>
                     ))}
                   </div>
                 </div>
-              )}
-              <input ref={inputRef} type="file" accept=".pdf,.xml,.txt,.xlsx,.xls,.png,.jpg,.jpeg"
-                multiple style={{ display:'none' }}
-                onChange={e => processarArquivos(e.target.files)} />
-            </div>
+                <input ref={fileRef} type="file" accept=".pdf,.xml,.txt,.xlsx,.png,.jpg,.jpeg" style={{ display:'none' }} onChange={onFileChange}/>
 
-            {/* Resultado da Análise */}
-            {resultado && !resultado.erro && (
-              <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e5e7eb',
-                boxShadow:'0 4px 24px rgba(0,0,0,0.06)', animation:'ep-slideup .4s ease' }}>
-
-                {/* Header resultado */}
-                <div style={{ background:'linear-gradient(135deg,'+NAVY+'08,'+GOLD+'08)',
-                  padding:'16px 20px', borderRadius:'14px 14px 0 0',
-                  borderBottom:'1px solid #e5e7eb', display:'flex', alignItems:'center', gap:12 }}>
-                  <div style={{ fontSize:28 }}>✅</div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:800, color:NAVY, fontSize:15 }}>{resultado.tipo_documento}</div>
-                    <div style={{ fontSize:11, color:'#888', marginTop:2 }}>
-                      {resultado.arquivo_nome} · {resultado.arquivo_tamanho} ·
-                      {resultado.modo === 'claude' ? ' 🤖 Claude AI' : ' 📊 Análise de padrão'}
-                      {resultado.tokens > 0 && ' · '+resultado.tokens+' tokens'}
+                {/* Como funciona */}
+                <div style={{ marginTop:24, display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16 }}>
+                  {[
+                    { icon:'🔍', titulo:'Detecção automática', desc:'IA identifica o tipo do documento sem você precisar selecionar nada — DAS, DARF, NF-e, CAGED, eSocial...' },
+                    { icon:'📋', titulo:'Extração de campos', desc:'Claude lê o conteúdo do PDF e extrai vencimento, valor, CNPJ, competência, código de barras e muito mais.' },
+                    { icon:'🔗', titulo:'Matching inteligente', desc:'Vincula automaticamente ao cliente e à obrigação correspondente no catálogo do sistema.' },
+                  ].map(c=>(
+                    <div key={c.titulo} style={{ padding:16, borderRadius:12, background:'#f9fafb', border:'1px solid #e5e7eb' }}>
+                      <div style={{ fontSize:28, marginBottom:8 }}>{c.icon}</div>
+                      <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:6 }}>{c.titulo}</div>
+                      <div style={{ fontSize:11, color:'#666', lineHeight:1.6 }}>{c.desc}</div>
                     </div>
-                  </div>
-                  <div style={{ textAlign:'right' }}>
-                    <div style={{ fontSize:11, color:'#888', marginBottom:4 }}>Confiança do Tipo</div>
-                    <BarraConfianca valor={resultado.tipo_confianca} />
-                  </div>
-                </div>
-
-                <div style={{ padding:20 }}>
-                  {/* Resumo IA */}
-                  <div style={{ background:'#f0f7f0', borderRadius:8, padding:'10px 14px',
-                    marginBottom:20, fontSize:13, color:NAVY, lineHeight:1.5,
-                    border:'1px solid '+GOLD+'40', display:'flex', gap:8 }}>
-                    <span style={{ fontSize:16 }}>💡</span>
-                    <span>{resultado.resumo_ia}</span>
-                  </div>
-
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
-                    {/* Campos extraídos */}
-                    <div>
-                      <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:12 }}>📊 Campos Extraídos</div>
-                      {Object.entries(resultado.campos).length === 0 ? (
-                        <div style={{ color:'#aaa', fontSize:12 }}>Nenhum campo extraído.</div>
-                      ) : (
-                        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                          {Object.entries(resultado.campos).filter(([k,v])=>v).map(([k,v]) => (
-                            <div key={k} style={{ display:'flex', justifyContent:'space-between',
-                              padding:'7px 12px', background:'#f8f9fa', borderRadius:8,
-                              border:'1px solid #f0f0f0' }}>
-                              <span style={{ fontSize:11, color:'#888', fontWeight:600, textTransform:'uppercase', letterSpacing:.5 }}>
-                                {k.replace(/_/g,' ')}
-                              </span>
-                              <span style={{ fontSize:12, fontWeight:700, color:NAVY, fontFamily:'monospace' }}>{v}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Vínculos automáticos */}
-                    <div>
-                      <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:12 }}>🔗 Vínculos Automáticos</div>
-
-                      {/* Obrigação */}
-                      <div style={{ padding:14, background: resultado.obrigacao_match ? '#f0f7f0' : '#fafafa',
-                        borderRadius:10, border:'1px solid '+(resultado.obrigacao_match?GOLD+'50':'#e5e7eb'),
-                        marginBottom:10 }}>
-                        <div style={{ fontSize:10, fontWeight:700, color:'#888', textTransform:'uppercase', marginBottom:6 }}>Obrigação no Catálogo</div>
-                        {resultado.obrigacao_match ? (
-                          <>
-                            <div style={{ fontWeight:700, color:NAVY, fontSize:14, marginBottom:8 }}>
-                              ✅ {resultado.obrigacao_match}
-                            </div>
-                            <BarraConfianca valor={resultado.obrigacao_confianca} />
-                          </>
-                        ) : (
-                          <div style={{ color:'#aaa', fontSize:12 }}>Não vinculado automaticamente.<br/>Configure obrigações no catálogo.</div>
-                        )}
-                      </div>
-
-                      {/* Cliente */}
-                      <div style={{ padding:14, background: resultado.cliente_match ? '#f0f4ff' : '#fafafa',
-                        borderRadius:10, border:'1px solid '+(resultado.cliente_match?'#c7d2fe':'#e5e7eb'),
-                        marginBottom:16 }}>
-                        <div style={{ fontSize:10, fontWeight:700, color:'#888', textTransform:'uppercase', marginBottom:6 }}>Cliente Identificado</div>
-                        {resultado.cliente_match ? (
-                          <div style={{ fontWeight:700, color:'#3730A3', fontSize:14 }}>✅ {resultado.cliente_match}</div>
-                        ) : (
-                          <div style={{ color:'#aaa', fontSize:12 }}>Cliente não identificado pelo CNPJ.</div>
-                        )}
-                      </div>
-
-                      {/* Ações */}
-                      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                        <button onClick={() => salvarNaBiblioteca(resultado)}
-                          style={{ flex:1, padding:'10px', borderRadius:8, background:NAVY, color:'#fff',
-                            border:'none', cursor:'pointer', fontWeight:700, fontSize:12, display:'flex',
-                            alignItems:'center', justifyContent:'center', gap:6 }}>
-                          📚 Salvar na Biblioteca
-                        </button>
-                        <button onClick={() => {
-                            const novoHist = historico.map(h => h.ts === resultado.ts ? {...h, status:'entregue'} : h)
-                            setHistorico(novoHist); lsSet(LS_HIST, novoHist)
-                          }}
-                          style={{ flex:1, padding:'10px', borderRadius:8, background:'#22c55e', color:'#fff',
-                            border:'none', cursor:'pointer', fontWeight:700, fontSize:12, display:'flex',
-                            alignItems:'center', justifyContent:'center', gap:6 }}>
-                          ✅ Marcar Entregue
-                        </button>
-                      </div>
-                      {salvoSucesso && (
-                        <div style={{ marginTop:8, padding:'6px 12px', background:'#f0fdf4',
-                          border:'1px solid #bbf7d0', borderRadius:6, fontSize:12, color:'#15803d', fontWeight:600 }}>
-                          ✅ Salvo na biblioteca automaticamente!
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {resultado?.erro && (
-              <div style={{ background:'#fff1f2', border:'1px solid #fecdd3', borderRadius:12, padding:20, animation:'ep-slideup .4s' }}>
-                <div style={{ fontWeight:700, color:'#be123c', marginBottom:8 }}>❌ Erro na análise</div>
-                <div style={{ fontSize:12, color:'#666' }}>{resultado.msg}</div>
-                <div style={{ fontSize:11, color:'#aaa', marginTop:4 }}>Arquivo: {resultado.arquivo_nome}</div>
+            {/* Estado: analisando */}
+            {analisando && (
+              <div style={{ textAlign:'center', padding:'60px 40px' }}>
+                <div style={{ fontSize:72, marginBottom:24, animation:'none' }}>🤖</div>
+                <div style={{ fontSize:20, fontWeight:800, color:NAVY, marginBottom:12 }}>Analisando documento...</div>
+                <div style={{ fontSize:14, color:GOLD, fontWeight:600, marginBottom:24 }}>{faseMSG}</div>
+                <div style={{ maxWidth:320, margin:'0 auto' }}>
+                  <div style={{ height:8, background:'#e5e7eb', borderRadius:8, overflow:'hidden' }}>
+                    <div style={{ height:'100%', background:'linear-gradient(90deg,'+NAVY+','+GOLD+')', borderRadius:8, width:'100%',
+                      animation:'progress 2s ease-in-out infinite' }}/>
+                  </div>
+                </div>
+                <div style={{ marginTop:20, fontSize:12, color:'#888' }}>Arquivo: {arquivo?.name}</div>
+                <style>{' @keyframes progress { 0%{width:0%} 50%{width:100%} 100%{width:0%} } '}</style>
+              </div>
+            )}
+
+            {/* Estado: resultado */}
+            {resultado && !analisando && (
+              <div>
+                {resultado.erro ? (
+                  <div style={{ padding:24, borderRadius:12, background:'#fef2f2', border:'1px solid #fca5a5', textAlign:'center' }}>
+                    <div style={{ fontSize:40, marginBottom:12 }}>❌</div>
+                    <div style={{ fontWeight:700, color:'#dc2626' }}>Erro na análise</div>
+                    <div style={{ color:'#666', fontSize:13, marginTop:8 }}>{resultado.erro}</div>
+                    <button onClick={novaAnalise} style={{ marginTop:16, padding:'8px 20px', borderRadius:8, background:NAVY, color:'#fff', border:'none', cursor:'pointer', fontWeight:600 }}>Tentar novamente</button>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Cabeçalho do resultado */}
+                    <div style={{ padding:20, borderRadius:16, background:'linear-gradient(135deg,'+NAVY+','+NAVY+'cc)', color:'#fff', marginBottom:20, display:'flex', alignItems:'center', gap:16 }}>
+                      <div style={{ width:56, height:56, borderRadius:14, background:tipoInfo?.cor+'33', border:'2px solid '+(tipoInfo?.cor||GOLD), display:'flex', alignItems:'center', justifyContent:'center', fontSize:28 }}>{tipoInfo?.icon||'📄'}</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:18, fontWeight:800 }}>{resultado.tipo_documento}</div>
+                        <div style={{ fontSize:12, color:GOLD, marginTop:2 }}>{resultado.arquivo_nome}</div>
+                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.6)', marginTop:4 }}>{resultado.resumo_ia}</div>
+                      </div>
+                      <div style={{ textAlign:'right' }}>
+                        <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)', marginBottom:4 }}>Confiança do tipo</div>
+                        <div style={{ fontSize:28, fontWeight:800, color:GOLD }}>{Math.round((resultado.tipo_confianca||0)*100)}%</div>
+                        <div style={{ fontSize:10, padding:'2px 8px', borderRadius:10, background:resultado.modo==='claude'?GOLD+'33':'rgba(255,255,255,0.1)', color:resultado.modo==='claude'?GOLD:'rgba(255,255,255,0.5)', marginTop:4 }}>
+                          {resultado.modo==='claude'?'🧠 Claude AI':'⚡ Heurística'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Matching */}
+                    {(resultado.obrigacao_match||resultado.cliente_match) && (
+                      <div style={{ display:'grid', gridTemplateColumns:resultado.obrigacao_match&&resultado.cliente_match?'1fr 1fr':'1fr', gap:12, marginBottom:20 }}>
+                        {resultado.obrigacao_match && (
+                          <div style={{ padding:14, borderRadius:12, background:'#f0fdf4', border:'1px solid #bbf7d0' }}>
+                            <div style={{ fontSize:10, fontWeight:700, color:'#166534', textTransform:'uppercase', marginBottom:6 }}>🔗 Obrigação vinculada</div>
+                            <div style={{ fontWeight:700, color:'#166534', fontSize:14 }}>{resultado.obrigacao_match}</div>
+                            <BarraConfianca valor={resultado.obrigacao_confianca} label="matching"/>
+                          </div>
+                        )}
+                        {resultado.cliente_match && (
+                          <div style={{ padding:14, borderRadius:12, background:'#eff6ff', border:'1px solid #bfdbfe' }}>
+                            <div style={{ fontSize:10, fontWeight:700, color:'#1e40af', textTransform:'uppercase', marginBottom:6 }}>🏢 Cliente identificado</div>
+                            <div style={{ fontWeight:700, color:'#1e40af', fontSize:14 }}>{resultado.cliente_match}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Campos extraídos */}
+                    <div style={{ marginBottom:20 }}>
+                      <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:12 }}>📋 Campos extraídos pela IA <span style={{ fontSize:11, fontWeight:400, color:'#888' }}>(editáveis)</span></div>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                        {Object.entries({
+                          competencia:'Competência', vencimento:'Vencimento', valor:'Valor',
+                          cnpj:'CNPJ', razao_social:'Razão Social', tipo_tributo:'Tipo Tributo',
+                          codigo_barras:'Cód. Barras', numero_doc:'Nº Documento', codigo_receita:'Cód. Receita',
+                          valor_multa:'Multa', valor_juros:'Juros', responsavel:'Responsável',
+                        }).map(([k,lb]) => (camposEdit[k] !== undefined || resultado.campos?.[k]) && (
+                          <CampoIA key={k} label={lb} valor={camposEdit[k]??resultado.campos?.[k]??''}
+                            confianca={0.85} editavel={true}
+                            onChange={v => setCamposEdit(p => ({...p,[k]:v}))}/>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Ações */}
+                    <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                      <button onClick={salvarNaBiblioteca} style={{ flex:1, padding:'12px 20px', borderRadius:10, background:NAVY, color:'#fff', border:'none', cursor:'pointer', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                        📚 Salvar na Biblioteca
+                      </button>
+                      <button onClick={marcarEntregue} style={{ flex:1, padding:'12px 20px', borderRadius:10, background:'#22c55e', color:'#fff', border:'none', cursor:'pointer', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                        ✅ Marcar como Entregue
+                      </button>
+                      <button onClick={novaAnalise} style={{ padding:'12px 20px', borderRadius:10, background:'#f0f0f0', color:'#555', border:'none', cursor:'pointer', fontWeight:600, fontSize:14 }}>
+                        🔄 Nova Análise
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* ── ABA HISTÓRICO ─────────────────────────────────────────────────── */}
-        {aba === 'historico' && (
-          <div style={{ maxWidth:900, margin:'0 auto' }}>
+        {/* ── ABA BIBLIOTECA ──────────────────────────────────────────────── */}
+        {aba==='biblioteca' && (
+          <div>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-              <div style={{ fontWeight:700, color:NAVY, fontSize:15 }}>📋 Histórico de Análises ({historico.length})</div>
-              <button onClick={() => { if(confirm('Limpar todo o histórico?')) { setHistorico([]); lsSet(LS_HIST,[]) } }}
-                style={{ padding:'5px 12px', borderRadius:7, background:'#fee2e2', color:'#dc2626',
-                  border:'1px solid #fca5a5', fontSize:11, cursor:'pointer', fontWeight:600 }}>
-                🗑️ Limpar
+              <div style={{ fontWeight:800, color:NAVY, fontSize:16 }}>📚 Biblioteca Permanente</div>
+              <div style={{ fontSize:12, color:'#888' }}>Documentos salvos não são solicitados novamente</div>
+            </div>
+            {biblioteca.length === 0 ? (
+              <div style={{ textAlign:'center', padding:60, color:'#aaa' }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>📚</div>
+                <div>Nenhum documento na biblioteca ainda.</div>
+                <div style={{ fontSize:12, marginTop:8 }}>Analise um documento e clique em "Salvar na Biblioteca".</div>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                {biblioteca.map(item => {
+                  const t = TIPOS.find(t=>t.nome===item.tipo)||TIPOS.find(t=>t.id==='outro')
+                  return (
+                    <div key={item.id} style={{ padding:16, borderRadius:12, background:'#fff', border:'1px solid #e5e7eb', display:'flex', gap:14, alignItems:'center' }}>
+                      <div style={{ width:44, height:44, borderRadius:10, background:t.cor+'15', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>{t.icon}</div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{item.arquivo_nome}</div>
+                        <div style={{ fontSize:11, color:'#888', marginTop:2 }}>
+                          {item.tipo} · {item.campos?.competencia||'—'} · {item.ts}
+                          {item.obrigacao && <span style={{ marginLeft:8, color:'#16a34a' }}>🔗 {item.obrigacao}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <span style={{ padding:'3px 10px', borderRadius:6, background:'#f0fdf4', color:'#16a34a', fontSize:11, fontWeight:600 }}>✅ Biblioteca</span>
+                        <button onClick={()=>{const n=biblioteca.filter(b=>b.id!==item.id);setBiblioteca(n);lss('ep_robo_bib_v2',n)}}
+                          style={{ padding:'3px 8px', borderRadius:6, background:'#fef2f2', color:'#dc2626', border:'none', cursor:'pointer', fontSize:11 }}>✕</button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ABA HISTÓRICO ───────────────────────────────────────────────── */}
+        {aba==='historico' && (
+          <div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+              <div style={{ fontWeight:800, color:NAVY, fontSize:16 }}>🕐 Histórico de Análises</div>
+              <button onClick={()=>{if(confirm('Limpar histórico?')){setHistorico([]);lss('ep_robo_hist_v2',[])}}}
+                style={{ padding:'6px 14px', borderRadius:8, background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                🗑️ Limpar histórico
               </button>
             </div>
             {historico.length === 0 ? (
               <div style={{ textAlign:'center', padding:60, color:'#aaa' }}>
-                <div style={{ fontSize:40, marginBottom:8 }}>📭</div>
-                <div>Nenhum documento analisado ainda.</div>
-                <div style={{ fontSize:12, marginTop:4 }}>Arraste um arquivo na aba "Analisar IA"</div>
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {historico.map((h, i) => (
-                  <div key={h.id||i} style={{ background:'#fff', borderRadius:12, border:'1px solid #e5e7eb',
-                    padding:'12px 16px', display:'flex', alignItems:'center', gap:14 }}>
-                    <div style={{ fontSize:24 }}>
-                      {h.tipo_confianca>=0.85?'✅':h.tipo_confianca>=0.6?'⚠️':'❓'}
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{h.tipo_documento}</div>
-                      <div style={{ fontSize:11, color:'#888' }}>{h.arquivo_nome} · {new Date(h.ts).toLocaleString('pt-BR')}</div>
-                      {h.resumo_ia && <div style={{ fontSize:11, color:'#555', marginTop:3 }}>{h.resumo_ia}</div>}
-                    </div>
-                    <div style={{ textAlign:'right' }}>
-                      <div style={{ fontSize:10, color:'#aaa', marginBottom:4 }}>Confiança</div>
-                      <div style={{ fontWeight:800, color:CONFIANCA_COR(h.tipo_confianca||0) }}>
-                        {Math.round((h.tipo_confianca||0)*100)}%
-                      </div>
-                      <div style={{ fontSize:10, marginTop:2, padding:'2px 7px', borderRadius:10,
-                        background: h.status==='entregue'?'#f0fdf4':'#f8f9fa',
-                        color: h.status==='entregue'?'#15803d':'#888' }}>
-                        {h.status==='entregue'?'Entregue':'Analisado'}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── ABA BIBLIOTECA ────────────────────────────────────────────────── */}
-        {aba === 'biblioteca' && (
-          <div style={{ maxWidth:900, margin:'0 auto' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-              <div>
-                <div style={{ fontWeight:700, color:NAVY, fontSize:15 }}>📚 Biblioteca Permanente ({biblioteca.length})</div>
-                <div style={{ fontSize:12, color:'#888' }}>Documentos salvos — o robô não solicitará novamente (mesma chave)</div>
-              </div>
-            </div>
-            {biblioteca.length === 0 ? (
-              <div style={{ textAlign:'center', padding:60, color:'#aaa' }}>
-                <div style={{ fontSize:40, marginBottom:8 }}>📚</div>
-                <div>Biblioteca vazia.</div>
-                <div style={{ fontSize:12, marginTop:4 }}>Documentos com confiança ≥ 70% são salvos automaticamente.</div>
+                <div style={{ fontSize:48, marginBottom:12 }}>🕐</div>
+                <div>Nenhuma análise realizada ainda.</div>
               </div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {biblioteca.map((b, i) => (
-                  <div key={b.id||i} style={{ background:'#fff', borderRadius:10, border:'1px solid #e5e7eb',
-                    padding:'12px 16px', display:'flex', alignItems:'center', gap:12 }}>
-                    <div style={{ fontSize:20 }}>📄</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:700, color:NAVY, fontSize:13 }}>{b.tipo_documento}</div>
-                      <div style={{ fontSize:11, color:'#888' }}>
-                        {b.campos?.competencia && 'Competência: '+b.campos.competencia+' · '}
-                        {b.campos?.cnpj && 'CNPJ: '+b.campos.cnpj+' · '}
-                        Salvo: {b.salvo_em}
+                {historico.map(h=>{
+                  const t = TIPOS.find(t=>t.nome===h.tipo)||TIPOS.find(t=>t.id==='outro')
+                  return (
+                    <div key={h.id} style={{ padding:14, borderRadius:10, background:'#fff', border:'1px solid #e5e7eb', display:'flex', gap:12, alignItems:'center' }}>
+                      <span style={{ fontSize:20 }}>{t?.icon||'📄'}</span>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontWeight:600, color:NAVY, fontSize:13 }}>{h.arquivo_nome}</div>
+                        <div style={{ fontSize:11, color:'#888' }}>{h.tipo} · {h.campos?.competencia||'—'} · {h.ts}</div>
                       </div>
-                      <div style={{ fontSize:10, color:'#aaa', fontFamily:'monospace', marginTop:2 }}>
-                        Chave: {b.chave?.slice(0,50)}
+                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                        <span style={{ padding:'2px 8px', borderRadius:6, fontSize:10, fontWeight:600,
+                          background:h.modo==='claude'?GOLD+'20':'#f3f4f6',
+                          color:h.modo==='claude'?'#92400e':'#666' }}>
+                          {h.modo==='claude'?'🧠 Claude':'⚡ Padrão'}
+                        </span>
+                        <span style={{ padding:'2px 8px', borderRadius:6, fontSize:10, fontWeight:600,
+                          background:h.status==='entregue'?'#f0fdf4':h.status==='na_biblioteca'?'#eff6ff':'#f9fafb',
+                          color:h.status==='entregue'?'#16a34a':h.status==='na_biblioteca'?'#1e40af':'#666' }}>
+                          {h.status==='entregue'?'✅ Entregue':h.status==='na_biblioteca'?'📚 Biblioteca':'📄'}
+                        </span>
                       </div>
                     </div>
-                    <button onClick={() => { const nova=biblioteca.filter((_,j)=>j!==i); setBiblioteca(nova); lsSet(LS_LIB,nova) }}
-                      style={{ padding:'4px 10px', borderRadius:6, background:'none', border:'1px solid #e5e7eb',
-                        color:'#dc2626', cursor:'pointer', fontSize:11 }}>✕</button>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
         )}
 
-        {/* ── ABA CONFIG ────────────────────────────────────────────────────── */}
-        {aba === 'config' && (
-          <div style={{ maxWidth:640, margin:'0 auto' }}>
-            <div style={{ fontWeight:700, color:NAVY, fontSize:15, marginBottom:20 }}>⚙️ Configurações do Robô IA</div>
+        {/* ── ABA CONFIG ──────────────────────────────────────────────────── */}
+        {aba==='config' && (
+          <div style={{ maxWidth:600 }}>
+            <div style={{ fontWeight:800, color:NAVY, fontSize:16, marginBottom:20 }}>⚙️ Configuração da IA</div>
 
-            {/* API Key */}
-            <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e5e7eb', padding:20, marginBottom:16 }}>
-              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:4 }}>🔑 ANTHROPIC_API_KEY (Railway)</div>
-              <div style={{ fontSize:12, color:'#888', marginBottom:12 }}>
-                Configure no Railway → Variables → ANTHROPIC_API_KEY para ativar análise completa com Claude AI.
-                Sem a chave, o robô usa análise heurística pelo nome do arquivo.
+            {/* Status do backend */}
+            <div style={{ padding:16, borderRadius:12, background:'#f9fafb', border:'1px solid #e5e7eb', marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:12 }}>🌐 Endpoint do Robô</div>
+              <div style={{ fontSize:12, color:'#555', fontFamily:'monospace', background:'#fff', padding:'8px 12px', borderRadius:8, border:'1px solid #e5e7eb' }}>
+                {API}/ai/analisar-documento
               </div>
-              <div style={{ padding:'10px 14px', borderRadius:8, background:'#f0f7f0',
-                border:'1px solid '+GOLD+'50', fontSize:12, color:NAVY }}>
-                <b>Como configurar:</b><br/>
-                1. Acesse <b>railway.com</b> → seu projeto → <b>sistema-obrigacoes</b> (backend)<br/>
-                2. Clique em <b>Variables</b> → <b>New Variable</b><br/>
-                3. Nome: <code>ANTHROPIC_API_KEY</code> · Valor: sua chave da API Anthropic<br/>
-                4. Clique <b>Deploy</b> — o robô usará Claude AI para análise completa
+              <div style={{ fontSize:11, color:'#888', marginTop:8 }}>
+                O backend chama a API Claude usando a variável ANTHROPIC_API_KEY configurada no Railway.
               </div>
             </div>
 
-            {/* Configurações */}
-            <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e5e7eb', padding:20, marginBottom:16 }}>
-              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:16 }}>🤖 Comportamento da IA</div>
-              {[
-                { k:'salvar_auto', label:'Salvar automaticamente na biblioteca', desc:'Documentos com confiança ≥ 70% são salvos sem confirmação' },
-                { k:'modo_auto',   label:'Detectar tipo automaticamente', desc:'A IA escolhe o tipo de documento sem intervenção manual' },
-                { k:'notificar',   label:'Notificar após análise', desc:'Exibir toast ao concluir análise' },
-              ].map(opt => (
-                <div key={opt.k} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
-                  padding:'12px 0', borderBottom:'1px solid #f5f5f5' }}>
-                  <div>
-                    <div style={{ fontWeight:600, color:NAVY, fontSize:13 }}>{opt.label}</div>
-                    <div style={{ fontSize:11, color:'#888' }}>{opt.desc}</div>
-                  </div>
-                  <button onClick={() => { const novo={...config,[opt.k]:!config[opt.k]}; setConfig(novo); lsSet(LS_CONFIG,novo) }}
-                    style={{ width:44, height:24, borderRadius:12, border:'none', cursor:'pointer',
-                      background: config[opt.k] ? GOLD : '#e5e7eb', transition:'background .2s',
-                      position:'relative' }}>
-                    <div style={{ width:18, height:18, borderRadius:'50%', background:'#fff',
-                      position:'absolute', top:3, transition:'left .2s',
-                      left: config[opt.k] ? 23 : 3, boxShadow:'0 1px 4px rgba(0,0,0,0.2)' }} />
-                  </button>
-                </div>
-              ))}
+            {/* Instrução Railway */}
+            <div style={{ padding:16, borderRadius:12, background:'#fffbeb', border:'1px solid #fde68a', marginBottom:20 }}>
+              <div style={{ fontWeight:700, color:'#92400e', fontSize:13, marginBottom:10 }}>🔑 Para ativar análise completa com IA Claude:</div>
+              <ol style={{ fontSize:12, color:'#555', lineHeight:2, paddingLeft:20, margin:0 }}>
+                <li>Acesse <b>railway.com</b> → projeto <b>sistema-obrigacoes</b></li>
+                <li>Clique em <b>Variables</b> no serviço do backend</li>
+                <li>Adicione: <code style={{ background:'#fff', padding:'1px 6px', borderRadius:4 }}>ANTHROPIC_API_KEY = sk-ant-...</code></li>
+                <li>Faça o redeploy</li>
+              </ol>
+              <div style={{ marginTop:10, fontSize:11, color:'#b45309' }}>
+                Sem a chave: análise por padrão do nome do arquivo (funciona para DAS, DARF, NF-e etc.)
+              </div>
             </div>
 
-            {/* Como funciona */}
-            <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e5e7eb', padding:20 }}>
-              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:14 }}>📖 Como o Robô detecta documentos</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                {[
-                  { icon:'1️⃣', title:'Leitura', desc:'Lê o arquivo (PDF, XML, imagem) e extrai o conteúdo ou analisa o nome' },
-                  { icon:'2️⃣', title:'Classificação', desc:'Claude AI ou padrão heurístico identifica o tipo (DAS, DARF, NF-e...)' },
-                  { icon:'3️⃣', title:'Extração', desc:'Extrai campos: vencimento, valor, CNPJ, competência, código de barras...' },
-                  { icon:'4️⃣', title:'Vinculação', desc:'Faz matching automático com obrigações do catálogo e clientes cadastrados' },
-                  { icon:'5️⃣', title:'Biblioteca', desc:'Salva com chave única (tipo+competência+CNPJ) — não solicita novamente' },
-                  { icon:'6️⃣', title:'Entrega', desc:'Marca a obrigação como entregue no módulo Entregas/Tarefas automaticamente' },
-                ].map(s => (
-                  <div key={s.title} style={{ background:'#f8f9fa', borderRadius:8, padding:'10px 12px' }}>
-                    <div style={{ fontSize:18, marginBottom:4 }}>{s.icon}</div>
-                    <div style={{ fontWeight:700, color:NAVY, fontSize:12, marginBottom:3 }}>{s.title}</div>
-                    <div style={{ fontSize:11, color:'#666', lineHeight:1.5 }}>{s.desc}</div>
+            {/* Tipos de documento */}
+            <div style={{ padding:16, borderRadius:12, background:'#f9fafb', border:'1px solid #e5e7eb' }}>
+              <div style={{ fontWeight:700, color:NAVY, fontSize:13, marginBottom:12 }}>🗂️ Tipos detectados automaticamente</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                {TIPOS.filter(t=>t.id!=='outro').map(t=>(
+                  <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderRadius:8, background:'#fff', border:'1px solid #e5e7eb' }}>
+                    <span style={{ width:10, height:10, borderRadius:'50%', background:t.cor, display:'inline-block', flexShrink:0 }}/>
+                    <span style={{ fontSize:12, color:'#333' }}>{t.nome}</span>
                   </div>
                 ))}
               </div>
