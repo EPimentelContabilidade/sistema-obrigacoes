@@ -120,36 +120,12 @@ async def analisar_documento(req: DocumentoRequest):
     if req.clientes:
         clientes_str = 'Clientes no sistema: ' + ', '.join([c.get('nome','')[:30] for c in req.clientes[:10]])
     
-    prompt = f"""Você é um especialista em documentos fiscais brasileiros. Analise este documento e responda em JSON puro (sem markdown).
-
+    prompt = f"""Analise o documento fiscal brasileiro. Responda APENAS em JSON puro (sem markdown, sem explicação).
 {catalogo_str}
 {clientes_str}
-{req.prompt_extra}
 
-Extraia TODOS os campos disponíveis e retorne exatamente neste formato JSON:
-{{
-  "tipo_documento": "nome do tipo (DAS, DARF, NF-e, DCTFWeb, CAGED, eSocial, Folha, SPED, etc.)",
-  "tipo_confianca": 0.0 a 1.0,
-  "campos": {{
-    "competencia": "MM/AAAA",
-    "vencimento": "DD/MM/AAAA",
-    "valor": "R$ X.XXX,XX",
-    "valor_multa": "R$ X,XX ou vazio",
-    "valor_juros": "R$ X,XX ou vazio",
-    "cnpj": "XX.XXX.XXX/XXXX-XX",
-    "razao_social": "nome da empresa",
-    "codigo_barras": "linha digitavel se houver",
-    "numero_doc": "numero ou protocolo",
-    "tipo_tributo": "IRPJ/CSLL/PIS/COFINS/ISS/etc",
-    "codigo_receita": "se DARF",
-    "periodo_apuracao": "periodo do tributo",
-    "responsavel": "nome do assinante se houver"
-  }},
-  "obrigacao_match": "nome da obrigação do catálogo que melhor se encaixa ou null",
-  "obrigacao_confianca": 0.0 a 1.0,
-  "cliente_match": "nome do cliente do sistema que corresponde ao CNPJ/razão social ou null",
-  "resumo_ia": "1-2 frases descrevendo o documento identificado"
-}}"""
+Retorne:
+{{"tipo_documento":"DAS/DARF/NF-e/DCTFWeb/CAGED/eSocial/Folha/SPED/etc","tipo_confianca":0.0-1.0,"campos":{{"competencia":"MM/AAAA","vencimento":"DD/MM/AAAA","valor":"R$ X","valor_multa":"","valor_juros":"","cnpj":"XX.XXX.XXX/XXXX-XX","razao_social":"","codigo_barras":"","numero_doc":"","tipo_tributo":"","codigo_receita":"","responsavel":""}},"obrigacao_match":"nome ou null","obrigacao_confianca":0.0-1.0,"cliente_match":"nome ou null","resumo_ia":"1 frase"}}"""
 
     try:
         content_parts = [{"type": "text", "text": prompt}]
@@ -177,8 +153,8 @@ Extraia TODOS os campos disponíveis e retorne exatamente neste formato JSON:
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-opus-4-6",
-                    "max_tokens": 1500,
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 800,
                     "messages": [{"role": "user", "content": content_parts}]
                 }
             )
