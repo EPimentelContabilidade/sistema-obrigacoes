@@ -97,67 +97,100 @@ function StatusIA({ api }) {
 
 // ── VinculoObrigacao: seletor de obrigação do catálogo ──────────────────────
 function VinculoObrigacao({ resultado, obrigacaoVinculada, setObrigacaoVinculada }) {
-  const NAVY = '#1F4A33'
+  const NAVY = '#1F4A33', GOLD = '#C5A55A'
+  const [textoLivre, setTextoLivre] = React.useState('')
+
   const todasObrig = React.useMemo(() => {
     try {
       const cat = JSON.parse(localStorage.getItem('ep_obrigacoes_catalogo_v2')||'{}')
       return Object.values(cat).flat().filter(Boolean).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''))
     } catch(e){ return [] }
   }, [])
-  const sugestaoIA = resultado?.obrigacao_match || null
+
+  const sugestaoIA = resultado?.obrigacao_match || resultado?.tipo_documento || null
+
   const sugestaoObj = React.useMemo(() => {
     if (!sugestaoIA || !todasObrig.length) return null
+    const s = sugestaoIA.toLowerCase()
     return todasObrig.find(o =>
-      (o.nome||'').toLowerCase().includes(sugestaoIA.toLowerCase().slice(0,10)) ||
-      sugestaoIA.toLowerCase().includes((o.nome||'').toLowerCase().slice(0,10))
+      (o.nome||'').toLowerCase().includes(s.slice(0,10)) ||
+      s.includes((o.nome||'').toLowerCase().slice(0,10)) ||
+      (o.codigo||'').toLowerCase() === s.slice(0,6)
     ) || null
   }, [sugestaoIA, todasObrig])
+
   React.useEffect(() => {
-    if (sugestaoObj && !obrigacaoVinculada) setObrigacaoVinculada(sugestaoObj)
-  }, [sugestaoObj])
+    if (sugestaoObj && !obrigacaoVinculada) {
+      setObrigacaoVinculada(sugestaoObj)
+    } else if (sugestaoIA && !obrigacaoVinculada && !sugestaoObj) {
+      setTextoLivre(sugestaoIA)
+    }
+  }, [sugestaoObj, sugestaoIA])
+
   const sel = obrigacaoVinculada
-  if (todasObrig.length === 0) return (
-    <div style={{ marginBottom:16,padding:12,borderRadius:10,background:'#fffbeb',border:'1px solid #fde68a' }}>
-      <div style={{ fontSize:12,color:'#92400e' }}>⚠️ Catálogo vazio — configure em <b>Config. Tarefas</b> para vincular.</div>
-    </div>
-  )
+  const catalogoVazio = todasObrig.length === 0
+
   return (
-    <div style={{ marginBottom:20,padding:16,borderRadius:12,background:'#fff',border:'2px solid '+(sel?NAVY:'#e5e7eb') }}>
-      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10 }}>
-        <div style={{ fontWeight:700,color:NAVY,fontSize:13 }}>🔗 Vincular à Obrigação do Catálogo</div>
-        {sel && <span style={{ fontSize:10,padding:'2px 8px',borderRadius:10,background:'#f0fdf4',color:'#16a34a',fontWeight:700 }}>✅ Vinculado</span>}
+    <div style={{ marginBottom:20,padding:16,borderRadius:12,background:sel?'#f0fdf4':'#fff',border:'2px solid '+(sel?NAVY:'#e2e8f0'),boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+      {/* Título */}
+      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12 }}>
+        <div style={{ fontWeight:800,color:NAVY,fontSize:13,display:'flex',alignItems:'center',gap:6 }}>
+          🔗 Vincular à Obrigação
+          <span style={{ fontSize:10,color:'#888',fontWeight:400 }}>obrigatório para criar tarefa automática</span>
+        </div>
+        {sel && <span style={{ fontSize:11,padding:'3px 10px',borderRadius:10,background:NAVY,color:'#fff',fontWeight:700 }}>✅ {sel.nome?.slice(0,22)}</span>}
       </div>
-      {sugestaoIA && sugestaoObj && (
-        <div style={{ fontSize:11,color:'#888',marginBottom:8 }}>
-          🤖 Sugestão: <b style={{color:NAVY}}>{sugestaoIA}</b>
-          {sel?.nome !== sugestaoObj?.nome && (
+
+      {/* Sugestão da IA em destaque */}
+      {sugestaoIA && (
+        <div style={{ padding:'8px 12px',borderRadius:8,background:sugestaoObj?'#eff6ff':'#fffbeb',border:'1px solid '+(sugestaoObj?'#bfdbfe':'#fde68a'),marginBottom:10,display:'flex',alignItems:'center',gap:8 }}>
+          <span style={{ fontSize:16 }}>{sugestaoObj?'🤖':'💡'}</span>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:10,color:'#6b7280',fontWeight:700 }}>DETECÇÃO DA IA</div>
+            <div style={{ fontSize:13,fontWeight:700,color:sugestaoObj?'#1e40af':'#92400e' }}>{sugestaoIA}</div>
+          </div>
+          {sugestaoObj && sel?.nome !== sugestaoObj?.nome && (
             <button onClick={()=>setObrigacaoVinculada(sugestaoObj)}
-              style={{marginLeft:8,padding:'1px 8px',borderRadius:6,background:'#eff6ff',color:'#1e40af',border:'none',cursor:'pointer',fontSize:10,fontWeight:600}}>
-              usar sugestão
+              style={{ padding:'5px 12px',borderRadius:6,background:'#1e40af',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700,whiteSpace:'nowrap' }}>
+              Usar esta ✓
             </button>
           )}
+          {!sugestaoObj && <span style={{ fontSize:11,color:'#b45309' }}>não encontrada no catálogo</span>}
         </div>
       )}
-      <select value={sel?.nome||''} onChange={e=>setObrigacaoVinculada(todasObrig.find(o=>o.nome===e.target.value)||null)}
-        style={{ width:'100%',padding:'9px 12px',borderRadius:8,border:'1px solid '+(sel?NAVY:'#ddd'),fontSize:13,background:'#fff',color:sel?NAVY:'#888',fontWeight:sel?600:400,cursor:'pointer' }}>
-        <option value=''>— Selecione a obrigação —</option>
-        {todasObrig.map(o=>(
-          <option key={o.codigo||o.nome} value={o.nome}>
-            {o.codigo?'['+o.codigo+'] ':''}{o.nome} ({o.periodicidade||'Mensal'})
-          </option>
-        ))}
-      </select>
-      {sel && (
-        <div style={{ marginTop:10,display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8 }}>
-          {[['Departamento',sel.departamento||'—'],['Periodicidade',sel.periodicidade||'—'],['Venc. Jan',sel.dias_entrega?.Janeiro||'Dia 20']].map(([lb,vl])=>(
-            <div key={lb} style={{ padding:'6px 10px',borderRadius:6,background:'#f9fafb',border:'1px solid #e5e7eb' }}>
-              <div style={{ fontSize:9,color:'#888',fontWeight:700,textTransform:'uppercase' }}>{lb}</div>
-              <div style={{ fontSize:11,fontWeight:600,color:NAVY }}>{vl}</div>
-            </div>
+
+      {/* Seletor do catálogo OU texto livre */}
+      {catalogoVazio ? (
+        <div>
+          <div style={{ fontSize:11,color:'#92400e',background:'#fffbeb',padding:'8px 12px',borderRadius:8,border:'1px solid #fde68a',marginBottom:8 }}>
+            ⚠️ Catálogo vazio — <b>configure obrigações</b> em Config. Tarefas para vincular automaticamente.
+          </div>
+          <input value={textoLivre} onChange={e=>{ setTextoLivre(e.target.value); setObrigacaoVinculada(e.target.value?{nome:e.target.value,codigo:'',periodicidade:'Mensal',dias_entrega:{}}:null) }}
+            placeholder='Digite o nome da obrigação manualmente...'
+            style={{ width:'100%',padding:'9px 12px',borderRadius:8,border:'1px solid #ddd',fontSize:13,boxSizing:'border-box' }}/>
+        </div>
+      ) : (
+        <select value={sel?.nome||''} onChange={e=>setObrigacaoVinculada(todasObrig.find(o=>o.nome===e.target.value)||null)}
+          style={{ width:'100%',padding:'10px 12px',borderRadius:8,border:'2px solid '+(sel?NAVY:'#ddd'),fontSize:13,background:'#fff',color:sel?NAVY:'#888',fontWeight:sel?700:400,cursor:'pointer' }}>
+          <option value=''>— Selecione a obrigação —</option>
+          {todasObrig.map(o=>(
+            <option key={o.codigo||o.nome} value={o.nome}>
+              {o.codigo?'['+o.codigo+'] ':''}{o.nome} ({o.periodicidade||'Mensal'})
+            </option>
+          ))}
+        </select>
+      )}
+
+      {/* Detalhes da obrigação selecionada */}
+      {sel && (sel.departamento||sel.periodicidade) && (
+        <div style={{ marginTop:10,display:'flex',gap:8,flexWrap:'wrap' }}>
+          {[['🏢',sel.departamento],['🔄',sel.periodicidade],['📅','Venc: '+(sel.dias_entrega?.Janeiro||'Dia 20')]].filter(([,v])=>v&&v!=='—').map(([ic,vl])=>(
+            <span key={vl} style={{ padding:'3px 10px',borderRadius:20,background:'#e0f2fe',color:'#0369a1',fontSize:11,fontWeight:600 }}>{ic} {vl}</span>
           ))}
         </div>
       )}
-      {!sel && <div style={{ marginTop:8,fontSize:11,color:'#f59e0b' }}>⚠️ Sem vínculo — salvo sem associação à obrigação.</div>}
+
+      {!sel && <div style={{ marginTop:10,fontSize:11,color:'#dc2626',fontWeight:600 }}>⚠️ Selecione a obrigação para vincular este documento.</div>}
     </div>
   )
 }
@@ -248,6 +281,7 @@ export default function RoboObrigacoes() {
   const [camposEdit, setCamposEdit] = useState({})
   const [historico, setHistorico] = useState(() => ls('ep_robo_hist_v2', []))
   const [biblioteca, setBiblioteca] = useState(() => ls('ep_robo_bib_v2', []))
+  const [editBib, setEditBib] = useState(null) // item sendo editado na biblioteca
   const [modalCriarTarefa, setModalCriarTarefa] = useState(null)
   const [obrigacaoVinculada, setObrigacaoVinculada] = useState(null) // obrigação selecionada manualmente // {obrigacao, competencia, tipo}
   const [apiKey, setApiKey]       = useState(() => ls('ep_robo_api_key', ''))
@@ -669,6 +703,34 @@ export default function RoboObrigacoes() {
           </div>
         )}
 
+        {/* ── Modal edição de item da biblioteca ───────────────────────── */}
+        {editBib && (
+          <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center' }}>
+            <div style={{ background:'#fff',borderRadius:16,padding:24,maxWidth:460,width:'92%',boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
+              <div style={{ fontWeight:800,color:NAVY,fontSize:15,marginBottom:16 }}>✏️ Editar Documento da Biblioteca</div>
+              {[['📁 Nome do arquivo','arquivo_nome'],['📋 Tipo','tipo'],['🔗 Obrigação vinculada','obrigacao'],['👤 Cliente','cliente'],['📅 Competência','campos.competencia']].map(([lb,k])=>{
+                const isNested=k.includes('.'); const val=isNested?editBib.campos?.[k.split('.')[1]]||'':editBib[k]||''
+                return (
+                  <div key={k} style={{ marginBottom:12 }}>
+                    <label style={{ fontSize:11,fontWeight:700,color:'#555',display:'block',marginBottom:4 }}>{lb}</label>
+                    <input value={val} onChange={e=>{
+                      if(isNested){ const [a,b]=k.split('.'); setEditBib(p=>({...p,campos:{...p.campos,[b]:e.target.value}})) }
+                      else setEditBib(p=>({...p,[k]:e.target.value}))
+                    }} style={{ width:'100%',padding:'8px 10px',borderRadius:8,border:'1px solid #ddd',fontSize:13,boxSizing:'border-box' }}/>
+                  </div>
+                )
+              })}
+              <div style={{ display:'flex',gap:10,marginTop:16 }}>
+                <button onClick={()=>setEditBib(null)} style={{ flex:1,padding:'10px 0',borderRadius:8,background:'#f3f4f6',color:'#555',border:'none',cursor:'pointer',fontWeight:600 }}>Cancelar</button>
+                <button onClick={()=>{
+                  const nova=biblioteca.map(b=>b.id===editBib.id?editBib:b)
+                  setBiblioteca(nova); lss('ep_robo_bib_v2',nova); setEditBib(null)
+                }} style={{ flex:2,padding:'10px 0',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontWeight:700 }}>💾 Salvar alterações</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── ABA BIBLIOTECA ──────────────────────────────────────────────── */}
         {aba==='biblioteca' && (
           <div>
@@ -698,8 +760,14 @@ export default function RoboObrigacoes() {
                       </div>
                       <div style={{ display:'flex', gap:6 }}>
                         <span style={{ padding:'3px 10px', borderRadius:6, background:'#f0fdf4', color:'#16a34a', fontSize:11, fontWeight:600 }}>✅ Biblioteca</span>
-                        <button onClick={()=>{const n=biblioteca.filter(b=>b.id!==item.id);setBiblioteca(n);lss('ep_robo_bib_v2',n)}}
+                        <button onClick={()=>{
+                            const perfil=(JSON.parse(localStorage.getItem('ep_usuario_logado')||'{}')||{}).perfil||''
+                            if(perfil!=='admin'){alert('\u26a0\ufe0f ATEN\u00c7\u00c3O\n\nExclus\u00e3o da biblioteca \u00e9 restrita ao Administrador do sistema.');return}
+                            if(confirm('Excluir permanentemente "'+item.arquivo_nome+'"?')){const n=biblioteca.filter(b=>b.id!==item.id);setBiblioteca(n);lss('ep_robo_bib_v2',n)}
+                          }}
                           style={{ padding:'3px 8px', borderRadius:6, background:'#fef2f2', color:'#dc2626', border:'none', cursor:'pointer', fontSize:11 }}>✕</button>
+                          <button onClick={()=>setEditBib(item)}
+                            style={{ padding:'3px 8px', borderRadius:6, background:'#f0fdf4', color:'#16a34a', border:'1px solid #bbf7d0', cursor:'pointer', fontSize:11 }}>✏️</button>
                       </div>
                     </div>
                   )
