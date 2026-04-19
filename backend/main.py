@@ -14,6 +14,8 @@ from routers import (
     whatsapp_evolution_router, disparos_router, entrega_auto_router,
     automacao_router, drive_monitor_router, whatsapp_bot_router, agenda_mensal_router, comunicados_router, contratos_router,
     ai_router,
+    prolabore_router,
+    pessoal_router,
 )
 from routers import retencoes
 
