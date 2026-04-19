@@ -58,6 +58,24 @@ function MaskedInput({ mask, value, onChange, onComplete, ...props }) {
 }
 
 const NAVY = '#1F4A33'
+
+// Configurações visuais salvas no localStorage
+const getVisualConfig = () => { try { return JSON.parse(localStorage.getItem('ep_clientes_visual')||'null') || { tamanho:'medio', corNome:'#1a1a1a', corCnpj:'#666' } } catch { return { tamanho:'medio', corNome:'#1a1a1a', corCnpj:'#666' } } }
+const saveVisualConfig = (cfg) => { try { localStorage.setItem('ep_clientes_visual', JSON.stringify(cfg)) } catch {} }
+
+const TAMANHOS = {
+  pequeno: { nome:13, cnpj:11, sub:10, linha:38 },
+  medio:   { nome:15, cnpj:12, sub:11, linha:44 },
+  grande:  { nome:18, cnpj:14, sub:12, linha:54 },
+}
+
+const CORES_NOME = [
+  { label:'Padrão', valor:'#1a1a1a' },
+  { label:'Verde',  valor:'#1F4A33' },
+  { label:'Azul',   valor:'#1D3461' },
+  { label:'Roxo',   valor:'#4A1FA8' },
+  { label:'Bordo',  valor:'#7B1E1E' },
+]
 const GOLD  = '#C5A55A'
 const API   = window.location.hostname === 'localhost' ? '/api/v1' : 'https://sistema-obrigacoes-production.up.railway.app/api/v1'
 
@@ -555,6 +573,23 @@ export default function Clientes() {
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
           <div style={{ background:'#fff', borderBottom:'1px solid #e8e8e8', padding:'8px 16px' }}>
             <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
+      {/* Toolbar de configuração de fonte */}
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 16px', background:'#f8f9fa', borderBottom:'1px solid #eee', flexShrink:0 }}>
+        <span style={{ fontSize:11, color:'#888', fontWeight:600 }}>Tamanho:</span>
+        {[['pequeno','A-'],['medio','A'],['grande','A+']].map(([t,lb])=>(
+          <button key={t} onClick={()=>atualizarVisual({tamanho:t})}
+            style={{ padding:'2px 8px', borderRadius:6, fontSize:t==='pequeno'?11:t==='grande'?16:13, fontWeight:700, cursor:'pointer',
+              border:'1px solid '+((visualConfig?.tamanho||'medio')===t?NAVY:'#ddd'),
+              background:(visualConfig?.tamanho||'medio')===t?NAVY:'#fff',
+              color:(visualConfig?.tamanho||'medio')===t?'#fff':'#555' }}>{lb}</button>
+        ))}
+        <span style={{ fontSize:11, color:'#888', fontWeight:600, marginLeft:8 }}>Cor:</span>
+        {[{l:'Padrão',v:'#1a1a1a'},{l:'Verde',v:'#1F4A33'},{l:'Azul',v:'#1D3461'},{l:'Roxo',v:'#4A1FA8'},{l:'Bordo',v:'#7B1E1E'}].map(c=>(
+          <button key={c.v} title={c.l} onClick={()=>atualizarVisual({corNome:c.v})}
+            style={{ width:20,height:20,borderRadius:'50%',background:c.v,cursor:'pointer',
+              border:(visualConfig?.corNome||'#1a1a1a')===c.v?'3px solid #333':'2px solid #ddd' }}/>
+        ))}
+      </div>
               <div style={{ position:'relative', flex:1, maxWidth:380 }}>
                 <Search size={12} style={{ position:'absolute', left:8, top:8, color:'#bbb' }}/>
                 <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, CNPJ ou ID..." style={{ ...inp, paddingLeft:26 }}/>
@@ -618,7 +653,7 @@ export default function Clientes() {
                         <div style={{ fontWeight:600, color:NAVY }}>{c.nome}</div>
                         {c.nome_fantasia&&<div style={{ fontSize:10, color:'#aaa' }}>{c.nome_fantasia}</div>}
                       </td>
-                      <td style={{ padding:'9px 12px', color:'#555', fontFamily:'monospace', fontSize:11 }}>{c.cnpj}</td>
+                      <td style={{ padding:'9px 12px', color:visualConfig.corCnpj||'#555', fontFamily:'monospace', fontSize:tamanhoFonte.cnpj }}>{c.cnpj}</td>
                       <td style={{ padding:'9px 12px' }}>
                         {c.grupo
                           ? <span style={{ fontSize:11, padding:'2px 8px', borderRadius:8, background:GOLD+'22', color:'#7a5c00', fontWeight:600 }}>{c.grupo}</span>
