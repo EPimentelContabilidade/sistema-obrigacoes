@@ -197,6 +197,11 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
   const [form, setForm] = useState({ ...obrigacaoPadrao(), ...obrigacao });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const setDia = (mes, val) => setForm(f => ({ ...f, dias_entrega: { ...f.dias_entrega, [mes]: val } }));
+  const aplicarTodosMeses = (val) => {
+    const novosDias = {};
+    MESES.forEach(m => { novosDias[m] = val; });
+    setForm(f => ({ ...f, dias_entrega: novosDias }));
+  };
 
   return (
     <Modal titulo={form.codigo ? `Editar: ${form.codigo}` : "Nova Obrigação"} onClose={onClose} largura={780}>
@@ -230,12 +235,32 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
 
       {/* Dias de entrega por mês */}
       <div style={{ background:"#F8F9FA",borderRadius:8,padding:14,marginBottom:16 }}>
-        <div style={{ fontWeight:700,color:NAVY,fontSize:13,marginBottom:10 }}>📅 Dias de Entrega por Mês</div>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+          <div style={{ fontWeight:700,color:NAVY,fontSize:13 }}>📅 Dias de Entrega por Mês</div>
+          <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+            <span style={{ fontSize:11,color:"#888" }}>Aplicar a todos:</span>
+            <select style={{ ...selectStyle,fontSize:11,padding:"4px 6px",width:"auto" }}
+              onChange={e => { if(e.target.value) aplicarTodosMeses(e.target.value); e.target.value=""; }}
+              defaultValue="">
+              <option value="">— Escolha o dia —</option>
+              {DIAS_MES.map(d=><option key={d} value={d}>{d}</option>)}
+            </select>
+            <button type="button" onClick={()=>aplicarTodosMeses(form.dias_entrega?.["Janeiro"]||"Todo dia 20")}
+              style={{ padding:"4px 10px",borderRadius:6,background:NAVY,color:"#fff",border:"none",cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap" }}
+              title="Copia a data de Janeiro para todos os outros meses">
+              📅 Jan → Todos
+            </button>
+          </div>
+        </div>
         <div style={{ display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8 }}>
-          {MESES.map(mes => (
-            <div key={mes}>
-              <div style={{ fontSize:11,color:"#666",marginBottom:3,fontWeight:600 }}>{mes.substring(0,3)}</div>
-              <select style={{ ...selectStyle,fontSize:11,padding:"5px 6px" }} value={form.dias_entrega?.[mes]||"Todo dia 20"} onChange={e => setDia(mes,e.target.value)}>
+          {MESES.map((mes,idx) => (
+            <div key={mes} style={{ position:"relative" }}>
+              <div style={{ fontSize:11,color:idx===0?NAVY:"#666",marginBottom:3,fontWeight:idx===0?700:600 }}>
+                {mes.substring(0,3)}{idx===0?" ★":""}
+              </div>
+              <select style={{ ...selectStyle,fontSize:11,padding:"5px 6px",borderColor:idx===0?NAVY:"#ddd",borderWidth:idx===0?"2px":"1px" }}
+                value={form.dias_entrega?.[mes]||"Todo dia 20"}
+                onChange={e => setDia(mes,e.target.value)}>
                 {DIAS_MES.map(d=><option key={d}>{d}</option>)}
               </select>
             </div>
@@ -358,25 +383,54 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
       </div>
 
       {/* Robô Obrigações */}
-      <div style={{ background:"#F8F9FA",borderRadius:8,padding:14,marginBottom:16 }}>
-        <div style={{ fontWeight:700,color:NAVY,fontSize:13,marginBottom:10 }}>🤖 Vinculação ao Robô Obrigações</div>
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
-          <Campo label="Termos de reconhecimento" dica="palavras-chave que o robô usa para identificar este documento">
+      <div style={{ background:"#F0F4FF",borderRadius:8,padding:14,marginBottom:16,border:"1px solid #c7d2fe" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
+          <div style={{ fontWeight:700,color:NAVY,fontSize:13 }}>🤖 Robô de Obrigações — Critérios de Detecção</div>
+          <Toggle value={form.robo_ativo!==false} onChange={v => set("robo_ativo",v)} />
+        </div>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10 }}>
+          <Campo label="📝 Palavras-chave (robô busca no nome do arquivo)" dica="Separe por vírgula. Ex: DAS, PGDAS, Simples">
             <input style={inputStyle} value={form.robo_termos||""} onChange={e => set("robo_termos",e.target.value)} placeholder={`Ex: ${form.codigo||"DAS"}, ${form.nome?.split(" ")[0]||"Guia"}, PGDAS`} />
           </Campo>
-          <Campo label="Tipo de arquivo esperado">
+          <Campo label="📁 Tipo de arquivo aceito">
             <select style={selectStyle} value={form.robo_tipo||"PDF"} onChange={e => set("robo_tipo",e.target.value)}>
               {["PDF","XML","TXT","XLSX","Qualquer"].map(t=><option key={t}>{t}</option>)}
             </select>
           </Campo>
         </div>
-        <div style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:"#fff",borderRadius:8,border:"1px solid #E0E0E0",marginTop:4 }}>
-          <span style={{ fontSize:20 }}>🤖</span>
-          <div style={{ flex:1 }}>
-            <div style={{ fontWeight:600,color:NAVY,fontSize:13 }}>Reconhecimento Automático</div>
-            <div style={{ fontSize:11,color:"#888" }}>O Robô identifica e vincula documentos automaticamente ao detectar os termos acima</div>
+        {/* Como o robô funciona */}
+        <div style={{ background:"#fff",borderRadius:8,padding:12,border:"1px solid #e0e7ff",marginBottom:8 }}>
+          <div style={{ fontWeight:700,color:"#3730A3",fontSize:12,marginBottom:8 }}>📖 Como o Robô detecta e salva documentos:</div>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10 }}>
+            <div style={{ background:"#EEF2FF",borderRadius:6,padding:"8px 10px" }}>
+              <div style={{ fontWeight:700,fontSize:11,color:"#3730A3",marginBottom:4 }}>1️⃣ Detecção</div>
+              <div style={{ fontSize:10,color:"#555",lineHeight:1.5 }}>
+                Analisa o <b>nome do arquivo</b> e o <b>conteúdo</b> buscando as palavras-chave configuradas acima.
+                Também verifica o <b>tipo</b> (PDF, XML etc.) e a <b>competência</b> pelo nome ou data.
+              </div>
+            </div>
+            <div style={{ background:"#FFF7ED",borderRadius:6,padding:"8px 10px" }}>
+              <div style={{ fontWeight:700,fontSize:11,color:"#92400E",marginBottom:4 }}>2️⃣ Onde salva</div>
+              <div style={{ fontSize:10,color:"#555",lineHeight:1.5 }}>
+                Salva na <b>biblioteca permanente</b> do Robô com o caminho configurado abaixo.
+                Uma vez salvo, <b>não solicita mais</b> o mesmo documento para o mesmo período.
+              </div>
+            </div>
+            <div style={{ background:"#F0FDF4",borderRadius:6,padding:"8px 10px" }}>
+              <div style={{ fontWeight:700,fontSize:11,color:"#14532D",marginBottom:4 }}>3️⃣ Não duplica</div>
+              <div style={{ fontSize:10,color:"#555",lineHeight:1.5 }}>
+                Verifica pela <b>chave única</b>: código + competência + CNPJ.
+                Se já existe na biblioteca, marca como ✅ entregue e <b>não solicita novamente</b>.
+              </div>
+            </div>
           </div>
-          <Toggle value={form.robo_ativo!==false} onChange={v => set("robo_ativo",v)} />
+        </div>
+        <div style={{ display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#EEF2FF",borderRadius:6 }}>
+          <span style={{ fontSize:14 }}>💡</span>
+          <div style={{ fontSize:11,color:"#3730A3" }}>
+            <b>Dica:</b> Salvo na aba <b>Robô Obrigações → Biblioteca</b>. Use o caminho abaixo para organizar por empresa/ano/mês.
+            Para vincular ao processo de entrega, ative "Exigir Robô" acima.
+          </div>
         </div>
       </div>
 
@@ -436,6 +490,16 @@ function TabObrigacoes() {
   const toggle = (codigo) => {
     const novo = { ...catalogo, [regime]: catalogo[regime].map(o => o.codigo===codigo ? {...o,ativo:!o.ativo} : o) };
     salvarCatalogo(novo);
+  };
+
+  const duplicar = (o) => {
+    const copia = { ...o,
+      codigo: o.codigo + '_COPIA',
+      nome: o.nome + ' (Cópia)',
+      regimes_vinculados: [...(o.regimes_vinculados||[])],
+      dias_entrega: { ...(o.dias_entrega||{}) }
+    };
+    abrir(copia);
   };
 
   const remover = (codigo) => {
@@ -499,8 +563,9 @@ function TabObrigacoes() {
                 </td>
                 <td style={{ padding:"8px 12px" }}>
                   <div style={{ display:"flex",gap:6 }}>
-                    <button onClick={()=>abrir(o)} style={{ background:"none",border:`1px solid ${NAVY}`,color:NAVY,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11 }}>✏️</button>
-                    <button onClick={()=>remover(o.codigo)} style={{ background:"none",border:"1px solid #e53935",color:"#e53935",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11 }}>✕</button>
+                    <button onClick={()=>abrir(o)} style={{ background:"none",border:`1px solid ${NAVY}`,color:NAVY,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11 }} title="Editar">✏️</button>
+                    <button onClick={()=>duplicar(o)} style={{ background:"none",border:"1px solid #7C3AED",color:"#7C3AED",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11 }} title="Duplicar obrigação">📋</button>
+                    <button onClick={()=>remover(o.codigo)} style={{ background:"none",border:"1px solid #e53935",color:"#e53935",borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11 }} title="Excluir">✕</button>
                   </div>
                 </td>
               </tr>
