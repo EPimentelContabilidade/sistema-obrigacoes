@@ -12,7 +12,7 @@ from routers import (
     goiania_router, robo_obrig_router,
     consulta_fiscal_router, ecac_download_router,
     whatsapp_evolution_router, disparos_router, entrega_auto_router,
-    automacao_router, drive_monitor_router, whatsapp_bot_router, agenda_mensal_router, comunicados_router, contratos_router,,
+    automacao_router, drive_monitor_router, whatsapp_bot_router, agenda_mensal_router, comunicados_router, contratos_router,
     ai_router,
 )
 from routers import retencoes
