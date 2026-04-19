@@ -124,9 +124,10 @@ async def qrcode():
     """Retorna QR Code para autenticar a instância."""
     try:
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(f"{EVO_URL}/instance/qrcode/{EVO_INST}", headers=headers_evo())
+            r = await c.get(f"{EVO_URL}/instance/connect/{EVO_INST}", headers=headers_evo())
             d = r.json()
-        return {"status": "ok", "qrcode": d.get("qrcode", d.get("base64", "")), "dados": d}
+        qr = d.get("code", d.get("base64", d.get("qrcode", "")))
+        return {"status": "ok", "qrcode": qr, "dados": d}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
