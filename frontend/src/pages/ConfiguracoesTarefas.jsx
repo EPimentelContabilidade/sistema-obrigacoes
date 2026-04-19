@@ -1,5 +1,16 @@
 import { useState, useEffect } from "react";
 
+// Lê departamentos dinamicamente do localStorage (sincronizado com Admin)
+function getDepartamentosNomes() {
+  try {
+    const adminNomes = JSON.parse(localStorage.getItem('ep_departamentos_admin')||'null');
+    if (adminNomes && adminNomes.length > 0) return adminNomes;
+    const depts = JSON.parse(localStorage.getItem('ep_departamentos')||'[]');
+    if (depts.length > 0) return depts.map(d => d.nome || d);
+  } catch {}
+  return ["Fiscal","Pessoal","Contábil","Societário","Legalização"];
+}
+
 const NAVY = "#1B2A4A";
 const GOLD = "#C5A55A";
 
@@ -14,7 +25,7 @@ const DEPARTAMENTOS_PADRAO = [
 const REGIMES = ["MEI","Simples Nacional","Lucro Presumido","Lucro Real","RET/Imobiliário","Produtor Rural","Social/IRH","Imune/Isento","Condomínio","Autônomo"];
 const TODOS_REGIMES = REGIMES;
 
-const DIAS_MES = ["Todo dia 1","Todo dia 2","Todo dia 3","Todo dia 4","Todo dia 5","Todo dia 6","Todo dia 7","Todo dia 8","Todo dia 9","Todo dia 10","Todo dia 11","Todo dia 12","Todo dia 13","Todo dia 14","Todo dia 15","Todo dia 16","Todo dia 17","Todo dia 18","Todo dia 19","Todo dia 20","Todo dia 21","Todo dia 22","Todo dia 23","Todo dia 24","Todo dia 25","Todo dia 26","Todo dia 27","Todo dia 28","Último dia útil","Último dia do mês"];
+const DIAS_MES = ["Não tem","Todo dia 1","Todo dia 2","Todo dia 3","Todo dia 4","Todo dia 5","Todo dia 6","Todo dia 7","Todo dia 8","Todo dia 9","Todo dia 10","Todo dia 11","Todo dia 12","Todo dia 13","Todo dia 14","Todo dia 15","Todo dia 16","Todo dia 17","Todo dia 18","Todo dia 19","Todo dia 20","Todo dia 21","Todo dia 22","Todo dia 23","Todo dia 24","Todo dia 25","Todo dia 26","Todo dia 27","Todo dia 28","Todo dia 29","Todo dia 30","Todo dia 31","Último dia útil","Último dia do mês"];
 const MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DIAS_ANTES = ["1 dia antes","2 dias antes","3 dias antes","4 dias antes","5 dias antes","7 dias antes","10 dias antes","15 dias antes","30 dias antes"];
 const COR_OPTIONS = ["#1B2A4A","#C5A55A","#2196F3","#4CAF50","#FF9800","#E91E63","#9C27B0","#00BCD4"];
@@ -221,7 +232,7 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
           <Campo label="Departamento">
             <select style={selectStyle} value={form.departamento||""} onChange={e=>set("departamento",e.target.value)}>
               <option value="">— Selecione —</option>
-              {(()=>{try{const a=JSON.parse(localStorage.getItem('ep_departamentos_admin')||'null');const s=JSON.parse(localStorage.getItem('ep_departamentos')||'[]');const ns=a||s.map(d=>d.nome);return ns.length?ns:["Fiscal","Pessoal","Contábil","Societário"];}catch{return ["Fiscal","Pessoal","Contábil","Societário"];}})().map(d=><option key={d}>{d}</option>)}
+              {getDepartamentosNomes().map(d=><option key={d}>{d}</option>)}
             </select>
           </Campo>
           <Campo label="Responsável">
@@ -258,10 +269,15 @@ function ModalObrigacao({ obrigacao, onSave, onClose }) {
               <div style={{ fontSize:11,color:idx===0?NAVY:"#666",marginBottom:3,fontWeight:idx===0?700:600 }}>
                 {mes.substring(0,3)}{idx===0?" ★":""}
               </div>
-              <select style={{ ...selectStyle,fontSize:11,padding:"5px 6px",borderColor:idx===0?NAVY:"#ddd",borderWidth:idx===0?"2px":"1px" }}
+              <select
                 value={form.dias_entrega?.[mes]||"Todo dia 20"}
-                onChange={e => setDia(mes,e.target.value)}>
-                {DIAS_MES.map(d=><option key={d}>{d}</option>)}
+                onChange={e => setDia(mes,e.target.value)}
+                style={{ ...selectStyle,fontSize:11,padding:"5px 6px",
+                  borderColor:(form.dias_entrega?.[mes]==='Não tem')?'#dc2626':idx===0?NAVY:"#ddd",
+                  borderWidth:idx===0?"2px":"1px",
+                  color:(form.dias_entrega?.[mes]==='Não tem')?'#dc2626':'inherit',
+                  fontWeight:(form.dias_entrega?.[mes]==='Não tem')?700:400 }}>
+                {DIAS_MES.map(d=><option key={d} style={{color:d==='Não tem'?'#dc2626':d.startsWith('Último')?'#7c3aed':'inherit'}}>{d}</option>)}
               </select>
             </div>
           ))}
