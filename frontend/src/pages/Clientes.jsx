@@ -218,6 +218,14 @@ export default function Clientes() {
   const [cnpjDados,    setCnpjDados]    = useState(null)
   const [modalObrig,   setModalObrig]   = useState(false)
   const [modalGerar,   setModalGerar]   = useState(false)
+  // Configuração visual da tabela de clientes
+  const [visualConfig, setVisualConfig] = useState(getVisualConfig)
+  const tamanhoFonte = TAMANHOS[visualConfig?.tamanho||'medio'] || TAMANHOS.medio
+  const atualizarVisual = (delta) => {
+    const novo = { ...getVisualConfig(), ...delta }
+    setVisualConfig(novo)
+    saveVisualConfig(novo)
+  }
   const [modalExcluir, setModalExcluir] = useState(null)
   const [abaObrig,     setAbaObrig]     = useState('lista')
   const [buscaObrig,   setBuscaObrig]   = useState('')
@@ -584,7 +592,7 @@ export default function Clientes() {
               color:(visualConfig?.tamanho||'medio')===t?'#fff':'#555' }}>{lb}</button>
         ))}
         <span style={{ fontSize:11, color:'#888', fontWeight:600, marginLeft:8 }}>Cor:</span>
-        {[{l:'Padrão',v:'#1a1a1a'},{l:'Verde',v:'#1F4A33'},{l:'Azul',v:'#1D3461'},{l:'Roxo',v:'#4A1FA8'},{l:'Bordo',v:'#7B1E1E'}].map(c=>(
+        {[{l:'Padrão',v:'#1a1a1a'},{l:'Verde',v:'#1F4A33'},{l:'Azul',v:'#1D3461'},{l:'Roxo',v:'#4A1FA8'},{l:'Bordo',v:'#7B1E1E'},{l:'Teal',v:'#0F766E'},{l:'Cinza',v:'#374151'}].map(c=>(
           <button key={c.v} title={c.l} onClick={()=>atualizarVisual({corNome:c.v})}
             style={{ width:20,height:20,borderRadius:'50%',background:c.v,cursor:'pointer',
               border:(visualConfig?.corNome||'#1a1a1a')===c.v?'3px solid #333':'2px solid #ddd' }}/>
