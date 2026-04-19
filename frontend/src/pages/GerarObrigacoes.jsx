@@ -14,6 +14,8 @@ const MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julh
 function calcularVencimento(obrig, mes, ano) {
   const mesNome = MESES_NOMES[mes - 1]
   const diaConf = obrig.dias_entrega?.[mesNome] || 'Todo dia 20'
+  // "Não tem" = não gerar obrigação neste mês
+  if (diaConf === 'Não tem') return null
   let dia = 20
   if (diaConf.startsWith('Todo dia ')) dia = parseInt(diaConf.replace('Todo dia ','')) || 20
   if (diaConf === 'Último dia útil' || diaConf === 'Último dia do mês') {
@@ -115,6 +117,9 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
         if (obrig.periodicidade === 'Trimestral' && ![3,6,9,12].includes(mes)) continue
         if (obrig.periodicidade === 'Semestral' && ![6,12].includes(mes)) continue
         if (obrig.periodicidade === 'Eventual') continue
+        const venc = calcularVencimento(obrig, mes, ano)
+        // "Não tem" neste mês — pular geração (robô detecta como eventual)
+        if (venc === null) continue
         itens.push({
           cliente_id: cliente.id,
           cliente: cliente.nome_razao || cliente.nome,
@@ -124,7 +129,7 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
           codigo: obrig.codigo,
           periodicidade: obrig.periodicidade,
           competencia: fmtComp(mes, ano),
-          vencimento: calcularVencimento(obrig, mes, ano),
+          vencimento: venc,
           status: 'Pendente',
           passivel_multa: obrig.passivel_multa === 'Sim',
           notif_whatsapp: obrig.notif_whatsapp || false,
@@ -171,7 +176,7 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
         const exclAtual = JSON.parse(localStorage.getItem('ep_tarefas_excluidas')||'[]')
         const exclFiltrado = exclAtual.filter(id=>!novosIds.has(String(id)))
         epSet('ep_tarefas_excluidas', exclFiltrado)
-      } catch {}
+      } catch(e) {}
       setQtdGerada(preview.length)
       setGerado(true)
       onGerado?.(preview.length)
@@ -196,7 +201,7 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
       } else {
         if (catV2?.[regimeFiltro]?.length > 0) return catV2[regimeFiltro].map(o=>({...o,_regime:regimeFiltro}))
       }
-    } catch {}
+    } catch(e) {}
     return getCatalogo()
   }
 
@@ -396,6 +401,11 @@ export default function GerarObrigacoes({ cliente, onClose, onGerado }) {
                         <span style={{ fontSize:12,color:'#25D366' }}>💬 <b>{preview.filter(p=>p.notif_whatsapp).length}</b> com notif. WhatsApp</span>
                         <span style={{ fontSize:12,color:'#1976D2' }}>✉️ <b>{preview.filter(p=>p.notif_email).length}</b> com notif. E-mail</span>
                         <span style={{ fontSize:12,color:GOLD }}>🤖 <b>{preview.filter(p=>p.exigir_robo).length}</b> exigem Robô</span>
+                      {(() => {
+                        const cat = getCatalogo()
+                        const naoTem = cat.filter(o => Object.values(o.dias_entrega||{}).includes('Não tem')).length
+                        return naoTem > 0 ? <span style={{ fontSize:11,color:'#888' }}>⏩ <b>{naoTem}</b> obrigação(ões) com meses pulados ("Não tem")</span> : null
+                      })()}
                       </div>
 
                       <button onClick={confirmarGeracao} disabled={gerando}
