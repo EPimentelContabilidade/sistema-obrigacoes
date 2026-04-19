@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
         try:
             from apscheduler.schedulers.asyncio import AsyncIOScheduler
             from routers.drive_monitor import varrer_pasta_entrada
+from routers.ai import router as ai_router
             from database import get_db as _get_db
 
             scheduler = AsyncIOScheduler()
@@ -88,6 +89,7 @@ app.include_router(agenda_mensal_router,       prefix="/api/v1")
 app.include_router(comunicados_router, prefix="/api/v1")
 app.include_router(contratos_router,   prefix="/api/v1")
 app.include_router(retencoes.router,   prefix="/api/v1")
+app.include_router(ai_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():
