@@ -36,6 +36,11 @@ export default function DisparoWhatsApp() {
   const [templates, setTemplates]     = useState([])
   const [historico, setHistorico]     = useState([])
   const [wppStatus, setWppStatus]     = useState(null)
+  const [equipe, setEquipe]           = useState([])
+  const [deptos, setDeptos]           = useState([])
+  const [equipeEdit, setEquipeEdit]   = useState({})
+  const [salvarEqId, setSalvarEqId]   = useState(null)
+  const [testando, setTestando]       = useState({})
 
   // ── Form disparo único ────────────────────────────────────────────────────
   const [clienteSel, setClienteSel]   = useState(null)
@@ -216,6 +221,44 @@ export default function DisparoWhatsApp() {
   })
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    function loadEquipe() {
+      const users = JSON.parse(localStorage.getItem('ep_usuarios') || '[]')
+      const depts = JSON.parse(localStorage.getItem('ep_departamentos_admin') || '[]')
+      setEquipe(users); setDeptos(Array.isArray(depts) ? depts : [])
+    }
+    loadEquipe()
+    window.addEventListener('storage', loadEquipe)
+    return () => window.removeEventListener('storage', loadEquipe)
+  }, [])
+
+  function salvarWppMembro(uid, numero) {
+    const users = JSON.parse(localStorage.getItem('ep_usuarios') || '[]')
+    const updated = users.map(u => (u.id||u.email) === uid ? {...u, whatsapp: numero} : u)
+    localStorage.setItem('ep_usuarios', JSON.stringify(updated))
+    setEquipe(updated); setSalvarEqId(uid)
+    setTimeout(() => setSalvarEqId(null), 2500)
+  }
+
+  async function testarWppMembro(m) {
+    if (!m.whatsapp) { alert('Configure o WhatsApp do funcionário primeiro'); return }
+    const uid = m.id||m.email
+    setTestando(p => ({...p, [uid]: true}))
+    const num = m.whatsapp.replace(/\D/g,'')
+    const fone = num.length <= 11 ? '55' + num : num
+    try {
+      const r = await fetch(API + '/whatsapp/enviar', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ numero: fone, mensagem: 'Olá ' + m.nome + '! Teste do Sistema EPimentel. Canal ativo ✅' }),
+        signal: AbortSignal.timeout(15000)
+      })
+      const d = await r.json()
+      alert(d.ok || d.status==='enviado' ? '✅ Enviado para '+m.nome : '⚠️ '+(d.erro||JSON.stringify(d).slice(0,80)))
+    } catch(e) { alert('Erro: '+e.message) }
+    setTestando(p => ({...p, [uid]: false}))
+  }
+
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 44px)', fontFamily:'Inter,system-ui,sans-serif' }}>
 
@@ -259,6 +302,7 @@ export default function DisparoWhatsApp() {
           { id:'lote',      label:'👥 Envio em Lote' },
           { id:'templates', label:'📋 Templates' },
           { id:'historico', label:'🕐 Histórico' },
+          { id:'equipe', label:'👥 Equipe' },
         ].map(a => (
           <button key={a.id} onClick={()=>setAba(a.id)} style={{ padding:'10px 16px',fontSize:12,fontWeight:aba===a.id?700:400,color:aba===a.id?NAVY:'#999',background:'none',border:'none',borderBottom:aba===a.id?`2px solid ${GOLD}`:'2px solid transparent',cursor:'pointer' }}>
             {a.label}
@@ -600,6 +644,90 @@ export default function DisparoWhatsApp() {
           </div>
         )}
       </div>
+
+
+      {aba === 'equipe' && (
+        <div style={{ maxWidth:860,margin:'0 auto',padding:24 }}>
+          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20 }}>
+            <div>
+              <div style={{ fontWeight:800,color:NAVY,fontSize:17 }}>👥 Equipe — WhatsApp</div>
+              <div style={{ fontSize:12,color:'#888',marginTop:2 }}>Sincronizado com Admin → Usuários e Departamentos</div>
+            </div>
+            <button onClick={() => {
+              setEquipe(JSON.parse(localStorage.getItem('ep_usuarios')||'[]'))
+              setDeptos(JSON.parse(localStorage.getItem('ep_departamentos_admin')||'[]')||[])
+            }} style={{ padding:'8px 16px',borderRadius:8,background:NAVY,color:'#fff',border:'none',cursor:'pointer',fontSize:12,fontWeight:700 }}>🔄 Sincronizar</button>
+          </div>
+          {equipe.length === 0 ? (
+            <div style={{ textAlign:'center',padding:60,background:'#f9fafb',borderRadius:16,border:'2px dashed #e5e7eb' }}>
+              <div style={{ fontSize:48,marginBottom:12 }}>👥</div>
+              <div style={{ fontWeight:700,color:NAVY,marginBottom:8 }}>Nenhum funcionário cadastrado</div>
+              <div style={{ fontSize:13,color:'#888' }}>Cadastre em <b>Admin → Usuários</b> com nome, departamento e WhatsApp.</div>
+            </div>
+          ) : (
+            <div>
+              {(() => {
+                const grupos = {}
+                equipe.forEach(u => {
+                  const d = u.departamento || 'Sem Departamento'
+                  if (!grupos[d]) grupos[d] = []
+                  grupos[d].push(u)
+                })
+                return Object.entries(grupos).map(([dept, members]) => (
+                  <div key={dept} style={{ marginBottom:24 }}>
+                    <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:12 }}>
+                      <div style={{ width:4,height:20,borderRadius:2,background:GOLD }}/>
+                      <div style={{ fontWeight:700,color:NAVY,fontSize:14 }}>{dept}</div>
+                      <div style={{ fontSize:11,color:'#888' }}>({members.length} {members.length===1?'membro':'membros'})</div>
+                    </div>
+                    {members.map(m => {
+                      const uid = m.id||m.email
+                      const edited = equipeEdit[uid]
+                      const wppAtual = edited !== undefined ? edited : (m.whatsapp||'')
+                      return (
+                        <div key={uid} style={{ background:'#fff',border:'1px solid #e5e7eb',borderRadius:12,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,marginBottom:8 }}>
+                          <div style={{ width:42,height:42,borderRadius:21,background:NAVY+'18',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,color:NAVY,fontSize:16,flexShrink:0 }}>{(m.nome||'?')[0].toUpperCase()}</div>
+                          <div style={{ flex:1,minWidth:0 }}>
+                            <div style={{ fontWeight:700,color:NAVY,fontSize:14 }}>{m.nome}</div>
+                            <div style={{ fontSize:11,color:'#666',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{m.cargo||m.perfil||'Funcionário'} · {m.email||'—'}</div>
+                          </div>
+                          <div style={{ display:'flex',alignItems:'center',gap:8 }}>
+                            <span style={{ fontSize:16 }}>📱</span>
+                            <input value={wppAtual} onChange={e => setEquipeEdit(p=>({...p,[uid]:e.target.value}))} placeholder="(62) 9xxxx-xxxx"
+                              style={{ padding:'7px 10px',borderRadius:8,border:'1.5px solid '+(m.whatsapp?'#16a34a':'#fbbf24'),fontSize:13,width:158,outline:'none' }}/>
+                            {edited !== undefined && edited !== (m.whatsapp||'') && (
+                              <button onClick={()=>{salvarWppMembro(uid,edited);setEquipeEdit(p=>{const n={...p};delete n[uid];return n})}}
+                                style={{ padding:'6px 12px',borderRadius:8,background:'#16a34a',color:'#fff',border:'none',cursor:'pointer',fontSize:11,fontWeight:700 }}>💾 Salvar</button>
+                            )}
+                            {salvarEqId===uid && <span style={{ fontSize:11,color:'#16a34a',fontWeight:700 }}>✅</span>}
+                          </div>
+                          <div style={{ display:'flex',alignItems:'center',gap:8,flexShrink:0 }}>
+                            <span style={{ fontSize:11,padding:'3px 10px',borderRadius:20,background:m.whatsapp?'#f0fdf4':'#fef9c3',color:m.whatsapp?'#16a34a':'#92400e',fontWeight:700 }}>
+                              {m.whatsapp?'✅ Ativo':'⚠️ Pendente'}
+                            </span>
+                            <button onClick={()=>testarWppMembro(m)} disabled={!m.whatsapp||testando[uid]}
+                              style={{ padding:'6px 12px',borderRadius:8,background:m.whatsapp?'#1e40af':'#e5e7eb',color:m.whatsapp?'#fff':'#999',border:'none',cursor:m.whatsapp?'pointer':'not-allowed',fontSize:11,fontWeight:700 }}>
+                              {testando[uid]?'⏳':'📤 Testar'}
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))
+              })()}
+              <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginTop:8,padding:16,borderRadius:12,background:'#f9fafb',border:'1px solid #e5e7eb' }}>
+                {[['Total Equipe',equipe.length,'#1e40af'],['Com WhatsApp',equipe.filter(u=>u.whatsapp).length,'#16a34a'],['Sem WhatsApp',equipe.filter(u=>!u.whatsapp).length,'#f59e0b']].map(([lb,vl,cor])=>(
+                  <div key={lb} style={{ textAlign:'center',padding:12,borderRadius:8,background:'#fff',border:'1px solid #e5e7eb' }}>
+                    <div style={{ fontSize:22,fontWeight:800,color:cor }}>{vl}</div>
+                    <div style={{ fontSize:11,color:'#888',marginTop:2 }}>{lb}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
