@@ -174,7 +174,11 @@ function TabQRCode() {
 
   const verificar=async()=>{
     try {
-      const r=await fetch(`${API}/whatsapp/status`) const d=await r.json() const ok=d.status==='ok' setStatus(ok?'conectado':'desconectado') return ok
+            const r=await fetch(`${API}/whatsapp/status`)
+            const d=await r.json()
+            const ok=d.status==='ok'
+            setStatus(ok?'conectado':'desconectado')
+            return ok
     } catch { setStatus('erro'); return false }
   }
 
@@ -448,8 +452,9 @@ export default function WhatsAppConversas() {
   useEffect(()=>{
     const v=async()=>{
       try {
-        const r=await fetch(`${API}/whatsapp/status`) const d=await r.json() setInstStatus(d.status==='ok'?'open':'closed')
-      } catch { setInstStatus('error') }
+              const r=await fetch(`${API}/whatsapp/status`)
+                const d=await r.json()
+                setInstStatus(d.status==='ok'?'open':'closed')
     }
     v(); const iv=setInterval(v,15000); return()=>clearInterval(iv)
   },[])
