@@ -460,7 +460,9 @@ export default function WhatsAppConversas() {
                 const d=await r.json()
                 setInstStatus(d.status==='ok'?'open':'closed')
     } catch { setInstStatus('error') }
-    v(); const iv=setInterval(v,15000); return()=>clearInterval(iv)
+        v()
+          const iv=setInterval(v,15000)
+          return ()=>clearInterval(iv)
   },[])
 
   useEffect(()=>{ if('Notification' in window&&Notification.permission==='default') Notification.requestPermission() },[])
