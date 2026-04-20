@@ -11,11 +11,11 @@ function clientePorTel(jid) {
   const num = (jid||'').split('@')[0].replace(/\D/g,'').replace(/^55/,'')
   return getClientes().find(c => {
     const ws = (c.whatsapp||c.telefone||'').replace(/\D/g,'').replace(/^55/,'')
-    return ws && ws === num
+    return ws && ws === numh
   }) || null
 }
 
-const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.ephimentel.com.br/api/v1'
 
 function tocarSom() {
   try {
@@ -253,7 +253,11 @@ function TabEnviar() {
     if(!numero.trim()||!mensagem.trim()) return
     setEnviando(true); setFb(null)
     try {
-      const num=numero.replace(/\D/g,'') const r=await fetch(`${API}/whatsapp/enviar-texto`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone:num,mensagem})}) const d=await r.json() if(r.ok&&(d.ok||d.status==='enviado')){setFb({ok:true,msg:'Mensagem enviada!'});setMensagem('')} else setFb({ok:false,msg:d.erro||'Erro ao enviar.'})
+            const num=numero.replace(/\D/g,'')
+            const r=await fetch(`${API}/whatsapp/enviar-texto`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({telefone:num,mensagem})})
+            const d=await r.json()
+            if(r.ok&&(d.ok||d.status==='enviado')){setFb({ok:true,msg:'Mensagem enviada!'});setMensagem('')}
+            else setFb({ok:false,msg:d.erro||'Erro ao enviar.'})
     } catch { setFb({ok:false,msg:'Falha de conexÃ£o.'}) }
     setEnviando(false)
   }
