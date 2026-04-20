@@ -11,11 +11,11 @@ function clientePorTel(jid) {
   const num = (jid||'').split('@')[0].replace(/\D/g,'').replace(/^55/,'')
   return getClientes().find(c => {
     const ws = (c.whatsapp||c.telefone||'').replace(/\D/g,'').replace(/^55/,'')
-    return ws && ws === numh
+    return ws && ws === numhh9lllll
   }) || null
 }
 
-const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.ephimentel.com.br/api/v1'
+const API = window.location.hostname === 'localhost' ? '/api/v1' : 'https://api.epimentel.com.br/api/v1'
 
 function tocarSom() {
   try {
